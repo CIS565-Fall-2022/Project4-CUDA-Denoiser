@@ -15,11 +15,15 @@ static bool middleMousePressed = false;
 static double lastX;
 static double lastY;
 
+int ui_iterations = 0;
+int startupIterations = 0;
+int lastLoopIterations = 0;
 bool ui_denoise = false;
 int ui_filterSize = 80;
 float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
+bool ui_saveAndExit = false;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -59,6 +63,9 @@ int main(int argc, char** argv) {
     Camera &cam = renderState->camera;
     width = cam.resolution.x;
     height = cam.resolution.y;
+
+    ui_iterations = renderState->iterations;
+    startupIterations = ui_iterations;
 
     glm::vec3 view = cam.view;
     glm::vec3 up = cam.up;
@@ -109,6 +116,11 @@ void saveImage() {
 }
 
 void runCuda() {
+    if (lastLoopIterations != ui_iterations) {
+      lastLoopIterations = ui_iterations;
+      camchanged = true;
+    }
+
     if (camchanged) {
         iteration = 0;
         Camera &cam = renderState->camera;
@@ -137,7 +149,7 @@ void runCuda() {
         pathtraceInit(scene);
     }
 
-    if (iteration < renderState->iterations) {
+    if (iteration < ui_iterations) {
         uchar4 *pbo_dptr = NULL;
         iteration++;
         cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
@@ -148,7 +160,9 @@ void runCuda() {
 
         // unmap buffer object
         cudaGLUnmapBufferObject(pbo);
-    } else {
+    }
+
+    if (ui_saveAndExit) {
         saveImage();
         pathtraceFree();
         cudaDeviceReset();
