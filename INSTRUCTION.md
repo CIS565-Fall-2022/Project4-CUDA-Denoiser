@@ -114,9 +114,9 @@ Note that the image saving functionality isn't hooked up to gbuffers or denoised
 
 There's also a couple specific git commits that you can look at for guidance on how to add some of these changes to your own pathtracer, such as `imgui`. You can view these changes on the command line using `git diff [commit hash]`, or on github, for example: https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser/commit/0857d1f8f477a39a9ba28a1e0a584b79bd7ec466
 
-* 0857d1f8f477a39a9ba28a1e0a584b79bd7ec466 - visualization code for a gbuffer with dummy data as time-to-intersection
-* 1178307347e32da064dce1ef4c217ce0ca6153a8 - add iterations slider and save-and-exit button to UI
-* 5feb60366e03687bfc245579523402221950c9c5 - add imgui and set up basic sliders for denoising parameters (all the gory cmake changes)
+* [0857d1f8f477a39a9ba28a1e0a584b79bd7ec466](https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser/commit/0857d1f8f477a39a9ba28a1e0a584b79bd7ec466) - visualization code for a gbuffer with dummy data as time-to-intersection
+* [1178307347e32da064dce1ef4c217ce0ca6153a8](https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser/commit/1178307347e32da064dce1ef4c217ce0ca6153a8) - add iterations slider and save-and-exit button to UI
+* [5feb60366e03687bfc245579523402221950c9c5](https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser/commit/5feb60366e03687bfc245579523402221950c9c5) - add imgui and set up basic sliders for denoising parameters (all the gory cmake changes)
 
 ## Part 3 - Performance Analysis
 
