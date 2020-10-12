@@ -150,7 +150,6 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 		segment.ray.origin = cam.position;
     segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
-		// TODO: implement antialiasing by jittering the ray
 		segment.ray.direction = glm::normalize(cam.view
 			- cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
 			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f)
@@ -161,10 +160,6 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 	}
 }
 
-// TODO:
-// computeIntersections handles generating ray intersections ONLY.
-// Generating new rays is handled in your shader(s).
-// Feel free to modify the code below.
 __global__ void computeIntersections(
 	int depth
 	, int num_paths
@@ -204,7 +199,6 @@ __global__ void computeIntersections(
 			{
 				t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
 			}
-			// TODO: add more intersection tests here... triangle? metaball? CSG?
 
 			// Compute the minimum t from the intersection tests to determine what
 			// scene geometry object was hit first.
@@ -231,15 +225,6 @@ __global__ void computeIntersections(
 	}
 }
 
-// LOOK: "fake" shader demonstrating what you might do with the info in
-// a ShadeableIntersection, as well as how to use thrust's random number
-// generator. Observe that since the thrust random number generator basically
-// adds "noise" to the iteration, the image should start off noisy and get
-// cleaner as more iterations are computed.
-//
-// Note that this shader does NOT do a BSDF evaluation!
-// Your shaders should handle that - this can allow techniques such as
-// bump mapping.
 __global__ void shadeSimpleMaterials (
   int iter
   , int num_paths
@@ -260,8 +245,6 @@ __global__ void shadeSimpleMaterials (
     if (intersection.t > 0.0f) { // if the intersection exists...
       segment.remainingBounces--;
       // Set up the RNG
-      // LOOK: this is how you use thrust's RNG! Please look at
-      // makeSeededRandomEngine as well.
       thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, segment.remainingBounces);
 
       Material material = materials[intersection.materialId];
@@ -272,9 +255,6 @@ __global__ void shadeSimpleMaterials (
         segment.color *= (materialColor * material.emittance);
         segment.remainingBounces = 0;
       }
-      // Otherwise, do some pseudo-lighting computation. This is actually more
-      // like what you would expect from shading in a rasterizer like OpenGL.
-      // TODO: replace this! you should be able to start with basically a one-liner
       else {
         segment.color *= materialColor;
         glm::vec3 intersectPos = intersection.t * segment.ray.direction + segment.ray.origin;
@@ -337,12 +317,13 @@ void pathtrace(int frame, int iter) {
 
     ///////////////////////////////////////////////////////////////////////////
 
-    // Recap:
+    // Pathtracing Recap:
     // * Initialize array of path rays (using rays that come out of the camera)
     //   * You can pass the Camera object to that kernel.
     //   * Each path ray must carry at minimum a (ray, color) pair,
     //   * where color starts as the multiplicative identity, white = (1, 1, 1).
     //   * This has already been done for you.
+    // * NEW: For the first depth, generate geometry buffers (gbuffers)
     // * For each depth:
     //   * Compute an intersection in the scene for each path ray.
     //     A very naive version of this has been implemented for you, but feel
@@ -350,21 +331,20 @@ void pathtrace(int frame, int iter) {
     //     Currently, intersection distance is recorded as a parametric distance,
     //     t, or a "distance along the ray." t = -1.0 indicates no intersection.
     //     * Color is attenuated (multiplied) by reflections off of any object
-    //   * TODO: Stream compact away all of the terminated paths.
+    //   * Stream compact away all of the terminated paths.
     //     You may use either your implementation or `thrust::remove_if` or its
     //     cousins.
     //     * Note that you can't really use a 2D kernel launch any more - switch
     //       to 1D.
-    //   * TODO: Shade the rays that intersected something or didn't bottom out.
+    //   * Shade the rays that intersected something or didn't bottom out.
     //     That is, color the ray by performing a color computation according
     //     to the shader, then generate a new ray to continue the ray path.
     //     We recommend just updating the ray's PathSegment in place.
     //     Note that this step may come before or after stream compaction,
     //     since some shaders you write may also cause a path to terminate.
-    // * Finally, add this iteration's results to the image. This has been done
-    //   for you.
-
-    // TODO: perform one iteration of path tracing
+    // * Finally:
+    //     * if not denoising, add this iteration's results to the image
+    //     * TODO: if denoising, run kernels that take both the raw pathtraced result and the gbuffer, and put the result in the "pbo" from opengl
 
 	generateRayFromCamera <<<blocksPerGrid2d, blockSize2d >>>(cam, iter, traceDepth, dev_paths);
 	checkCUDAError("generate camera ray");
@@ -404,15 +384,6 @@ void pathtrace(int frame, int iter) {
 
 	depth++;
 
-	// TODO:
-	// --- Shading Stage ---
-	// Shade path segments based on intersections and generate new rays by
-  // evaluating the BSDF.
-  // Start off with just a big kernel that handles all the different
-  // materials you have in the scenefile.
-  // TODO: compare between directly shading the path segments and shading
-  // path segments that have been reshuffled to be contiguous in memory.
-
   shadeSimpleMaterials<<<numblocksPathSegmentTracing, blockSize1d>>> (
     iter,
     num_paths,
@@ -429,6 +400,8 @@ void pathtrace(int frame, int iter) {
 
     ///////////////////////////////////////////////////////////////////////////
 
+    // CHECKITOUT: use dev_image as reference if you want to implement saving denoised images.
+    // Otherwise, screenshots are also acceptable.
     // Retrieve image from GPU
     cudaMemcpy(hst_scene->state.image.data(), dev_image,
             pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
@@ -436,6 +409,7 @@ void pathtrace(int frame, int iter) {
     checkCUDAError("pathtrace");
 }
 
+// CHECKITOUT: this kernel "post-processes" the gbuffer/gbuffers into something that you can visualize for debugging.
 void showGBuffer(uchar4* pbo) {
     const Camera &cam = hst_scene->state.camera;
     const dim3 blockSize2d(8, 8);
@@ -443,6 +417,7 @@ void showGBuffer(uchar4* pbo) {
             (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
             (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
+    // CHECKITOUT: process the gbuffer results and send them to OpenGL buffer for visualization
     gbufferToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_gBuffer);
 }
 

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 
-project(cis565_path_tracer)
+project(cis565_denoiser)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
