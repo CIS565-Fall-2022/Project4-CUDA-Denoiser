@@ -38,6 +38,20 @@ compaction, and G-buffer with some dummy data in it.
 You may choose to use the base code in this project as a reference, playground, or as the base code for your denoiser. Using it as a reference or playground will allow you to understand the changes that you need for integrating the denoiser.
 Like Project 3, you may also change any part of the base code as you please. **This is YOUR project.**
 
+### Working with Git
+
+We expect that most of you will integrate the denoiser into Project 3. So here is how we want you to handle working with Git/GitHub as GitHub will not allow you to open a PR from Project 3 into Project 4.
+
+1. Fork Project 4 as you have done with all other projects. You are free to use the base code as previously discussed.
+2. In your Project 3 repos, create a branch called `denoiser` using `git checkout -b denoiser`. Use this as your main denoiser branch, you may create any number of additional branches as you need to.
+3. You will build the denoiser in your Project 3 until submission.
+4. When you are ready to submit your project, do the following:
+    1. Add your Project 4 fork as a remote using `git remote add project4 git@github.com:<your-username>/Project4-CUDA-Denoiser.git` (you may replace `git@github.com:` with `https://github.com/`).
+    2. Push your denoiser branch to Project 4 using `git push project4 denoiser`. Here `project4` is the remote repo, and `denoiser` is your branch for submission.
+    3. Open your Project 4 repo on GitHub and confirm that the branch you have just pushed is present.
+    4. Open [https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser](https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser) in your browser, and open a Pull Request where the source branch is your branch in GitHub.
+5. All other instructions for submission and opening a pull request remain consistent with other projects. See the submission section towards the end of this document.
+
 ## Contents
 
 * `src/` C++/CUDA source files.
@@ -174,14 +188,9 @@ See https://research.nvidia.com/publication/2017-07_Spatiotemporal-Variance-Guid
 Submission
 ===
 
-If you have modified any of the `CMakeLists.txt` files at all (aside from the
-list of `SOURCE_FILES`), mentions it explicity.
-Beware of any build issues discussed on the Piazza.
+If you have modified any of the `CMakeLists.txt` files at all (aside from the list of `SOURCE_FILES`), mentions it explicity. Beware of any build issues discussed on the Piazza.
 
 Open a GitHub pull request so that we can see that you have finished.
-If you are completing this assignment off of your Project 3 pathtracer, you can open a pull request to Project 3. However, **before you start committing code**, please create a separate branch from the one that you used to submit Project 3. This will help us distinguish the changes you made for this project.
-
-Alternatively, if you decide to use a single branch throughout, please let us know in your Project 3 and Project 4 Pull Requests which commits you would like us to grade from. You can just let us know in the Pull Request comments.
 
 The title should be "Project 4: YOUR NAME".
 The template of the comment section of your pull request is attached below, you can do some copy and paste:
