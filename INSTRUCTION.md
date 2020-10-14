@@ -1,5 +1,5 @@
 Project 4 CUDA Denoiser - Instructions
-========================
+=======================================
 
 This is due **Monday October 19th** at 11:59pm EST.
 
@@ -26,16 +26,17 @@ These per-pixel metrics can include scene geometry information (hence G-buffer),
 |---|---|---|
 |![](img/normals.png)|![](img/positions.png)|![](img/time-of-flight.png)|
 
+## Building on Project 3 CUDA Path Tracer
 
+**We highly recommend that you integrate denoising into your Project 3 CUDA Path Tracers.**
 
-We expect you to integrate denoising into your own pathtracers if possible.
-This project's base code is forked from the CUDA pathtracer basecode in Project 3, and exists so that the
+This project's base code is forked from the CUDA Path Tracer basecode in Project 3, and exists so that the
 assignment can stand on its own as well as provide some guidance on how to implement some useful tools.
 The main changes are that we have added some GUI controls, a *very* simple pathtracer without stream
 compaction, and G-buffer with some dummy data in it.
-Feel free to use it as a playground for working out the code changes that your denoiser needs.
 
-You may also change any part of the base code as you please. **This is YOUR project.**
+You may choose to use the base code in this project as a reference, playground, or as the base code for your denoiser. Using it as a reference or playground will allow you to understand the changes that you need for integrating the denoiser.
+Like Project 3, you may also change any part of the base code as you please. **This is YOUR project.**
 
 ## Contents
 
