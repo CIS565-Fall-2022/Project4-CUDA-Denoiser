@@ -1,7 +1,7 @@
 Project 4 CUDA Denoiser - Instructions
 =======================================
 
-This is due **Friday October 22nd** at 11:59pm EST.
+This is due **Thursday October 21st** at 11:59pm EST.
 
 **Summary:**
 
