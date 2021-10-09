@@ -1,7 +1,7 @@
 Project 4 CUDA Denoiser - Instructions
 =======================================
 
-This is due **Monday October 19th** at 11:59pm EST.
+This is due **Friday October 22nd** at 11:59pm EST.
 
 **Summary:**
 
@@ -114,7 +114,7 @@ Such a breakdown for this paper could include:
 
 ## Base Code Tour
 
-This base code is derivd from Project 3. Some notable differences:
+This base code is derived from Project 3. Some notable differences:
 
 * `src/pathtrace.cu` - we've added functions `showGBuffer` and `showImage` to help you visualize G-Buffer info and your denoised results. There's also a `generateGBuffer` kernel on the first bounce of `pathtrace`.
 * `src/sceneStructs.h` - there's a new `GBufferPixel` struct
@@ -135,18 +135,18 @@ There's also a couple specific git commits that you can look at for guidance on 
 
 ## Part 3 - Performance Analysis
 
-The point of denoising is to reduce the number of samples-per-pixel/pathtracing iterations needed to achieve an acceptably smooth image.
-
-You should assess how much time denoising adds to your renders, as well as:
+The point of denoising is to reduce the number of samples-per-pixel/pathtracing iterations needed to achieve an acceptably smooth image. You should provide analysis and charts for the following:
+* how much time denoising adds to your renders
 * how denoising influences the number of iterations needed to get an "acceptably smooth" result
-* how it impacts runtime at different resolutions
-* how effective/ineffective it is with different material types
+* how denoising at different resolutions impacts runtime
+* how varying filter sizes affect performance
+
+In addition to the above, you should also analyze your denoiser on a qualitative level:
+* how visual results vary with filter size -- does the visual quality scale uniformly with filter size?
+* how effective/ineffective is this method with different material types
+* how do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?
 
 Note that "acceptably smooth" is somewhat subjective - we will leave the means for image comparison up to you, but image diffing tools may be a good place to start, and can help visually convey differences between two images.
-
-Also compare visual results and performance for varying filter sizes.
-
-Be sure to compare across different scenes as well - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?
 
 Extra Credit
 ===
@@ -166,7 +166,7 @@ Be sure to provide performance comparison numbers between optimized and unoptimi
 
 ## Comparing A-trous and Gaussian filtering
 
-Dammertz-et-al mention in their section 2.2 that A-trous filtering is a means for approximating gaussian fitlering. Implement gaussian filtering and compare with A-trous to see if one method is significantly faster.
+Dammertz-et-al mention in their section 2.2 that A-trous filtering is a means for approximating gaussian filtering. Implement gaussian filtering and compare with A-trous to see if one method is significantly faster. Also note any visual differences in your results.
 
 ## Shared Memory Filtering
 
