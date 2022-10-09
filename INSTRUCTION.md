@@ -1,7 +1,7 @@
 Project 4 CUDA Denoiser - Instructions
 =======================================
 
-This is due **Thursday October 21st** at 11:59pm EST.
+This is due **Friday October 21st** at 11:59pm EST.
 
 **Summary:**
 
@@ -83,7 +83,7 @@ parameters without having to recompile the project.
 Requirements
 ===
 
-**Ask in piazza for clarifications.**
+**Ask in Ed for clarifications.**
 
 ## Part 1 - Read!
 
@@ -91,7 +91,7 @@ One meta-goal for this project is to help you gain some experience in reading te
 
 For part one, try to skim the paper, and then read through it in depth a couple times: https://jo.dreggn.org/home/2010_atrous.pdf
 
-Try to look up anything that you don't understand, and feel free to discuss with your fellow students on Piazza. We were also able to locate presentation slides for this paper that may be helpful: https://www.highperformancegraphics.org/previous/www_2010/media/RayTracing_I/HPG2010_RayTracing_I_Dammertz.pdf
+Try to look up anything that you don't understand, and feel free to discuss with your fellow students on Ed. We were also able to locate presentation slides for this paper that may be helpful: https://www.highperformancegraphics.org/previous/www_2010/media/RayTracing_I/HPG2010_RayTracing_I_Dammertz.pdf
 
 This paper is also helpful in that it includes a code sample illustrating some of the math, although not
 all the details are given away - for example, parameter tuning in denoising can be very implementation-dependent.
@@ -151,7 +151,7 @@ Note that "acceptably smooth" is somewhat subjective - we will leave the means f
 Extra Credit
 ===
 
-The following extra credit items are listed roughly in order of level-of-effort, and are just suggestions - if you have an idea for something else you want to add, just ask on Piazza!
+The following extra credit items are listed roughly in order of level-of-effort, and are just suggestions - if you have an idea for something else you want to add, just ask on Ed!
 
 
 ## G-Buffer optimization
@@ -188,7 +188,7 @@ See https://research.nvidia.com/publication/2017-07_Spatiotemporal-Variance-Guid
 Submission
 ===
 
-If you have modified any of the `CMakeLists.txt` files at all (aside from the list of `SOURCE_FILES`), mentions it explicity. Beware of any build issues discussed on the Piazza.
+If you have modified any of the `CMakeLists.txt` files at all (aside from the list of `SOURCE_FILES`), mentions it explicity. Beware of any build issues discussed on the Ed.
 
 Open a GitHub pull request so that we can see that you have finished.
 
