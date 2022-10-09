@@ -49,7 +49,7 @@ We expect that most of you will integrate the denoiser into Project 3. So here i
     1. Add your Project 4 fork as a remote using `git remote add project4 git@github.com:<your-username>/Project4-CUDA-Denoiser.git` (you may replace `git@github.com:` with `https://github.com/`).
     2. Push your denoiser branch to Project 4 using `git push project4 denoiser`. Here `project4` is the remote repo, and `denoiser` is your branch for submission.
     3. Open your Project 4 repo on GitHub and confirm that the branch you have just pushed is present.
-    4. Open [https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser](https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser) in your browser, and open a Pull Request where the source branch is your branch in GitHub.
+    4. Open [https://github.com/CIS565-Fall-2022/Project4-CUDA-Denoiser](https://github.com/CIS565-Fall-2022/Project4-CUDA-Denoiser) in your browser, and open a Pull Request where the source branch is your branch in GitHub.
 5. All other instructions for submission and opening a pull request remain consistent with other projects. See the submission section towards the end of this document.
 
 ## Contents
@@ -127,11 +127,11 @@ This base code is derived from Project 3. Some notable differences:
 
 Note that the image saving functionality isn't hooked up to gbuffers or denoised images yet - you may need to do this yourself, but doing so will be considerably more usable than screenshotting every image.
 
-There's also a couple specific git commits that you can look at for guidance on how to add some of these changes to your own pathtracer, such as `imgui`. You can view these changes on the command line using `git diff [commit hash]`, or on github, for example: https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser/commit/0857d1f8f477a39a9ba28a1e0a584b79bd7ec466
+There's also a couple specific git commits that you can look at for guidance on how to add some of these changes to your own pathtracer, such as `imgui`. You can view these changes on the command line using `git diff [commit hash]`, or on github, for example: https://github.com/CIS565-Fall-2022/Project4-CUDA-Denoiser/commit/0857d1f8f477a39a9ba28a1e0a584b79bd7ec466
 
-* [0857d1f8f477a39a9ba28a1e0a584b79bd7ec466](https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser/commit/0857d1f8f477a39a9ba28a1e0a584b79bd7ec466) - visualization code for a gbuffer with dummy data as time-to-intersection
-* [1178307347e32da064dce1ef4c217ce0ca6153a8](https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser/commit/1178307347e32da064dce1ef4c217ce0ca6153a8) - add iterations slider and save-and-exit button to UI
-* [5feb60366e03687bfc245579523402221950c9c5](https://github.com/CIS565-Fall-2020/Project4-CUDA-Denoiser/commit/5feb60366e03687bfc245579523402221950c9c5) - add imgui and set up basic sliders for denoising parameters (all the gory cmake changes)
+* [0857d1f8f477a39a9ba28a1e0a584b79bd7ec466](https://github.com/CIS565-Fall-2022/Project4-CUDA-Denoiser/commit/0857d1f8f477a39a9ba28a1e0a584b79bd7ec466) - visualization code for a gbuffer with dummy data as time-to-intersection
+* [1178307347e32da064dce1ef4c217ce0ca6153a8](https://github.com/CIS565-Fall-2022/Project4-CUDA-Denoiser/commit/1178307347e32da064dce1ef4c217ce0ca6153a8) - add iterations slider and save-and-exit button to UI
+* [5feb60366e03687bfc245579523402221950c9c5](https://github.com/CIS565-Fall-2022/Project4-CUDA-Denoiser/commit/5feb60366e03687bfc245579523402221950c9c5) - add imgui and set up basic sliders for denoising parameters (all the gory cmake changes)
 
 ## Part 3 - Performance Analysis
 
