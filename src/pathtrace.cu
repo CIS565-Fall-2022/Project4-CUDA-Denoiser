@@ -60,20 +60,12 @@ static glm::vec3* devImage = nullptr;
 static PathSegment* devPaths = nullptr;
 static PathSegment* devTerminatedPaths = nullptr;
 static Intersection* devIntersections = nullptr;
-static int* devIntersecMatKeys = nullptr;
-static int* devSegmentMatKeys = nullptr;
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
 static thrust::device_ptr<PathSegment> devPathsThr;
 static thrust::device_ptr<PathSegment> devTerminatedPathsThr;
 
 static thrust::device_ptr<Intersection> devIntersectionsThr;
-static thrust::device_ptr<int> devIntersecMatKeysThr;
-static thrust::device_ptr<int> devSegmentMatKeysThr;
-
-static glm::vec3* devGBufferPos = nullptr;
-static glm::vec3* devGBufferNorm = nullptr;
-
 #if ENABLE_GBUFFER
 static Intersection* devGBuffer = nullptr;
 #endif
@@ -143,10 +135,6 @@ void pathTraceInit(Scene* scene) {
 	cudaMemset(devIntersections, 0, pixelcount * sizeof(Intersection));
 	devIntersectionsThr = thrust::device_ptr<Intersection>(devIntersections);
 
-	cudaMalloc(&devIntersecMatKeys, pixelcount * sizeof(int));
-	cudaMalloc(&devSegmentMatKeys, pixelcount * sizeof(int));
-	devIntersecMatKeysThr = thrust::device_ptr<int>(devIntersecMatKeys);
-	devSegmentMatKeysThr = thrust::device_ptr<int>(devSegmentMatKeys);
 	checkCUDAError("pathTraceInit");
 
 #if ENABLE_GBUFFER
@@ -168,8 +156,6 @@ void pathTraceFree() {
 	cudaSafeFree(devPaths);
 	cudaSafeFree(devTerminatedPaths);
 	cudaSafeFree(devIntersections);
-	cudaSafeFree(devIntersecMatKeys);
-	cudaSafeFree(devSegmentMatKeys);
 #if ENABLE_GBUFFER
 	cudaSafeFree(devGBuffer);
 #endif
@@ -195,21 +181,11 @@ __device__ Ray sampleCamera(DevScene* scene, const Camera& cam, int x, int y, gl
 	glm::vec2 ruv = scr + pixelSize * glm::vec2(r.x, r.y);
 	ruv = 1.f - ruv * 2.f;
 
-	glm::vec2 pAperture;
-	if (scene->apertureMask != nullptr) {
-		int id = scene->apertureSampler.sample(r.z, r.w);
-		pAperture.x = glm::fract((id + .5f) / scene->apertureMask->width);
-		pAperture.y = (id / scene->apertureMask->width + .5f) / scene->apertureMask->height;
-		pAperture = pAperture * 2.f - 1.f;
-	}
-	else {
-		pAperture = Math::toConcentricDisk(r.z, r.w);
-	}
-
+	glm::vec2 pAperture(0.f);
 	glm::vec3 pLens = glm::vec3(pAperture * cam.lensRadius, 0.f);
-
 	glm::vec3 pFocusPlane = glm::vec3(ruv * glm::vec2(aspect, 1.f) * tanFovY, 1.f) * cam.focalDist;
 	glm::vec3 dir = pFocusPlane - pLens;
+
 	ray.direction = glm::normalize(glm::mat3(cam.right, cam.up, cam.view) * dir);
 	ray.origin = cam.position + cam.right * pLens.x + cam.up * pLens.y;
 #endif
@@ -268,12 +244,7 @@ __global__ void computeIntersections(
 	int numPaths,
 	PathSegment* pathSegments,
 	DevScene* scene,
-	Intersection* intersections,
-	int* materialKeys,
-	bool sortMaterial
-#if ENABLE_GBUFFER
-	, Intersection* GBuffer
-#endif
+	Intersection* intersections
 ) {
 	int pathIdx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -283,18 +254,8 @@ __global__ void computeIntersections(
 
 	Intersection intersec;
 	PathSegment segment = pathSegments[pathIdx];
-#if ENABLE_GBUFFER
-	if (depth == 0) {
-		intersections[pathIdx] = GBuffer[pathIdx];
-		return;
-	}
-#endif
 
-#if BVH_DISABLE
-	scene->naiveIntersect(segment.ray, intersec);
-#else
 	scene->intersect(segment.ray, intersec);
-#endif
 
 	if (intersec.primId != NullPrimitive) {
 		if (scene->materials[intersec.matId].type == Material::Type::Light) {
@@ -308,20 +269,11 @@ __global__ void computeIntersections(
 				// If not first ray, preserve previous sampling information for
 				// MIS calculation
 				intersec.prevPos = segment.ray.origin;
-				if (sortMaterial) {
-					intersec.prev = segment.prev;
-				}
 			}
 		}
 		else {
 			intersec.wo = -segment.ray.direction;
 		}
-		if (sortMaterial) {
-			materialKeys[pathIdx] = intersec.matId;
-		}
-	}
-	else if (sortMaterial) {
-		materialKeys[pathIdx] = -1;
 	}
 	intersections[pathIdx] = intersec;
 }
@@ -332,8 +284,7 @@ __global__ void pathIntegSampleSurface(
 	PathSegment* segments,
 	Intersection* intersections,
 	DevScene* scene,
-	int numPaths,
-	bool sortMaterial
+	int numPaths
 ) {
 	const int SamplesOneIter = 7;
 
@@ -375,7 +326,7 @@ __global__ void pathIntegSampleSurface(
 	glm::vec3 accRadiance(0.f);
 
 	if (material.type == Material::Type::Light) {
-		PrevBSDFSampleInfo prev = sortMaterial ? intersec.prev : segment.prev;
+		PrevBSDFSampleInfo prev = segment.prev;
 
 		glm::vec3 radiance = material.baseColor;
 		if (depth == 0) {
@@ -385,8 +336,8 @@ __global__ void pathIntegSampleSurface(
 			accRadiance += radiance * segment.throughput;
 		}
 		else {
-			float lightPdf = Math::pdfAreaToSolidAngle(Math::luminance(radiance) * scene->sumLightPowerInv,
-				intersec.prevPos, intersec.pos, intersec.norm);
+			float lightPdf = Math::pdfAreaToSolidAngle(Math::luminance(radiance) * scene->sumLightPowerInv *
+				scene->getPrimitiveArea(intersec.primId), intersec.prevPos, intersec.pos, intersec.norm);
 			float BSDFPdf = prev.BSDFPdf;
 			accRadiance += radiance * segment.throughput * Math::powerHeuristic(BSDFPdf, lightPdf);
 		}
@@ -530,7 +481,6 @@ __global__ void singleKernelPT(int iter, int maxDepth, DevScene* scene, Camera c
 
 				float weight = deltaSample ? 1.f :
 					Math::powerHeuristic(sample.pdf, scene->environmentMapPdf(ray.direction));
-
 				accRadiance += radiance * weight;
 			}
 			break;
@@ -547,8 +497,8 @@ __global__ void singleKernelPT(int iter, int maxDepth, DevScene* scene, Camera c
 
 			float weight = deltaSample ? 1.f : Math::powerHeuristic(
 				sample.pdf,
-				Math::pdfAreaToSolidAngle(Math::luminance(radiance) * scene->sumLightPowerInv,
-					curPos, intersec.pos, intersec.norm)
+				Math::pdfAreaToSolidAngle(Math::luminance(radiance) * scene->sumLightPowerInv *
+					scene->getPrimitiveArea(intersec.primId), curPos, intersec.pos, intersec.norm)
 			);
 			accRadiance += radiance * throughput * weight;
 			break;
@@ -626,25 +576,16 @@ void pathTrace(uchar4* pbo, int frame, int iter) {
 			const int BlockSizeIntersec = 128;
 			int blockNumIntersec = (numPaths + BlockSizeIntersec - 1) / BlockSizeIntersec;
 			computeIntersections<<<blockNumIntersec, BlockSizeIntersec>>>(
-				depth, numPaths, devPaths, hstScene->devScene, devIntersections, devIntersecMatKeys, Settings::sortMaterial
-#if ENABLE_GBUFFER
-				, devGBuffer
-#endif
+				depth, numPaths, devPaths, hstScene->devScene, devIntersections
 			);
 			checkCUDAError("PT::computeInteractions");
 			cudaDeviceSynchronize();
-
-			if (Settings::sortMaterial) {
-				cudaMemcpyDevToDev(devSegmentMatKeys, devIntersecMatKeys, numPaths * sizeof(int));
-				thrust::sort_by_key(devIntersecMatKeysThr, devIntersecMatKeysThr + numPaths, devIntersectionsThr);
-				thrust::sort_by_key(devSegmentMatKeysThr, devSegmentMatKeysThr + numPaths, devPathsThr);
-			}
 
 			const int BlockSizeSample = 64;
 			int blockNumSample = (numPaths + BlockSizeSample - 1) / BlockSizeSample;
 
 			pathIntegSampleSurface<<<blockNumSample, BlockSizeSample>>>(
-				iter, depth, devPaths, devIntersections, hstScene->devScene, numPaths, Settings::sortMaterial
+				iter, depth, devPaths, devIntersections, hstScene->devScene, numPaths
 			);
 			checkCUDAError("PT::sampleSurface");
 			cudaDeviceSynchronize();

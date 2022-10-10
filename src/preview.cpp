@@ -229,10 +229,7 @@ void RenderImGui() {
 			State::camChanged = true;
 		}
 
-		if (Settings::tracer == Tracer::Streamed) {
-			ImGui::Checkbox("Sort Material", &Settings::sortMaterial);
-		}
-		else if (Settings::tracer == Tracer::GBufferPreview) {
+		if (Settings::tracer == Tracer::GBufferPreview) {
 			const char* Modes[] = { "Position", "Normal", "Texcoord" };
 			if (ImGui::Combo("Mode", &Settings::GBufferPreviewOpt, Modes, IM_ARRAYSIZE(Modes))) {
 				State::camChanged = true;

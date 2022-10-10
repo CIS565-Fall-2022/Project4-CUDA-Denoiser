@@ -1,11 +1,9 @@
 #pragma once
 #include <iostream>
 
-#define SAMPLER_USE_SOBOL false
+#define SAMPLER_USE_SOBOL true
 
 #define SCENE_LIGHT_SINGLE_SIDED true
-
-#define BVH_DISABLE false
 
 #define ENABLE_GBUFFER false
 
@@ -27,7 +25,6 @@ struct Settings {
     static int traceDepth;
     static int toneMapping;
     static int tracer;
-    static bool sortMaterial;
     static int GBufferPreviewOpt;
 };
 
