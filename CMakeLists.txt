@@ -89,6 +89,7 @@ set(headers
     src/ImGui/imstb_textedit.h 
     src/ImGui/imstb_truetype.h 
     src/common.h
+	src/denoiser.h
     )
 
 set(sources
@@ -113,6 +114,7 @@ set(sources
     src/tiny_obj_loader.cpp
     src/common.cpp
     src/tiny_gltf.cpp
+	src/denoiser.cu
     )
 
 list(SORT headers)
