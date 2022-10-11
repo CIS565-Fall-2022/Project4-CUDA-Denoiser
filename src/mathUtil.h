@@ -20,6 +20,10 @@ static std::string vec3ToString(const glm::vec3& vec) {
     return ss.str();
 }
 
+__host__ __device__ inline int ceilDiv(int x, int y) {
+    return (x + y - 1) / y;
+}
+
 namespace Math {
     bool epsilonCheck(float a, float b);
     glm::mat4 buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale);

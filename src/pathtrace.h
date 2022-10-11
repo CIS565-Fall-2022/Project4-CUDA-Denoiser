@@ -6,6 +6,9 @@
 #include "common.h"
 
 void InitDataContainer(GuiDataContainer* guiData);
+
+void copyImageToPBO(uchar4* devPBO, glm::vec3* devImage, int width, int height, int toneMapping);
+
 void pathTraceInit(Scene *scene);
 void pathTraceFree();
-void pathTrace(uchar4 *pbo, int frame, int iteration);
+void pathTrace(glm::vec3* devDirectIllum, glm::vec3* devIndirectIllum);

@@ -50,7 +50,8 @@ struct PrevBSDFSampleInfo {
 struct PathSegment {
     Ray ray;
     glm::vec3 throughput;
-    glm::vec3 radiance;
+    glm::vec3 directIllum;
+    glm::vec3 indirectIllum;
     PrevBSDFSampleInfo prev;
     int pixelIndex;
     int remainingBounces;

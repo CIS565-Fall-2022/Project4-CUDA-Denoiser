@@ -229,11 +229,13 @@ void RenderImGui() {
 			State::camChanged = true;
 		}
 
-		if (Settings::tracer == Tracer::GBufferPreview) {
-			const char* Modes[] = { "Position", "Normal", "Texcoord" };
-			if (ImGui::Combo("Mode", &Settings::GBufferPreviewOpt, Modes, IM_ARRAYSIZE(Modes))) {
-				State::camChanged = true;
-			}
+		const char* Modes[] = {
+			"Albedo", "Normal",
+			"Input Direct", "Input Indirect"
+		};
+
+		if (ImGui::Combo("Preview", &Settings::ImagePreviewOpt, Modes, IM_ARRAYSIZE(Modes))) {
+			State::camChanged = true;
 		}
 
 		if (ImGui::InputInt("Max Depth", &Settings::traceDepth, 1, 1)) {
@@ -290,7 +292,7 @@ void mainLoop() {
 
 		runCuda();
 
-		string title = "CIS565 Path Tracer | " + utilityCore::convertIntToString(iteration) + " Iterations";
+		std::string title = "CIS565 Path Tracer | " + utilityCore::convertIntToString(iteration) + " Iterations";
 		glfwSetWindowTitle(window, title.c_str());
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
 		glBindTexture(GL_TEXTURE_2D, displayImage);
