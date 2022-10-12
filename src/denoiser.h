@@ -16,20 +16,42 @@ struct GBuffer {
 
     void create(int width, int height);
     void destroy();
+    void render(DevScene* scene, const Camera& cam);
+    void update(const Camera& cam);
+
+    __host__ __device__ glm::vec3* normal() { return devNormal[frame]; }
+    __host__ __device__ int* primId() { return devPrimId[frame]; }
+    __host__ __device__ float* depth() { return devDepth[frame]; }
 
     glm::vec3* devAlbedo = nullptr;
-    glm::vec3* devNormal = nullptr;
-    float* devDepth = nullptr;
-    int* devPrimId = nullptr;
+    glm::vec2* devMotion = nullptr;
+    glm::vec3* devNormal[2] = { nullptr };
+    float* devDepth[2] = { nullptr };
+    int* devPrimId[2] = { nullptr };
+    int frame = 0;
+
+    Camera lastCamera;
+};
+
+struct EAWaveletFilter {
+    EAWaveletFilter() = default;
+
+    EAWaveletFilter(int width, int height) :
+        width(width), height(height) {}
+
+    void filter(glm::vec3* devColorOut, glm::vec3* devColorIn, const GBuffer& gBuffer, const Camera& cam, int level);
+    void filter(glm::vec4* devColorVarOut, glm::vec4* devColorVarIn, const GBuffer& gBuffer, const Camera& cam, int level);
+
+    float sigLumin = 64.f;
+    float sigNormal = .2f;
+    float sigDepth = 1.f;
+
+    int width;
+    int height;
 };
 
 void denoiserInit(int width, int height);
 void denoiserFree();
 
-void renderGBuffer(DevScene* scene, Camera cam, GBuffer gBuffer);
-
-void accumlateVariance();
-
-void waveletFilter(GBuffer gBuffer);
-
 void modulateAlbedo(glm::vec3* devImage, GBuffer gBuffer, int width, int height);
+void composeImage(glm::vec3* devImage, glm::vec3* devIn, int width, int height);

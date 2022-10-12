@@ -5,12 +5,14 @@
 
 #define SCENE_LIGHT_SINGLE_SIDED true
 
-#define CAMERA_PANORAMA false
-
 #define DENOISER_SPLIT_DIRECT_INDIRECT true
 #define DENOISER_DEMODULATE true
 
 #define DEMODULATE_EPS 1e-3f
+
+#define DenoiseCompress 1024.f
+
+#define DenoiseLightId -2
 
 struct ToneMapping {
     enum {

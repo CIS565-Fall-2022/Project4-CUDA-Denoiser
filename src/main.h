@@ -14,11 +14,13 @@
 #include <stdlib.h>
 
 #include "scene.h"
+#include "denoiser.h"
 
 extern Scene* scene;
 extern int iteration;
 extern int width;
 extern int height;
+extern EAWaveletFilter EAWFilter;
 
 void runCuda();
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);

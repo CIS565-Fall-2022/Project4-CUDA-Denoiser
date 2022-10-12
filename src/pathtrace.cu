@@ -65,7 +65,7 @@ void pathTraceFree() {
 #endif
 }
 
-__global__ void sendImageToPBO(uchar4* pbo, glm::vec3* Image, int width, int height, int toneMapping) {
+__global__ void sendImageToPBO(uchar4* pbo, glm::vec3* image, int width, int height, int toneMapping) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
@@ -75,7 +75,7 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::vec3* Image, int width, int hei
 	int index = y * width + x;
 
 	// Tonemapping and gamma correction
-	glm::vec3 color = Image[index];
+	glm::vec3 color = image[index];
 
 	switch (toneMapping) {
 	case ToneMapping::Filmic:
@@ -93,6 +93,38 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::vec3* Image, int width, int hei
 	pbo[index] = make_uchar4(iColor.x, iColor.y, iColor.z, 0);
 }
 
+__global__ void sendImageToPBO(uchar4* pbo, glm::vec2* image, int width, int height) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+	if (x >= width || y >= height) {
+		return;
+	}
+	int index = y * width + x;
+
+	glm::vec3 color = glm::vec3(image[index], 1.f);
+	color = Math::correctGamma(color);
+
+	glm::ivec3 iColor = glm::clamp(glm::ivec3(color * 255.f), glm::ivec3(0), glm::ivec3(255));
+	pbo[index] = make_uchar4(iColor.x, iColor.y, iColor.z, 0);
+}
+
+__global__ void sendImageToPBO(uchar4* pbo, float* image, int width, int height) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+	if (x >= width || y >= height) {
+		return;
+	}
+	int index = y * width + x;
+
+	glm::vec3 color = glm::vec3(image[index]);
+	color = Math::correctGamma(color);
+
+	glm::ivec3 iColor = glm::clamp(glm::ivec3(color * 255.f), glm::ivec3(0), glm::ivec3(255));
+	pbo[index] = make_uchar4(iColor.x, iColor.y, iColor.z, 0);
+}
+
 void copyImageToPBO(uchar4* devPBO, glm::vec3* devImage, int width, int height, int toneMapping) {
 	const int BlockSize = 32;
 	dim3 blockSize(BlockSize, BlockSize);
@@ -100,35 +132,18 @@ void copyImageToPBO(uchar4* devPBO, glm::vec3* devImage, int width, int height, 
 	sendImageToPBO<<<blockNum, blockSize>>>(devPBO, devImage, width, height, toneMapping);
 }
 
-/**
- * Antialiasing and physically based camera (lens effect)
- */
-__device__ Ray sampleCamera(const Camera& cam, int x, int y, glm::vec4 r) {
-	Ray ray;
-#if CAMERA_PANORAMA
-	float u = (x - .5f + r.x) / cam.resolution.x - .5f;
-	float v = (y - .5f + r.y) / cam.resolution.y;
-	glm::vec3 dir = Math::toSphere(glm::vec2(u, v));
-	dir = cam.right * dir.x + cam.up * dir.y + cam.view * dir.z;
-	ray.direction = dir;
-	ray.origin = cam.position;
-#else
-	float aspect = float(cam.resolution.x) / cam.resolution.y;
-	float tanFovY = glm::tan(glm::radians(cam.fov.y));
-	glm::vec2 pixelSize = 1.f / glm::vec2(cam.resolution);
-	glm::vec2 scr = glm::vec2(x, y) * pixelSize;
-	glm::vec2 ruv = scr + pixelSize * glm::vec2(r.x, r.y);
-	ruv = 1.f - ruv * 2.f;
+void copyImageToPBO(uchar4* devPBO, glm::vec2* devImage, int width, int height) {
+	const int BlockSize = 32;
+	dim3 blockSize(BlockSize, BlockSize);
+	dim3 blockNum(ceilDiv(width, BlockSize), ceilDiv(height, BlockSize));
+	sendImageToPBO<<<blockNum, blockSize>>>(devPBO, devImage, width, height);
+}
 
-	glm::vec2 pAperture(0.f);
-	glm::vec3 pLens = glm::vec3(pAperture * cam.lensRadius, 0.f);
-	glm::vec3 pFocusPlane = glm::vec3(ruv * glm::vec2(aspect, 1.f) * tanFovY, 1.f) * cam.focalDist;
-	glm::vec3 dir = pFocusPlane - pLens;
-
-	ray.direction = glm::normalize(glm::mat3(cam.right, cam.up, cam.view) * dir);
-	ray.origin = cam.position + cam.right * pLens.x + cam.up * pLens.y;
-#endif
-	return ray;
+void copyImageToPBO(uchar4* devPBO, float* devImage, int width, int height) {
+	const int BlockSize = 32;
+	dim3 blockSize(BlockSize, BlockSize);
+	dim3 blockNum(ceilDiv(width, BlockSize), ceilDiv(height, BlockSize));
+	sendImageToPBO<<<blockNum, blockSize>>>(devPBO, devImage, width, height);
 }
 
 __global__ void generateRayFromCamera(
@@ -143,7 +158,7 @@ __global__ void generateRayFromCamera(
 		PathSegment& segment = pathSegments[index];
 		Sampler rng = makeSeededRandomEngine(iter, index, traceDepth, scene->sampleSequence);
 
-		segment.ray = sampleCamera(cam, x, y, sample4D(rng));
+		segment.ray = cam.sample(x, y, sample4D(rng));
 		segment.throughput = glm::vec3(1.f);
 		segment.directIllum = glm::vec3(0.f);
 		segment.pixelIndex = index;
@@ -160,7 +175,7 @@ __global__ void previewGBuffer(int iter, DevScene* scene, Camera cam, glm::vec3*
 	int index = y * cam.resolution.x + x;
 	Sampler rng = makeSeededRandomEngine(iter, index, 0, scene->sampleSequence);
 
-	Ray ray = sampleCamera(cam, x, y, sample4D(rng));
+	Ray ray = cam.sample(x, y, sample4D(rng));
 	Intersection intersec;
 	scene->intersect(ray, intersec);
 
@@ -353,7 +368,7 @@ __global__ void singleKernelPT(
 	int index = y * cam.resolution.x + x;
 	Sampler rng = makeSeededRandomEngine(iter, index, 0, scene->sampleSequence);
 
-	Ray ray = sampleCamera(cam, x, y, sample4D(rng));
+	Ray ray = cam.sample(x, y, sample4D(rng));
 	Intersection intersec;
 	scene->intersect(ray, intersec);
 
@@ -368,7 +383,7 @@ __global__ void singleKernelPT(
 	Material material = scene->getTexturedMaterialAndSurface(intersec);
 #if DENOISER_DEMODULATE
 	glm::vec3 albedo = material.baseColor;
-	//material.baseColor = glm::vec3(1.f);
+	material.baseColor = glm::vec3(1.f);
 #endif
 
 	if (material.type == Material::Type::Light) {
@@ -453,19 +468,20 @@ __global__ void singleKernelPT(
 	}
 WriteRadiance:
 #if DENOISER_DEMODULATE
-	//material.baseColor = glm::vec3(1.f);
-	direct /= albedo + DEMODULATE_EPS;
-	indirect /= albedo + DEMODULATE_EPS;
+	/*direct /= albedo + DEMODULATE_EPS;
+	indirect /= albedo + DEMODULATE_EPS;*/
 #endif
 
 	if (!isnan(direct.x) && !isnan(direct.y) && !isnan(direct.z) &&
 		!isinf(direct.x) && !isinf(direct.y) && !isinf(direct.z)) {
-		directIllum[index] = direct;
+		//directIllum[index] = direct / DenoiseCompress;
+		directIllum[index] = direct / (direct + 1.f);
 	}
 
 	if (!isnan(indirect.x) && !isnan(indirect.y) && !isnan(indirect.z) &&
 		!isinf(indirect.x) && !isinf(indirect.y) && !isinf(indirect.z)) {
-		indirectIllum[index] = indirect;
+		//indirectIllum[index] = indirect / DenoiseCompress;
+		indirectIllum[index] = indirect / (indirect + 1.f);
 	}
 }
 
@@ -478,7 +494,7 @@ __global__ void BVHVisualize(int iter, DevScene* scene, Camera cam, glm::vec3* i
 	int index = y * cam.resolution.x + x;
 
 	Sampler rng = makeSeededRandomEngine(iter, index, 0, scene->sampleSequence);
-	Ray ray = sampleCamera(cam, x, y, sample4D(rng));
+	Ray ray = cam.sample(x, y, sample4D(rng));
 
 	Intersection intersec;
 	scene->visualizedIntersect(ray, intersec);

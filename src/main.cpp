@@ -6,7 +6,6 @@
 #include "image.h"
 #include "utilities.h"
 #include "pathtrace.h"
-#include "denoiser.h"
 
 int width;
 int height;
@@ -24,19 +23,27 @@ int iteration;
 
 glm::vec3* devDirectIllum = nullptr;
 glm::vec3* devIndirectIllum = nullptr;
-glm::vec3* devImage = nullptr;
 GBuffer gBuffer;
+
+glm::vec3* devImage = nullptr;
+glm::vec3* devTemp = nullptr;
+
+EAWaveletFilter EAWFilter;
 
 void initImageBuffer() {
 	cudaMalloc(&devDirectIllum, width * height * sizeof(glm::vec3));
 	cudaMalloc(&devIndirectIllum, width * height * sizeof(glm::vec3));
 	gBuffer.create(width, height);
+
+	cudaMalloc(&devTemp, width * height * sizeof(glm::vec3));
 }
 
 void freeImageBuffer() {
 	cudaSafeFree(devDirectIllum);
 	cudaSafeFree(devIndirectIllum);
 	gBuffer.destroy();
+
+	cudaSafeFree(devTemp);
 }
 
 int main(int argc, char** argv) {
@@ -63,6 +70,7 @@ int main(int argc, char** argv) {
 	InitImguiData(guiData);
 	InitDataContainer(guiData);
 
+	EAWFilter = EAWaveletFilter(width, height);
 	scene->buildDevData();
 	initImageBuffer();
 	pathTraceInit(scene);
@@ -122,34 +130,51 @@ void runCuda() {
 		State::camChanged = false;
 	}
 
-	renderGBuffer(scene->devScene, scene->camera, gBuffer);
+	gBuffer.render(scene->devScene, scene->camera);
 
 	uchar4* devPBO = nullptr;
 	cudaGLMapBufferObject((void**)&devPBO, pbo);
 
 	pathTrace(devDirectIllum, devIndirectIllum);
 
-	modulateAlbedo(devDirectIllum, gBuffer, width, height);
-	modulateAlbedo(devIndirectIllum, gBuffer, width, height);
-
-	switch (Settings::ImagePreviewOpt) {
-	case 0:
-		devImage = gBuffer.devAlbedo;
-		break;
-	case 1:
-		devImage = gBuffer.devNormal;
-		break;
-	case 2:
-		devImage = devDirectIllum;
-		break;
-	case 3:
-		devImage = devIndirectIllum;
+	for (int i = 0; i < 5; i++) {
+		EAWFilter.filter(devTemp, devIndirectIllum, gBuffer, scene->camera, i);
+		std::swap(devTemp, devIndirectIllum);
 	}
 
-	copyImageToPBO(devPBO, devImage, width, height, Settings::toneMapping);
+	for (int i = 0; i < 5; i++) {
+		EAWFilter.filter(devTemp, devDirectIllum, gBuffer, scene->camera, i);
+		std::swap(devTemp, devDirectIllum);
+	}
+
+	composeImage(devDirectIllum, devIndirectIllum, width, height);
+	modulateAlbedo(devDirectIllum, gBuffer, width, height);
+	//modulateAlbedo(devIndirectIllum, gBuffer, width, height);
+
+	if (Settings::ImagePreviewOpt == 2) {
+		copyImageToPBO(devPBO, gBuffer.depth(), width, height);
+	}
+	else {
+		switch (Settings::ImagePreviewOpt) {
+		case 0:
+			devImage = gBuffer.devAlbedo;
+			break;
+		case 1:
+			devImage = gBuffer.normal();
+			break;
+		case 3:
+			devImage = devDirectIllum;
+			break;
+		case 4:
+			devImage = devIndirectIllum;
+			break;
+		}
+		copyImageToPBO(devPBO, devImage, width, height, Settings::toneMapping);
+	}
 
 	cudaGLUnmapBufferObject(pbo);
 	iteration++;
+	gBuffer.update(scene->camera);
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {

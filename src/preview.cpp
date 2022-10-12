@@ -230,7 +230,7 @@ void RenderImGui() {
 		}
 
 		const char* Modes[] = {
-			"Albedo", "Normal",
+			"Albedo", "Normal", "Depth",
 			"Input Direct", "Input Indirect"
 		};
 
@@ -246,6 +246,12 @@ void RenderImGui() {
 		ImGui::Text("Post Processing");
 		const char* ToneMappingMethods[] = { "None", "Filmic", "ACES" };
 		ImGui::Combo("Tone Mapping", &Settings::toneMapping, ToneMappingMethods, IM_ARRAYSIZE(ToneMappingMethods));
+		ImGui::Separator();
+
+		ImGui::Text("Filter");
+		ImGui::DragFloat("Sigma Lumin", &EAWFilter.sigLumin, .01f, 0.f);
+		ImGui::DragFloat("Sigma Normal", &EAWFilter.sigNormal, .01f, 0.f);
+		ImGui::DragFloat("Sigma Depth", &EAWFilter.sigDepth, .01f, 0.f);
 
 		ImGui::End();
 	}
