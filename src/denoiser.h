@@ -50,8 +50,26 @@ struct EAWaveletFilter {
     int height;
 };
 
+struct LeveledEAWFilter {
+    LeveledEAWFilter() = default;
+    void create(int width, int height, int level);
+    void destroy();
+
+    void filter(glm::vec3*& devColorIn, const GBuffer& gBuffer, const Camera& cam);
+
+    EAWaveletFilter waveletFilter;
+    int level = 0;
+    glm::vec3* devTempImg = nullptr;
+};
+
+struct SVGFFilter {
+    EAWaveletFilter waveletFilter;
+    int level = 0;
+    glm::vec4* devTempColorVar = nullptr;
+};
+
 void denoiserInit(int width, int height);
 void denoiserFree();
 
 void modulateAlbedo(glm::vec3* devImage, GBuffer gBuffer, int width, int height);
-void composeImage(glm::vec3* devImage, glm::vec3* devIn, int width, int height);
+void addImage(glm::vec3* devImage, glm::vec3* devIn, int width, int height);

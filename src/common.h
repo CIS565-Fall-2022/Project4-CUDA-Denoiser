@@ -10,7 +10,7 @@
 
 #define DEMODULATE_EPS 1e-3f
 
-#define DenoiseCompress 1024.f
+#define DenoiseCompress 16.f
 
 #define DenoiseLightId -2
 

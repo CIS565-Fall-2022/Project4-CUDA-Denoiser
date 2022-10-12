@@ -249,9 +249,9 @@ void RenderImGui() {
 		ImGui::Separator();
 
 		ImGui::Text("Filter");
-		ImGui::DragFloat("Sigma Lumin", &EAWFilter.sigLumin, .01f, 0.f);
-		ImGui::DragFloat("Sigma Normal", &EAWFilter.sigNormal, .01f, 0.f);
-		ImGui::DragFloat("Sigma Depth", &EAWFilter.sigDepth, .01f, 0.f);
+		ImGui::DragFloat("Sigma Lumin", &EAWFilter.waveletFilter.sigLumin, .01f, 0.f);
+		ImGui::DragFloat("Sigma Normal", &EAWFilter.waveletFilter.sigNormal, .01f, 0.f);
+		ImGui::DragFloat("Sigma Depth", &EAWFilter.waveletFilter.sigDepth, .01f, 0.f);
 
 		ImGui::End();
 	}

@@ -44,7 +44,7 @@ void pathTraceInit(Scene* scene) {
 	const Camera& cam = hstScene->camera;
 	const int pixelcount = cam.resolution.x * cam.resolution.y;
 
-	cudaMalloc(&devPaths, pixelcount * sizeof(PathSegment));
+	devPaths = cudaMalloc<PathSegment>(pixelcount);
 	cudaMalloc(&devTerminatedPaths, pixelcount * sizeof(PathSegment));
 	devPathsThr = thrust::device_ptr<PathSegment>(devPaths);
 	devTerminatedPathsThr = thrust::device_ptr<PathSegment>(devTerminatedPaths);
@@ -474,14 +474,14 @@ WriteRadiance:
 
 	if (!isnan(direct.x) && !isnan(direct.y) && !isnan(direct.z) &&
 		!isinf(direct.x) && !isinf(direct.y) && !isinf(direct.z)) {
-		//directIllum[index] = direct / DenoiseCompress;
-		directIllum[index] = direct / (direct + 1.f);
+		directIllum[index] = direct / DenoiseCompress;
+		//directIllum[index] = direct / (direct + 1.f);
 	}
 
 	if (!isnan(indirect.x) && !isnan(indirect.y) && !isnan(indirect.z) &&
 		!isinf(indirect.x) && !isinf(indirect.y) && !isinf(indirect.z)) {
-		//indirectIllum[index] = indirect / DenoiseCompress;
-		indirectIllum[index] = indirect / (indirect + 1.f);
+		indirectIllum[index] = indirect / DenoiseCompress;
+		//indirectIllum[index] = indirect / (indirect + 1.f);
 	}
 }
 

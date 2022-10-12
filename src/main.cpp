@@ -26,24 +26,19 @@ glm::vec3* devIndirectIllum = nullptr;
 GBuffer gBuffer;
 
 glm::vec3* devImage = nullptr;
-glm::vec3* devTemp = nullptr;
 
-EAWaveletFilter EAWFilter;
+LeveledEAWFilter EAWFilter;
 
 void initImageBuffer() {
-	cudaMalloc(&devDirectIllum, width * height * sizeof(glm::vec3));
-	cudaMalloc(&devIndirectIllum, width * height * sizeof(glm::vec3));
+	devDirectIllum = cudaMalloc<glm::vec3>(width * height);
+	devIndirectIllum = cudaMalloc<glm::vec3>(width * height);
 	gBuffer.create(width, height);
-
-	cudaMalloc(&devTemp, width * height * sizeof(glm::vec3));
 }
 
 void freeImageBuffer() {
 	cudaSafeFree(devDirectIllum);
 	cudaSafeFree(devIndirectIllum);
 	gBuffer.destroy();
-
-	cudaSafeFree(devTemp);
 }
 
 int main(int argc, char** argv) {
@@ -70,7 +65,7 @@ int main(int argc, char** argv) {
 	InitImguiData(guiData);
 	InitDataContainer(guiData);
 
-	EAWFilter = EAWaveletFilter(width, height);
+	EAWFilter.create(width, height, 5);
 	scene->buildDevData();
 	initImageBuffer();
 	pathTraceInit(scene);
@@ -82,6 +77,7 @@ int main(int argc, char** argv) {
 	Resource::clear();
 	freeImageBuffer();
 	pathTraceFree();
+	EAWFilter.destroy();
 
 	return 0;
 }
@@ -137,19 +133,11 @@ void runCuda() {
 
 	pathTrace(devDirectIllum, devIndirectIllum);
 
-	for (int i = 0; i < 5; i++) {
-		EAWFilter.filter(devTemp, devIndirectIllum, gBuffer, scene->camera, i);
-		std::swap(devTemp, devIndirectIllum);
-	}
+	EAWFilter.filter(devDirectIllum, gBuffer, scene->camera);
+	EAWFilter.filter(devIndirectIllum, gBuffer, scene->camera);
 
-	for (int i = 0; i < 5; i++) {
-		EAWFilter.filter(devTemp, devDirectIllum, gBuffer, scene->camera, i);
-		std::swap(devTemp, devDirectIllum);
-	}
-
-	composeImage(devDirectIllum, devIndirectIllum, width, height);
+	addImage(devDirectIllum, devIndirectIllum, width, height);
 	modulateAlbedo(devDirectIllum, gBuffer, width, height);
-	//modulateAlbedo(devIndirectIllum, gBuffer, width, height);
 
 	if (Settings::ImagePreviewOpt == 2) {
 		copyImageToPBO(devPBO, gBuffer.depth(), width, height);

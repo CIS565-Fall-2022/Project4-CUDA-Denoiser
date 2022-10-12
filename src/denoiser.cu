@@ -33,7 +33,7 @@ __global__ void renderGBufferKern(DevScene* scene, Camera cam, GBuffer gBuffer) 
 	if (intersec.primId != NullPrimitive) {
 		int matId = intersec.matId;
 		if (scene->materials[intersec.matId].type == Material::Type::Light) {
-			matId = NullPrimitive;
+			matId = NullPrimitive - 1;
 #if SCENE_LIGHT_SINGLE_SIDED
 			if (glm::dot(intersec.norm, ray.direction) < 0.f) {
 				intersec.primId = NullPrimitive;
@@ -82,7 +82,8 @@ __global__ void waveletFilter(
 	int idxP = y * cam.resolution.x + x;
 	int primIdP = gBuffer.primId()[idxP];
 
-	if (primIdP == NullPrimitive) {
+	if (primIdP <= NullPrimitive) {
+		devColorOut[idxP] = devColorIn[idxP];
 		return;
 	}
 
@@ -158,7 +159,7 @@ __global__ void modulate(glm::vec3* devImage, GBuffer gBuffer, int width, int he
 		int idx = y * width + x;
 		glm::vec3 color = devImage[idx];
 		color = color / (1.f - color);
-		//color *= DenoiseCompress;
+		color *= DenoiseCompress;
 		devImage[idx] = color * glm::max(gBuffer.devAlbedo[idx]/* - DEMODULATE_EPS*/, glm::vec3(0.f));
 	}
 }
@@ -215,7 +216,7 @@ void modulateAlbedo(glm::vec3* devImage, GBuffer gBuffer, int width, int height)
 	checkCUDAError("modulate");
 }
 
-void composeImage(glm::vec3* devImage, glm::vec3* devIn, int width, int height) {
+void addImage(glm::vec3* devImage, glm::vec3* devIn, int width, int height) {
 	constexpr int BlockSize = 32;
 	dim3 blockSize(BlockSize, BlockSize);
 	dim3 blockNum(ceilDiv(width, BlockSize), ceilDiv(height, BlockSize));
@@ -225,7 +226,7 @@ void composeImage(glm::vec3* devImage, glm::vec3* devIn, int width, int height) 
 void EAWaveletFilter::filter(
 	glm::vec3* devColorOut, glm::vec3* devColorIn, const GBuffer& gBuffer, const Camera& cam, int level
 ) {
-	constexpr int BlockSize = 32;
+	constexpr int BlockSize = 8;
 	dim3 blockSize(BlockSize, BlockSize);
 	dim3 blockNum(ceilDiv(width, BlockSize), ceilDiv(height, BlockSize));
 	waveletFilter<<<blockNum, blockSize>>>(
@@ -245,9 +246,25 @@ void EAWaveletFilter::filter(
 	);
 }
 
-
 void denoiserInit(int width, int height) {
 }
 
 void denoiserFree() {
+}
+
+void LeveledEAWFilter::create(int width, int height, int level) {
+	this->level = level;
+	waveletFilter = EAWaveletFilter(width, height);
+	devTempImg = cudaMalloc<glm::vec3>(width * height);
+}
+
+void LeveledEAWFilter::destroy() {
+	cudaSafeFree(devTempImg);
+}
+
+void LeveledEAWFilter::filter(glm::vec3*& devColorIn, const GBuffer& gBuffer, const Camera& cam) {
+	for (int i = 0; i < level; i++) {
+		waveletFilter.filter(devTempImg, devColorIn, gBuffer, cam, i);
+		std::swap(devColorIn, devTempImg);
+	}
 }

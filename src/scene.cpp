@@ -199,7 +199,7 @@ void Scene::buildDevData() {
     BVHSize = BVHBuilder::build(meshData.vertices, boundingBoxes, BVHNodes);
 
     hstScene.create(*this);
-    cudaMalloc(&devScene, sizeof(DevScene));
+    devScene = cudaMalloc<DevScene>(1);
     cudaMemcpyHostToDev(devScene, &hstScene, sizeof(DevScene));
     checkCUDAError("Dev Scene");
 
@@ -451,7 +451,7 @@ void DevScene::create(const Scene& scene) {
         textureObjs.push_back({ tex, textureData + textureOffset });
         textureOffset += tex->byteSize() / sizeof(glm::vec3);
     }
-    cudaMalloc(&textures, textureObjs.size() * sizeof(DevTextureObj));
+    textures = cudaMalloc<DevTextureObj>(textureObjs.size());
     checkCUDAError("DevScene::textureObjs::malloc");
     cudaMemcpyHostToDev(textures, textureObjs.data(), textureObjs.size() * sizeof(DevTextureObj));
     checkCUDAError("DevScene::textureObjs::copy");
