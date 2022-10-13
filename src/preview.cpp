@@ -230,8 +230,10 @@ void RenderImGui() {
 		}
 
 		const char* Modes[] = {
-			"Albedo", "Normal", "Depth",
-			"Input Direct", "Input Indirect"
+			"Albedo", "Normal", "Depth", "Motion",
+			"Input Direct", "Input Indirect",
+			"Accumulated Moment",
+			"Wavelet 0 Direct"
 		};
 
 		if (ImGui::Combo("Preview", &Settings::ImagePreviewOpt, Modes, IM_ARRAYSIZE(Modes))) {

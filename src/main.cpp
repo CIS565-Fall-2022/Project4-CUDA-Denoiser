@@ -28,6 +28,8 @@ GBuffer gBuffer;
 glm::vec3* devImage = nullptr;
 
 LeveledEAWFilter EAWFilter;
+SpatioTemporalFilter directFilter;
+SpatioTemporalFilter indirectFilter;
 
 void initImageBuffer() {
 	devDirectIllum = cudaMalloc<glm::vec3>(width * height);
@@ -66,6 +68,9 @@ int main(int argc, char** argv) {
 	InitDataContainer(guiData);
 
 	EAWFilter.create(width, height, 5);
+	directFilter.create(width, height, 5);
+	indirectFilter.create(width, height, 5);
+
 	scene->buildDevData();
 	initImageBuffer();
 	pathTraceInit(scene);
@@ -78,6 +83,8 @@ int main(int argc, char** argv) {
 	freeImageBuffer();
 	pathTraceFree();
 	EAWFilter.destroy();
+	directFilter.destroy();
+	indirectFilter.destroy();
 
 	return 0;
 }
@@ -132,15 +139,23 @@ void runCuda() {
 	cudaGLMapBufferObject((void**)&devPBO, pbo);
 
 	pathTrace(devDirectIllum, devIndirectIllum);
+	directFilter.temporalAccumulate(devDirectIllum, gBuffer);
+	indirectFilter.temporalAccumulate(devIndirectIllum, gBuffer);
 
-	EAWFilter.filter(devDirectIllum, gBuffer, scene->camera);
-	EAWFilter.filter(devIndirectIllum, gBuffer, scene->camera);
+	//EAWFilter.filter(devDirectIllum, gBuffer, scene->camera);
+	//EAWFilter.filter(devIndirectIllum, gBuffer, scene->camera);
 
 	addImage(devDirectIllum, devIndirectIllum, width, height);
-	modulateAlbedo(devDirectIllum, gBuffer, width, height);
+	modulateAlbedo(devDirectIllum, gBuffer);
 
 	if (Settings::ImagePreviewOpt == 2) {
 		copyImageToPBO(devPBO, gBuffer.depth(), width, height);
+	}
+	else if (Settings::ImagePreviewOpt == 3) {
+		copyImageToPBO(devPBO, gBuffer.devMotion, width, height);
+	}
+	else if (Settings::ImagePreviewOpt == 6) {
+		copyImageToPBO(devPBO, directFilter.devAccumMoment, width, height);
 	}
 	else {
 		switch (Settings::ImagePreviewOpt) {
@@ -150,11 +165,14 @@ void runCuda() {
 		case 1:
 			devImage = gBuffer.normal();
 			break;
-		case 3:
+		case 4:
 			devImage = devDirectIllum;
 			break;
-		case 4:
+		case 5:
 			devImage = devIndirectIllum;
+			break;
+		case 7:
+			devImage = directFilter.devAccumColor;
 			break;
 		}
 		copyImageToPBO(devPBO, devImage, width, height, Settings::toneMapping);

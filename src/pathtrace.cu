@@ -102,7 +102,7 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::vec2* image, int width, int hei
 	}
 	int index = y * width + x;
 
-	glm::vec3 color = glm::vec3(image[index], 1.f);
+	glm::vec3 color = glm::vec3(image[index], 0.f);
 	color = Math::correctGamma(color);
 
 	glm::ivec3 iColor = glm::clamp(glm::ivec3(color * 255.f), glm::ivec3(0), glm::ivec3(255));
@@ -125,6 +125,24 @@ __global__ void sendImageToPBO(uchar4* pbo, float* image, int width, int height)
 	pbo[index] = make_uchar4(iColor.x, iColor.y, iColor.z, 0);
 }
 
+__global__ void sendImageToPBO(uchar4* pbo, int* image, int width, int height) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+	if (x >= width || y >= height) {
+		return;
+	}
+	int index = y * width + x;
+	int px = image[index] % width;
+	int py = image[index] / height;
+
+	glm::vec3 color = glm::vec3(glm::vec2(px, py) / glm::vec2(width, height), 0.f);
+	color = Math::correctGamma(color);
+
+	glm::ivec3 iColor = glm::clamp(glm::ivec3(color * 255.f), glm::ivec3(0), glm::ivec3(255));
+	pbo[index] = make_uchar4(iColor.x, iColor.y, iColor.z, 0);
+}
+
 void copyImageToPBO(uchar4* devPBO, glm::vec3* devImage, int width, int height, int toneMapping) {
 	const int BlockSize = 32;
 	dim3 blockSize(BlockSize, BlockSize);
@@ -140,6 +158,13 @@ void copyImageToPBO(uchar4* devPBO, glm::vec2* devImage, int width, int height) 
 }
 
 void copyImageToPBO(uchar4* devPBO, float* devImage, int width, int height) {
+	const int BlockSize = 32;
+	dim3 blockSize(BlockSize, BlockSize);
+	dim3 blockNum(ceilDiv(width, BlockSize), ceilDiv(height, BlockSize));
+	sendImageToPBO<<<blockNum, blockSize>>>(devPBO, devImage, width, height);
+}
+
+void copyImageToPBO(uchar4* devPBO, int* devImage, int width, int height) {
 	const int BlockSize = 32;
 	dim3 blockSize(BlockSize, BlockSize);
 	dim3 blockNum(ceilDiv(width, BlockSize), ceilDiv(height, BlockSize));

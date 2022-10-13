@@ -4,7 +4,7 @@ __device__ constexpr float Gaussian5x5[] = {
 	.0625f, .25f, .375f, .25f, .0625f
 };
 
-__global__ void renderGBufferKern(DevScene* scene, Camera cam, GBuffer gBuffer) {
+__global__ void renderGBuffer(DevScene* scene, Camera cam, GBuffer gBuffer) {
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
 	int y = blockDim.y * blockIdx.y + threadIdx.y;
 	if (x >= cam.resolution.x || y >= cam.resolution.y) {
@@ -31,8 +31,9 @@ __global__ void renderGBufferKern(DevScene* scene, Camera cam, GBuffer gBuffer) 
 	scene->intersect(ray, intersec);
 
 	if (intersec.primId != NullPrimitive) {
+		bool isLight = scene->materials[intersec.matId].type == Material::Type::Light;
 		int matId = intersec.matId;
-		if (scene->materials[intersec.matId].type == Material::Type::Light) {
+		if (isLight) {
 			matId = NullPrimitive - 1;
 #if SCENE_LIGHT_SINGLE_SIDED
 			if (glm::dot(intersec.norm, ray.direction) < 0.f) {
@@ -42,10 +43,13 @@ __global__ void renderGBufferKern(DevScene* scene, Camera cam, GBuffer gBuffer) 
 		}
 		Material material = scene->getTexturedMaterialAndSurface(intersec);
 
-		gBuffer.devAlbedo[idx] = material.baseColor;
+		gBuffer.devAlbedo[idx] = isLight ? glm::vec3(1.f) : material.baseColor;
 		gBuffer.normal()[idx] = intersec.norm;
 		gBuffer.primId()[idx] = matId;
 		gBuffer.depth()[idx] = glm::distance(intersec.pos, ray.origin);
+
+		glm::ivec2 lastPos = gBuffer.lastCamera.getRasterCoord(intersec.pos);
+		gBuffer.devMotion[idx] = lastPos.y * cam.resolution.x + lastPos.x;
 	}
 	else {
 		gBuffer.devAlbedo[idx] = glm::vec3(0.f);
@@ -68,7 +72,7 @@ __device__ float weightNormal(const GBuffer& gBuffer, int p, int q) {
 }
 
 __global__ void waveletFilter(
-	GBuffer gBuffer, glm::vec3* devColorOut, glm::vec3* devColorIn,
+	glm::vec3* devColorOut, glm::vec3* devColorIn, GBuffer gBuffer,
 	float sigDepth, float sigNormal, float sigLuminance, Camera cam, int level
 ) {
 	int step = 1 << level;
@@ -100,7 +104,7 @@ __global__ void waveletFilter(
 			int qy = y + j * step;
 			int idxQ = qy * cam.resolution.x + qx;
 
-			if (idxQ < 0 || idxQ >= cam.resolution.x * cam.resolution.y) {
+			if (qx >= cam.resolution.x || qy >= cam.resolution.y) {
 				continue;
 			}
 			if (gBuffer.primId()[idxQ] != primIdP) {
@@ -130,10 +134,10 @@ __global__ void waveletFilter(
 
 /*
 * SVGF version, filtering variance at the same time
-* Variance is stored as the last component of vec4
 */
 __global__ void waveletFilter(
-	GBuffer gBuffer, glm::vec4* devColorVarOut, glm::vec4* devColorVarIn,
+	glm::vec3* devColorOut, glm::vec3* devColorIn, float* devVarianceOut, float* devVarainceIn,
+	GBuffer gBuffer,
 	float sigDepth, float sigNormal, float sigLuminance, Camera cam, int level
 ) {
 	int step = 1 << level;
@@ -174,14 +178,46 @@ __global__ void add(glm::vec3* devImage, glm::vec3* devIn, int width, int height
 	}
 }
 
+
+__global__ void temporalAccumulate(
+	glm::vec3* devColorAccum, glm::vec2* devMomentAccum, glm::vec3* devColorIn, GBuffer gBuffer, bool first) {
+	const float Alpha = .2f;
+
+	int x = blockDim.x * blockIdx.x + threadIdx.x;
+	int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+	if (x >= gBuffer.width || y >= gBuffer.height) {
+		return;
+	}
+	int idx = y * gBuffer.width + x;
+
+	int primId = gBuffer.primId()[idx];
+	int lastIdx = gBuffer.devMotion[idx];
+
+	if (primId <= NullPrimitive || first || gBuffer.primId()[lastIdx] != primId) {
+		glm::vec3 c = devColorIn[idx];
+		float l = Math::luminance(c);
+		devColorAccum[idx] = c;
+		devMomentAccum[idx] = { l, l * l };
+		return;
+	}
+
+	glm::vec3 lastColor = devColorIn[lastIdx];
+	float lum = Math::luminance(lastColor);
+	devColorAccum[idx] = glm::mix(devColorAccum[idx], lastColor, Alpha);
+	devMomentAccum[idx] = glm::mix(devMomentAccum[idx], glm::vec2(lum, lum * lum), Alpha);
+}
+
 void GBuffer::create(int width, int height) {
+	this->width = width;
+	this->height = height;
 	int numPixels = width * height;
-	cudaMalloc(&devAlbedo, numPixels * sizeof(glm::vec3));
-	cudaMalloc(&devMotion, numPixels * sizeof(glm::vec2));
+	devAlbedo = cudaMalloc<glm::vec3>(numPixels);
+	devMotion = cudaMalloc<int>(numPixels);
 	for (int i = 0; i < 2; i++) {
-		cudaMalloc(&devNormal[i], numPixels * sizeof(glm::vec3));
-		cudaMalloc(&devPrimId[i], numPixels * sizeof(int));
-		cudaMalloc(&devDepth[i], numPixels * sizeof(float));
+		devNormal[i] = cudaMalloc<glm::vec3>(numPixels);
+		devPrimId[i] = cudaMalloc<int>(numPixels);
+		devDepth[i] = cudaMalloc<float>(numPixels);
 	}
 }
 
@@ -204,15 +240,15 @@ void GBuffer::render(DevScene* scene, const Camera& cam) {
 	constexpr int BlockSize = 8;
 	dim3 blockSize(BlockSize, BlockSize);
 	dim3 blockNum(ceilDiv(cam.resolution.x, BlockSize), ceilDiv(cam.resolution.y, BlockSize));
-	renderGBufferKern<<<blockNum, blockSize>>>(scene, cam, *this);
+	renderGBuffer<<<blockNum, blockSize>>>(scene, cam, *this);
 	checkCUDAError("renderGBuffer");
 }
 
-void modulateAlbedo(glm::vec3* devImage, GBuffer gBuffer, int width, int height) {
+void modulateAlbedo(glm::vec3* devImage, const GBuffer& gBuffer) {
 	constexpr int BlockSize = 32;
 	dim3 blockSize(BlockSize, BlockSize);
-	dim3 blockNum(ceilDiv(width, BlockSize), ceilDiv(height, BlockSize));
-	modulate<<<blockNum, blockSize>>>(devImage, gBuffer, width, height);
+	dim3 blockNum(ceilDiv(gBuffer.width, BlockSize), ceilDiv(gBuffer.height, BlockSize));
+	modulate<<<blockNum, blockSize>>>(devImage, gBuffer, gBuffer.width, gBuffer.height);
 	checkCUDAError("modulate");
 }
 
@@ -230,26 +266,22 @@ void EAWaveletFilter::filter(
 	dim3 blockSize(BlockSize, BlockSize);
 	dim3 blockNum(ceilDiv(width, BlockSize), ceilDiv(height, BlockSize));
 	waveletFilter<<<blockNum, blockSize>>>(
-		gBuffer, devColorOut, devColorIn, sigDepth, sigNormal, sigLumin, cam, level
+		devColorOut, devColorIn, gBuffer, sigDepth, sigNormal, sigLumin, cam, level
 	);
 	checkCUDAError("EAW Filter");
 }
 
 void EAWaveletFilter::filter(
-	glm::vec4* devColorVarOut, glm::vec4* devColorVarIn, const GBuffer& gBuffer, const Camera& cam, int level
+	glm::vec3* devColorOut, glm::vec3* devColorIn,
+	float* devVarianceOut, float* devVarianceIn,
+	const GBuffer& gBuffer, const Camera& cam, int level
 ) {
 	constexpr int BlockSize = 32;
 	dim3 blockSize(BlockSize, BlockSize);
 	dim3 blockNum(ceilDiv(width, BlockSize), ceilDiv(height, BlockSize));
 	waveletFilter<<<blockNum, blockSize>>>(
-		gBuffer, devColorVarOut, devColorVarIn, sigDepth, sigNormal, sigLumin, cam, level
+		devColorOut, devColorIn, devVarianceOut, devVarianceIn, gBuffer, sigDepth, sigNormal, sigLumin, cam, level
 	);
-}
-
-void denoiserInit(int width, int height) {
-}
-
-void denoiserFree() {
 }
 
 void LeveledEAWFilter::create(int width, int height, int level) {
@@ -267,4 +299,30 @@ void LeveledEAWFilter::filter(glm::vec3*& devColorIn, const GBuffer& gBuffer, co
 		waveletFilter.filter(devTempImg, devColorIn, gBuffer, cam, i);
 		std::swap(devColorIn, devTempImg);
 	}
+}
+
+void SpatioTemporalFilter::create(int width, int height, int level) {
+	this->level = level;
+	devAccumColor = cudaMalloc<glm::vec3>(width * height);
+	devAccumMoment = cudaMalloc<glm::vec2>(width * height);
+	waveletFilter = EAWaveletFilter(width, height);
+}
+
+void SpatioTemporalFilter::destroy() {
+	cudaSafeFree(devAccumColor);
+	cudaSafeFree(devAccumMoment);
+}
+
+void SpatioTemporalFilter::temporalAccumulate(glm::vec3* devColorIn, const GBuffer& gBuffer) {
+	constexpr int BlockSize = 32;
+	dim3 blockSize(BlockSize, BlockSize);
+	dim3 blockNum(ceilDiv(gBuffer.width, BlockSize), ceilDiv(gBuffer.height, BlockSize));
+	::temporalAccumulate<<<blockNum, blockSize>>>(devAccumColor, devAccumMoment, devColorIn, gBuffer, firstTime);
+	firstTime = false;
+}
+
+void denoiserInit(int width, int height) {
+}
+
+void denoiserFree() {
 }
