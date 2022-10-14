@@ -25,6 +25,7 @@ glm::vec3* devDirectIllum = nullptr;
 glm::vec3* devIndirectIllum = nullptr;
 GBuffer gBuffer;
 
+glm::vec3* devTemp = nullptr;
 glm::vec3* devImage = nullptr;
 
 LeveledEAWFilter EAWFilter;
@@ -35,12 +36,14 @@ void initImageBuffer() {
 	devDirectIllum = cudaMalloc<glm::vec3>(width * height);
 	devIndirectIllum = cudaMalloc<glm::vec3>(width * height);
 	gBuffer.create(width, height);
+	devTemp = cudaMalloc<glm::vec3>(width * height);
 }
 
 void freeImageBuffer() {
 	cudaSafeFree(devDirectIllum);
 	cudaSafeFree(devIndirectIllum);
 	gBuffer.destroy();
+	cudaSafeFree(devTemp);
 }
 
 int main(int argc, char** argv) {
@@ -139,14 +142,23 @@ void runCuda() {
 	cudaGLMapBufferObject((void**)&devPBO, pbo);
 
 	pathTrace(devDirectIllum, devIndirectIllum);
-	directFilter.temporalAccumulate(devDirectIllum, gBuffer);
-	indirectFilter.temporalAccumulate(devIndirectIllum, gBuffer);
+	//directFilter.temporalAccumulate(devDirectIllum, gBuffer);
+	//indirectFilter.temporalAccumulate(devIndirectIllum, gBuffer);
+
+	//directFilter.estimateVariance();
 
 	//EAWFilter.filter(devDirectIllum, gBuffer, scene->camera);
 	//EAWFilter.filter(devIndirectIllum, gBuffer, scene->camera);
 
-	addImage(devDirectIllum, devIndirectIllum, width, height);
-	modulateAlbedo(devDirectIllum, gBuffer);
+	//addImage(devDirectIllum, devIndirectIllum, width, height);
+	//modulateAlbedo(devDirectIllum, gBuffer);
+
+	//addImage(devTemp, directFilter.devAccumColor, indirectFilter.devAccumColor, width, height);
+
+	directFilter.filter(devDirectIllum, gBuffer, scene->camera);
+	indirectFilter.filter(devIndirectIllum, gBuffer, scene->camera);
+	addImage(devTemp, devDirectIllum, devIndirectIllum, width, height);
+	modulateAlbedo(devTemp, gBuffer);
 
 	if (Settings::ImagePreviewOpt == 2) {
 		copyImageToPBO(devPBO, gBuffer.depth(), width, height);
@@ -154,8 +166,8 @@ void runCuda() {
 	else if (Settings::ImagePreviewOpt == 3) {
 		copyImageToPBO(devPBO, gBuffer.devMotion, width, height);
 	}
-	else if (Settings::ImagePreviewOpt == 6) {
-		copyImageToPBO(devPBO, directFilter.devAccumMoment, width, height);
+	else if (Settings::ImagePreviewOpt == 8) {
+		copyImageToPBO(devPBO, directFilter.devVariance, width, height);
 	}
 	else {
 		switch (Settings::ImagePreviewOpt) {
@@ -171,8 +183,11 @@ void runCuda() {
 		case 5:
 			devImage = devIndirectIllum;
 			break;
+		case 6:
+			devImage = devTemp;
+			break;
 		case 7:
-			devImage = directFilter.devAccumColor;
+			devImage = directFilter.devAccumMoment;
 			break;
 		}
 		copyImageToPBO(devPBO, devImage, width, height, Settings::toneMapping);

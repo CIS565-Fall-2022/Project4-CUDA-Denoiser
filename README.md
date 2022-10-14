@@ -1,3 +1,26 @@
+CUDA Denoiser
+================
+
+**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
+
+### 1 SPP Input
+
+![](./img/cornell_1spp.jpg)
+
+### 5 Level Edge-Avoiding A-Trous Filter
+
+![](./img/cornell_eaw.jpg)
+
+### Spatiotemporal Variance-Guided Filter
+
+![](./img/cornell_svgf.jpg)
+
+### Ground Truth (3000 SPP)
+
+![](./img/cornell_3000spp.jpg)
+
+
+
 CUDA Path Tracer
 ================
 

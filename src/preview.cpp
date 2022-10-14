@@ -232,8 +232,8 @@ void RenderImGui() {
 		const char* Modes[] = {
 			"Albedo", "Normal", "Depth", "Motion",
 			"Input Direct", "Input Indirect",
-			"Accumulated Moment",
-			"Wavelet 0 Direct"
+			"Accumulated Color", "Accumulated Moment",
+			"Variance"
 		};
 
 		if (ImGui::Combo("Preview", &Settings::ImagePreviewOpt, Modes, IM_ARRAYSIZE(Modes))) {
@@ -251,9 +251,13 @@ void RenderImGui() {
 		ImGui::Separator();
 
 		ImGui::Text("Filter");
-		ImGui::DragFloat("Sigma Lumin", &EAWFilter.waveletFilter.sigLumin, .01f, 0.f);
-		ImGui::DragFloat("Sigma Normal", &EAWFilter.waveletFilter.sigNormal, .01f, 0.f);
-		ImGui::DragFloat("Sigma Depth", &EAWFilter.waveletFilter.sigDepth, .01f, 0.f);
+		ImGui::DragFloat("Sigma Lumin", &directFilter.waveletFilter.sigLumin, .01f, 0.f);
+		ImGui::DragFloat("Sigma Normal", &directFilter.waveletFilter.sigNormal, .01f, 0.f);
+		ImGui::DragFloat("Sigma Depth", &directFilter.waveletFilter.sigDepth, .01f, 0.f);
+
+		indirectFilter.waveletFilter.sigLumin = directFilter.waveletFilter.sigLumin;
+		indirectFilter.waveletFilter.sigNormal = directFilter.waveletFilter.sigNormal;
+		indirectFilter.waveletFilter.sigDepth = directFilter.waveletFilter.sigDepth;
 
 		ImGui::End();
 	}

@@ -38,16 +38,16 @@ struct GBuffer {
 struct EAWaveletFilter {
     EAWaveletFilter() = default;
 
-    EAWaveletFilter(int width, int height) :
-        width(width), height(height) {}
+    EAWaveletFilter(int width, int height, float sigLumin, float sigNormal, float sigDepth) :
+        width(width), height(height), sigLumin(sigLumin), sigNormal(sigNormal), sigDepth(sigDepth) {}
 
     void filter(glm::vec3* devColorOut, glm::vec3* devColorIn, const GBuffer& gBuffer, const Camera& cam, int level);
     void filter(glm::vec3* devColorOut, glm::vec3* devColorIn, float* devVarianceOut, float* devVarianceIn,
-        const GBuffer& gBuffer, const Camera& cam, int level);
+        float* devFilteredVar, const GBuffer& gBuffer, const Camera& cam, int level);
 
-    float sigLumin = 64.f;
-    float sigNormal = .2f;
-    float sigDepth = 1.f;
+    float sigLumin;
+    float sigNormal;
+    float sigDepth;
 
     int width = 0;
     int height = 0;
@@ -58,7 +58,7 @@ struct LeveledEAWFilter {
     void create(int width, int height, int level);
     void destroy();
 
-    void filter(glm::vec3*& devColorIn, const GBuffer& gBuffer, const Camera& cam);
+    void filter(glm::vec3*& devColor, const GBuffer& gBuffer, const Camera& cam);
 
     EAWaveletFilter waveletFilter;
     int level = 0;
@@ -71,13 +71,22 @@ struct SpatioTemporalFilter {
     void destroy();
 
     void temporalAccumulate(glm::vec3* devColorIn, const GBuffer& gBuffer);
+    void estimateVariance();
+    void filterVariance();
+
+    void filter(glm::vec3*& devColor, const GBuffer& gBuffer, const Camera& cam);
 
     EAWaveletFilter waveletFilter;
     int level = 0;
 
     glm::vec3* devAccumColor = nullptr;
-    glm::vec2* devAccumMoment = nullptr;
+    glm::vec3* devAccumMoment = nullptr;
+    float* devVariance = nullptr;
     bool firstTime = true;
+
+    glm::vec3* devTempColor = nullptr;
+    float* devTempVariance = nullptr;
+    float* devFilteredVariance = nullptr;
 };
 
 void denoiserInit(int width, int height);
