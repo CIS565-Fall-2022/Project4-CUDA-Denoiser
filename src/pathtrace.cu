@@ -74,11 +74,23 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
     if (x < resolution.x && y < resolution.y) {
         int index = x + (y * resolution.x);
         float timeToIntersect = gBuffer[index].t * 256.0;
+        glm::vec3 position = 0.1f * abs(gBuffer[index].position);
+        glm::vec3 normal = 0.5f * (gBuffer[index].normal + glm::vec3(1.f, 1.f, 1.f));
+
+        //pbo[index].w = 0;
+        //pbo[index].x = timeToIntersect;
+        //pbo[index].y = timeToIntersect;
+        //pbo[index].z = timeToIntersect;
+
+        /*pbo[index].w = 0;
+        pbo[index].x = normal.x * 255.0;
+        pbo[index].y = normal.y * 255.0;
+        pbo[index].z = normal.z * 255.0;*/
 
         pbo[index].w = 0;
-        pbo[index].x = timeToIntersect;
-        pbo[index].y = timeToIntersect;
-        pbo[index].z = timeToIntersect;
+        pbo[index].x = position.x * 256.0;
+        pbo[index].y = position.y * 256.0;
+        pbo[index].z = position.z * 256.0;
     }
 }
 
@@ -281,7 +293,9 @@ __global__ void generateGBuffer (
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < num_paths)
   {
-    gBuffer[idx].t = shadeableIntersections[idx].t;
+    gBuffer[idx].t = shadeableIntersections[idx].t * 0.05f;
+    gBuffer[idx].position = getPointOnRay(pathSegments[idx].ray, shadeableIntersections[idx].t);
+    gBuffer[idx].normal = shadeableIntersections[idx].surfaceNormal;
   }
 }
 
@@ -356,46 +370,47 @@ void pathtrace(int frame, int iter) {
 	// --- PathSegment Tracing Stage ---
 	// Shoot ray into scene, bounce between objects, push shading chunks
 
-  // Empty gbuffer
-  cudaMemset(dev_gBuffer, 0, pixelcount * sizeof(GBufferPixel));
+    // Empty gbuffer
+    cudaMemset(dev_gBuffer, 0, pixelcount * sizeof(GBufferPixel));
 
 	// clean shading chunks
 	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
-  bool iterationComplete = false;
+    bool iterationComplete = false;
 	while (!iterationComplete) {
 
-	// tracing
-	dim3 numblocksPathSegmentTracing = (num_paths + blockSize1d - 1) / blockSize1d;
-	computeIntersections <<<numblocksPathSegmentTracing, blockSize1d>>> (
-		depth
-		, num_paths
-		, dev_paths
-		, dev_geoms
-		, hst_scene->geoms.size()
-		, dev_intersections
-		);
-	checkCUDAError("trace one bounce");
-	cudaDeviceSynchronize();
+	    // tracing
+	    dim3 numblocksPathSegmentTracing = (num_paths + blockSize1d - 1) / blockSize1d;
+	    computeIntersections <<<numblocksPathSegmentTracing, blockSize1d>>> (
+		    depth
+		    , num_paths
+		    , dev_paths
+		    , dev_geoms
+		    , hst_scene->geoms.size()
+		    , dev_intersections
+		    );
+	    checkCUDAError("trace one bounce");
+	    cudaDeviceSynchronize();
 
-  if (depth == 0) {
-    generateGBuffer<<<numblocksPathSegmentTracing, blockSize1d>>>(num_paths, dev_intersections, dev_paths, dev_gBuffer);
-  }
+        // For first depth, generate gBuffer
+        if (depth == 0) {
+            generateGBuffer<<<numblocksPathSegmentTracing, blockSize1d>>>(num_paths, dev_intersections, dev_paths, dev_gBuffer);
+        }
 
-	depth++;
+	    depth++;
 
-  shadeSimpleMaterials<<<numblocksPathSegmentTracing, blockSize1d>>> (
-    iter,
-    num_paths,
-    dev_intersections,
-    dev_paths,
-    dev_materials
-  );
-  iterationComplete = depth == traceDepth;
+        shadeSimpleMaterials<<<numblocksPathSegmentTracing, blockSize1d>>> (
+            iter,
+            num_paths,
+            dev_intersections,
+            dev_paths,
+            dev_materials
+        );
+        iterationComplete = depth == traceDepth;
 	}
 
-  // Assemble this iteration and apply it to the image
-  dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
+    // Assemble this iteration and apply it to the image
+    dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
 	finalGather<<<numBlocksPixels, blockSize1d>>>(num_paths, dev_image, dev_paths);
 
     ///////////////////////////////////////////////////////////////////////////
@@ -419,6 +434,17 @@ void showGBuffer(uchar4* pbo) {
 
     // CHECKITOUT: process the gbuffer results and send them to OpenGL buffer for visualization
     gbufferToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_gBuffer);
+}
+
+void denoise(uchar4* pbo, int iter) {
+    const Camera& cam = hst_scene->state.camera;
+    const dim3 blockSize2d(8, 8);
+    const dim3 blocksPerGrid2d(
+        (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+        (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+
+    // Send results to OpenGL buffer for rendering
+    sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
 }
 
 void showImage(uchar4* pbo, int iter) {
