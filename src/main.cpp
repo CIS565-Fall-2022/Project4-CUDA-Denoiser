@@ -4,6 +4,19 @@
 
 static std::string startTimeString;
 
+//UI Panal
+int ui_iterations = 0;
+int startupIterations = 0;
+int lastLoopIterations = 0;
+bool ui_showGbuffer = false;
+bool ui_denoise = false;
+int ui_filterSize = 80;
+float ui_colorWeight = 0.45f;
+float ui_normalWeight = 0.35f;
+float ui_positionWeight = 0.2f;
+bool ui_saveAndExit = false;
+
+
 // For camera controls
 static bool leftMousePressed = false;
 static bool rightMousePressed = false;
@@ -18,6 +31,8 @@ static glm::vec3 cammove;
 float zoom, theta, phi;
 glm::vec3 cameraPosition;
 glm::vec3 ogLookAt; // for recentering the camera
+
+
 
 Scene* scene;
 GuiDataContainer* guiData;
@@ -137,19 +152,28 @@ void runCuda() {
 		pathtraceInit(scene);
 	}
 
-	if (iteration < renderState->iterations) {
-		uchar4* pbo_dptr = NULL;
-		iteration++;
-		cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
+	uchar4* pbo_dptr = NULL;
+	cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
 
+	if (iteration < renderState->iterations) {
+		iteration++;
 		// execute the kernel
 		int frame = 0;
 		pathtrace(pbo_dptr, frame, iteration,sortMaterial);
-
 		// unmap buffer object
-		cudaGLUnmapBufferObject(pbo);
+		//cudaGLUnmapBufferObject(pbo);
+	}
+
+	if (ui_showGbuffer) {
+		showGBuffer(pbo_dptr);
 	}
 	else {
+		showImage(pbo_dptr, iteration);
+	}
+
+	cudaGLUnmapBufferObject(pbo);
+
+	if (ui_saveAndExit) {
 		saveImage();
 		pathtraceFree();
 		cudaDeviceReset();

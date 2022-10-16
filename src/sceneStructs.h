@@ -216,6 +216,7 @@ struct ShadeableIntersection {
 
 //Add for string compaction
 
+
 struct isPathCompleted
 {
     __host__ __device__
@@ -232,4 +233,10 @@ struct compareIntersection
     {
        return a.materialId > b.materialId;
     }
+};
+
+
+
+struct GBufferPixel {
+    float t;
 };

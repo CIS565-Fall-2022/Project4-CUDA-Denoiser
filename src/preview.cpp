@@ -5,6 +5,7 @@
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_glfw.h"
 #include "ImGui/imgui_impl_opengl3.h"
+
 GLuint positionLocation = 0;
 GLuint texcoordsLocation = 1;
 GLuint pbo;
@@ -14,6 +15,8 @@ GLFWwindow* window;
 GuiDataContainer* imguiData = NULL;
 ImGuiIO* io = nullptr;
 bool mouseOverImGuiWinow = false;
+
+
 
 std::string currentTimeString() {
 	time_t now;
@@ -165,9 +168,9 @@ bool init() {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	io = &ImGui::GetIO(); (void)io;
-	ImGui::StyleColorsLight();
+	ImGui::StyleColorsDark();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init("#version 120");
+	ImGui_ImplOpenGL3_Init("#version 130");
 
 	// Initialize other stuff
 	initVAO();
@@ -179,6 +182,7 @@ bool init() {
 	glUseProgram(passthroughProgram);
 	glActiveTexture(GL_TEXTURE0);
 
+
 	return true;
 }
 
@@ -187,6 +191,8 @@ void InitImguiData(GuiDataContainer* guiData)
 	imguiData = guiData;
 }
 
+static ImGuiWindowFlags windowFlags = ImGuiWindowFlags_None | ImGuiWindowFlags_NoMove;
+static bool ui_hide = false;
 
 // LOOK: Un-Comment to check ImGui Usage
 void RenderImGui()
@@ -217,14 +223,61 @@ void RenderImGui()
 	//	counter++;
 	//ImGui::SameLine();
 	//ImGui::Text("counter = %d", counter);
-	ImGui::Text("Traced Depth %d", imguiData->TracedDepth);
-	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-	ImGui::End();
+	//ImGui::Text("Traced Depth %d", imguiData->TracedDepth);
+	//ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	//ImGui::End();
 
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
+}
+
+void drawGui(int windowWidth, int windowHeight) {
+	// Dear imgui new frame
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	// Dear imgui define
+	ImVec2 minSize(300.f, 220.f);
+	ImVec2 maxSize((float)windowWidth * 0.5, (float)windowHeight * 0.3);
+	ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
+
+	ImGui::SetNextWindowPos(ui_hide ? ImVec2(-1000.f, -1000.f) : ImVec2(0.0f, 0.0f));
+
+	ImGui::Begin("Control Panel", 0, windowFlags);
+	ImGui::SetWindowFontScale(1);
+
+	ImGui::Text("press H to hide GUI completely.");
+	if (ImGui::IsKeyPressed('H')) {
+		ui_hide = !ui_hide;
+	}
+
+	ImGui::SliderInt("Iterations", &ui_iterations, 1, startupIterations);
+
+	ImGui::Checkbox("Denoise", &ui_denoise);
+
+	ImGui::SliderInt("Filter Size", &ui_filterSize, 0, 100);
+	ImGui::SliderFloat("Color Weight", &ui_colorWeight, 0.0f, 10.0f);
+	ImGui::SliderFloat("Normal Weight", &ui_normalWeight, 0.0f, 10.0f);
+	ImGui::SliderFloat("Position Weight", &ui_positionWeight, 0.0f, 10.0f);
+
+	ImGui::Separator();
+
+	ImGui::Checkbox("Show GBuffer", &ui_showGbuffer);
+
+	ImGui::Separator();
+
+	if (ImGui::Button("Save image and exit")) {
+		ui_saveAndExit = true;
+	}
+
+	ImGui::End();
+
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 bool MouseOverImGuiWindow()
@@ -253,7 +306,9 @@ void mainLoop() {
 		glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
 
 		// Render ImGui Stuff
-		RenderImGui();
+		int display_w, display_h;
+		glfwGetFramebufferSize(window, &display_w, &display_h);
+		drawGui(display_w, display_h);
 
 		glfwSwapBuffers(window);
 	}
