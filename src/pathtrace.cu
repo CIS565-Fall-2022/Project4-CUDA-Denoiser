@@ -65,7 +65,7 @@ void pathTraceFree() {
 #endif
 }
 
-__global__ void sendImageToPBO(uchar4* pbo, glm::vec3* image, int width, int height, int toneMapping) {
+__global__ void sendImageToPBO(uchar4* pbo, glm::vec3* image, int width, int height, int toneMapping, float scale) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
@@ -75,7 +75,7 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::vec3* image, int width, int hei
 	int index = y * width + x;
 
 	// Tonemapping and gamma correction
-	glm::vec3 color = image[index];
+	glm::vec3 color = image[index] * scale;
 
 	switch (toneMapping) {
 	case ToneMapping::Filmic:
@@ -143,11 +143,11 @@ __global__ void sendImageToPBO(uchar4* pbo, int* image, int width, int height) {
 	pbo[index] = make_uchar4(iColor.x, iColor.y, iColor.z, 0);
 }
 
-void copyImageToPBO(uchar4* devPBO, glm::vec3* devImage, int width, int height, int toneMapping) {
+void copyImageToPBO(uchar4* devPBO, glm::vec3* devImage, int width, int height, int toneMapping, float scale) {
 	const int BlockSize = 32;
 	dim3 blockSize(BlockSize, BlockSize);
 	dim3 blockNum(ceilDiv(width, BlockSize), ceilDiv(height, BlockSize));
-	sendImageToPBO<<<blockNum, blockSize>>>(devPBO, devImage, width, height, toneMapping);
+	sendImageToPBO<<<blockNum, blockSize>>>(devPBO, devImage, width, height, toneMapping, scale);
 }
 
 void copyImageToPBO(uchar4* devPBO, glm::vec2* devImage, int width, int height) {
@@ -398,10 +398,7 @@ __global__ void singleKernelPT(
 	scene->intersect(ray, intersec);
 
 	if (intersec.primId == NullPrimitive) {
-		if (scene->envMap != nullptr) {
-			glm::vec2 uv = Math::toPlane(ray.direction);
-			direct += scene->envMap->linearSample(uv);
-		}
+		direct = glm::vec3(1.f);
 		goto WriteRadiance;
 	}
 
@@ -412,9 +409,7 @@ __global__ void singleKernelPT(
 #endif
 
 	if (material.type == Material::Type::Light) {
-		if (glm::dot(intersec.norm, ray.direction) > 0.f) {
-			direct = material.baseColor;
-		}
+		direct = glm::vec3(1.f);
 		goto WriteRadiance;
 	}
 

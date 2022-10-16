@@ -224,8 +224,12 @@ void RenderImGui() {
 	}
 
 	ImGui::Begin("Options"); {
-		const char* Tracers[] = { "Streamed", "Single Kernel", "BVH Visualize", "GBuffer Preview" };
+		/*const char* Tracers[] = { "Streamed", "Single Kernel", "BVH Visualize", "GBuffer Preview" };
 		if (ImGui::Combo("Tracer", &Settings::tracer, Tracers, IM_ARRAYSIZE(Tracers))) {
+			State::camChanged = true;
+		}*/
+		const char* Denoisers[] = { "None", "Gaussian", "EA A-Trous", "SVGF" };
+		if (ImGui::Combo("Denoiser", &Settings::denoiser, Denoisers, IM_ARRAYSIZE(Denoisers))) {
 			State::camChanged = true;
 		}
 
@@ -240,6 +244,25 @@ void RenderImGui() {
 			State::camChanged = true;
 		}
 
+		ImGui::Text("Filter");
+		if (Settings::denoiser == Denoiser::EAWavelet) {
+			ImGui::SliderInt("Levels", &EAWFilter.level, 1, 5);
+			ImGui::DragFloat("Sigma Lumin", &EAWFilter.waveletFilter.sigLumin, .01f, 0.f);
+			ImGui::DragFloat("Sigma Normal", &EAWFilter.waveletFilter.sigNormal, .01f, 0.f);
+			ImGui::DragFloat("Sigma Depth", &EAWFilter.waveletFilter.sigDepth, .01f, 0.f);
+		}
+		else if (Settings::denoiser == Denoiser::SVGF) {
+			ImGui::SliderInt("Levels", &directFilter.level, 1, 5);
+			ImGui::DragFloat("Sigma Lumin", &directFilter.waveletFilter.sigLumin, .01f, 0.f);
+			ImGui::DragFloat("Sigma Normal", &directFilter.waveletFilter.sigNormal, .01f, 0.f);
+			ImGui::DragFloat("Sigma Depth", &directFilter.waveletFilter.sigDepth, .01f, 0.f);
+
+			indirectFilter.level = directFilter.level;
+			indirectFilter.waveletFilter.sigLumin = directFilter.waveletFilter.sigLumin;
+			indirectFilter.waveletFilter.sigNormal = directFilter.waveletFilter.sigNormal;
+			indirectFilter.waveletFilter.sigDepth = directFilter.waveletFilter.sigDepth;
+		}
+
 		if (ImGui::InputInt("Max Depth", &Settings::traceDepth, 1, 1)) {
 			State::camChanged = true;
 		}
@@ -249,15 +272,6 @@ void RenderImGui() {
 		const char* ToneMappingMethods[] = { "None", "Filmic", "ACES" };
 		ImGui::Combo("Tone Mapping", &Settings::toneMapping, ToneMappingMethods, IM_ARRAYSIZE(ToneMappingMethods));
 		ImGui::Separator();
-
-		ImGui::Text("Filter");
-		ImGui::DragFloat("Sigma Lumin", &directFilter.waveletFilter.sigLumin, .01f, 0.f);
-		ImGui::DragFloat("Sigma Normal", &directFilter.waveletFilter.sigNormal, .01f, 0.f);
-		ImGui::DragFloat("Sigma Depth", &directFilter.waveletFilter.sigDepth, .01f, 0.f);
-
-		indirectFilter.waveletFilter.sigLumin = directFilter.waveletFilter.sigLumin;
-		indirectFilter.waveletFilter.sigNormal = directFilter.waveletFilter.sigNormal;
-		indirectFilter.waveletFilter.sigDepth = directFilter.waveletFilter.sigDepth;
 
 		ImGui::End();
 	}

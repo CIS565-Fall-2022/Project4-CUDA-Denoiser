@@ -3,6 +3,55 @@ CUDA Denoiser
 
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
 
+* Chang Liu
+  * [LinkedIn](https://www.linkedin.com/in/chang-liu-0451a6208/)
+  * [Personal website](https://hummawhite.github.io/)
+* Tested on personal laptop:
+  - i7-12700 @ 4.90GHz with 16GB RAM
+  - RTX 3070 Ti Laptop 8GB
+
+## Features
+
+### Edge-Avoiding A-Trous Wavelet Denoiser
+
+#### Pipeline Overview
+
+G-Buffer is generated before 
+
+This denoiser is based on project 3's path tracer, which supports a variety of surface appearances including texture and glossy reflection. In order to support these features and improve overall denoising quality, inspired by SVGF, the denoiser generates demodulated direct and indirect illumination components separately.
+
+![](./img/pipeline.jpeg)
+
+
+
+Here, demodulation means dividing path traced color by albedo, which composes of materials' base color and texture color. In actual implementation, we simply set the surface color to 1 to avoid dividing zero if the material's base color or texture's color is black. By demodulation, the input to denoise filter remains only light transportation terms. This can effectively prevent blurring texture details.
+
+<table>
+    <tr>
+        <th>Path Traced</th>
+        <th>Albedo</th>
+        <th>Demodulated</th>
+    </tr>
+    <tr>
+        <th><img src="./img/cornell_1spp.jpg"/></th>
+        <th><img src="./img/albedo.png"/></th>
+        <th><img src="./img/input_demod.jpg"/></th>
+    </tr>
+</table>
+
+Then, we send direct and indirect components to reconstruction filters guided by G-Buffer. The reconstruction filter is made up of five Edge-Avoiding A-Trous Wavelet Filters, with each filter's radius increasing. For EAW filter, the required geometry information includes:
+
+- Linear depth of view space, also objects' distance to eye. This can be used to reconstruct world positions used by EAW filter.
+- Normal
+- Albedo, for modulation after filtering
+- Mesh ID or object IDs, used to check if two pixels belong to a same object that they can be filtered
+
+After filtering, we add direct and indirect components together and modulate albedo back to get the denoised illumination image.
+
+### Spatiotemporal Variance-Guided Denoiser
+
+This part is implementation of the paper [SVGF]. 
+
 ### 1 SPP Input
 
 ![](./img/cornell_1spp.jpg)

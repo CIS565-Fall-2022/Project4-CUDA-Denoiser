@@ -12,6 +12,7 @@ public:
 
     void setPixel(int x, int y, const glm::vec3& pixel);
     void savePNG(const std::string& baseFilename);
+    void saveJPG(const std::string& baseFilename);
     void saveHDR(const std::string& baseFilename);
 
     int width() const {

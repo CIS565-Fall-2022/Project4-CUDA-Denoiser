@@ -10,7 +10,7 @@
 
 #define DEMODULATE_EPS 1e-3f
 
-#define DenoiseCompress 16.f
+#define DenoiseCompress 1.f
 
 #define DenoiseLightId -2
 
@@ -26,11 +26,18 @@ struct Tracer {
     };
 };
 
+struct Denoiser {
+    enum {
+        None, Gaussian, EAWavelet, SVGF
+    };
+};
+
 struct Settings {
     static int traceDepth;
     static int toneMapping;
     static int tracer;
     static int ImagePreviewOpt;
+    static int denoiser;
 };
 
 struct State {

@@ -125,6 +125,7 @@ void saveImage() {
 
 	// CHECKITOUT
 	img.savePNG(filename);
+	//img.saveJPG(filename);
 	//img.saveHDR(filename);  // Save a Radiance HDR file
 }
 
@@ -138,27 +139,26 @@ void runCuda() {
 
 	gBuffer.render(scene->devScene, scene->camera);
 
+	pathTrace(devDirectIllum, devIndirectIllum);
+
+	if (Settings::denoiser == Denoiser::None) {
+	}
+	else if (Settings::denoiser == Denoiser::Gaussian) {
+	}
+	else if (Settings::denoiser == Denoiser::EAWavelet) {
+		EAWFilter.filter(devDirectIllum, gBuffer, scene->camera);
+		EAWFilter.filter(devIndirectIllum, gBuffer, scene->camera);
+	}
+	else {
+		directFilter.filter(devDirectIllum, gBuffer, scene->camera);
+		indirectFilter.filter(devIndirectIllum, gBuffer, scene->camera);
+	}
+
+	addImage(devTemp, devDirectIllum, devIndirectIllum, width, height);
+	//modulateAlbedo(devTemp, gBuffer);
+
 	uchar4* devPBO = nullptr;
 	cudaGLMapBufferObject((void**)&devPBO, pbo);
-
-	pathTrace(devDirectIllum, devIndirectIllum);
-	//directFilter.temporalAccumulate(devDirectIllum, gBuffer);
-	//indirectFilter.temporalAccumulate(devIndirectIllum, gBuffer);
-
-	//directFilter.estimateVariance();
-
-	//EAWFilter.filter(devDirectIllum, gBuffer, scene->camera);
-	//EAWFilter.filter(devIndirectIllum, gBuffer, scene->camera);
-
-	//addImage(devDirectIllum, devIndirectIllum, width, height);
-	//modulateAlbedo(devDirectIllum, gBuffer);
-
-	//addImage(devTemp, directFilter.devAccumColor, indirectFilter.devAccumColor, width, height);
-
-	directFilter.filter(devDirectIllum, gBuffer, scene->camera);
-	indirectFilter.filter(devIndirectIllum, gBuffer, scene->camera);
-	addImage(devTemp, devDirectIllum, devIndirectIllum, width, height);
-	modulateAlbedo(devTemp, gBuffer);
 
 	if (Settings::ImagePreviewOpt == 2) {
 		copyImageToPBO(devPBO, gBuffer.depth(), width, height);

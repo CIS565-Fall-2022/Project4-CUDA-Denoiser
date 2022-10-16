@@ -35,9 +35,8 @@ __global__ void renderGBuffer(DevScene* scene, Camera cam, GBuffer gBuffer) {
 	scene->intersect(ray, intersec);
 
 	if (intersec.primId != NullPrimitive) {
-		bool isLight = scene->materials[intersec.matId].type == Material::Type::Light;
 		int matId = intersec.matId;
-		if (isLight) {
+		if (scene->materials[intersec.matId].type == Material::Type::Light) {
 			matId = NullPrimitive - 1;
 #if SCENE_LIGHT_SINGLE_SIDED
 			if (glm::dot(intersec.norm, ray.direction) < 0.f) {
@@ -47,7 +46,7 @@ __global__ void renderGBuffer(DevScene* scene, Camera cam, GBuffer gBuffer) {
 		}
 		Material material = scene->getTexturedMaterialAndSurface(intersec);
 
-		gBuffer.devAlbedo[idx] = isLight ? glm::vec3(1.f) : material.baseColor;
+		gBuffer.devAlbedo[idx] = material.baseColor;
 		gBuffer.normal()[idx] = intersec.norm;
 		gBuffer.primId()[idx] = matId;
 		gBuffer.depth()[idx] = glm::distance(intersec.pos, ray.origin);
@@ -57,7 +56,12 @@ __global__ void renderGBuffer(DevScene* scene, Camera cam, GBuffer gBuffer) {
 		gBuffer.devMotion[idx] = lastPos.y * cam.resolution.x + lastPos.x;
 	}
 	else {
-		gBuffer.devAlbedo[idx] = glm::vec3(0.f);
+		glm::vec3 albedo(0.f);
+		if (scene->envMap != nullptr) {
+			glm::vec2 uv = Math::toPlane(ray.direction);
+			albedo = scene->envMap->linearSample(uv);
+		}
+		gBuffer.devAlbedo[idx] = albedo;
 		gBuffer.normal()[idx] = glm::vec3(0.f);
 		gBuffer.primId()[idx] = NullPrimitive;
 		gBuffer.depth()[idx] = 0.f;
@@ -216,7 +220,6 @@ __global__ void modulate(glm::vec3* devImage, GBuffer gBuffer, int width, int he
 	if (x < width && y < height) {
 		int idx = y * width + x;
 		glm::vec3 color = devImage[idx];
-		color = color / (1.f - color);
 		color *= DenoiseCompress;
 		devImage[idx] = color * glm::max(gBuffer.devAlbedo[idx]/* - DEMODULATE_EPS*/, glm::vec3(0.f));
 	}
