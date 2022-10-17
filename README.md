@@ -54,11 +54,17 @@ After filtering, we add direct and indirect components together and modulate alb
 
 ### Spatiotemporal Variance-Guided Denoiser
 
-This part is implementation of the paper [SVGF]. 
+This part is implementation of the paper [SVGF].
+
+In Edge Avoiding A-Trous Filtering, our reconstruction kernel is only driven by spatial information of the scene. Now let's consider a completely static scene. 
 
 #### Pipeline
 
-The pipeline layout of SVGF is almost the same as EAW filter. However, since SVGF makes use of temporal accumulation, in each frame we need to generate an additional buffer -- motion vector. 
+The pipeline layout of SVGF is almost the same as EAW filter. However, since SVGF makes use of temporal accumulation, in each frame we need to generate additional temporal information with G-buffer -- motion vector. That is, the index of 
+
+#### Filtering
+
+SVGF's filtering kernel is more complicated than EAW as well. 
 
 ### 1 SPP Input
 

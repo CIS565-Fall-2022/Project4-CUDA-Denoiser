@@ -5,13 +5,13 @@
 
 #define SCENE_LIGHT_SINGLE_SIDED true
 
-#define DENOISER_SPLIT_DIRECT_INDIRECT true
 #define DENOISER_DEMODULATE true
+#define DENOISER_ENCODE_NORMAL true
+#define DENOISER_ENCODE_POSITION false
 
 #define DEMODULATE_EPS 1e-3f
 
 #define DenoiseCompress 1.f
-
 #define DenoiseLightId -2
 
 struct ToneMapping {

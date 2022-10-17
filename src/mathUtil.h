@@ -33,6 +33,17 @@ namespace Math {
         return x >= min && x <= max;
     }
 
+    __host__ __device__ inline glm::vec2 encodeNormalHemiOct32(glm::vec3 n) {
+        glm::vec2 p = glm::vec2(n) * (1.f / (glm::abs(n.x) + glm::abs(n.y) + n.z));
+        return glm::vec2(p.x + p.y, p.x - p.y);
+    }
+
+    __host__ __device__ inline glm::vec3 decodeNormalHemiOct32(glm::vec2 n) {
+        glm::vec2 temp = glm::vec2(n.x + n.y, n.x - n.y) * .5f;
+        glm::vec3 v(temp, 1.f - glm::abs(temp.x) - glm::abs(temp.y));
+        return glm::normalize(v);
+    }
+
     __host__ __device__ inline bool hasNanOrInf(glm::vec3 v) {
         return isnan(v.x) || isnan(v.y) || isnan(v.z) || isinf(v.x) || isinf(v.y) || isinf(v.z);
     }

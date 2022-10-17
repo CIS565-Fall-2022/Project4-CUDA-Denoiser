@@ -169,8 +169,17 @@ void runCuda() {
 	cudaGLMapBufferObject((void**)&devPBO, pbo);
 
 	if (Settings::ImagePreviewOpt == 2) {
+#if DENOISER_ENCODE_POSITION
 		copyImageToPBO(devPBO, gBuffer.depth(), width, height);
+#else
+		copyImageToPBO(devPBO, gBuffer.position(), width, height, Settings::toneMapping);
+#endif
 	}
+#if DENOISER_ENCODE_NORMAL
+	else if (Settings::ImagePreviewOpt == 1) {
+		copyImageToPBO(devPBO, gBuffer.normal(), width, height);
+	}
+#endif
 	else if (Settings::ImagePreviewOpt == 3) {
 		copyImageToPBO(devPBO, gBuffer.devMotion, width, height);
 	}
@@ -185,9 +194,11 @@ void runCuda() {
 		case 0:
 			devImage = gBuffer.devAlbedo;
 			break;
+#if !DENOISER_ENCODE_NORMAL
 		case 1:
 			devImage = gBuffer.normal();
 			break;
+#endif
 		case 4:
 			devImage = devDirectIllum;
 			break;

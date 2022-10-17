@@ -224,10 +224,6 @@ void RenderImGui() {
 	}
 
 	ImGui::Begin("Options"); {
-		/*const char* Tracers[] = { "Streamed", "Single Kernel", "BVH Visualize", "GBuffer Preview" };
-		if (ImGui::Combo("Tracer", &Settings::tracer, Tracers, IM_ARRAYSIZE(Tracers))) {
-			State::camChanged = true;
-		}*/
 		const char* Denoisers[] = { "None", "Gaussian", "EA A-Trous", "SVGF" };
 		if (ImGui::Combo("Denoiser", &Settings::denoiser, Denoisers, IM_ARRAYSIZE(Denoisers))) {
 			State::camChanged = true;
@@ -238,7 +234,7 @@ void RenderImGui() {
 
 		if (Settings::denoiser == Denoiser::EAWavelet) {
 			const char* Modes[] = {
-				"Albedo", "Normal", "Depth", "Motion",
+				"Albedo", "Normal", "Depth/Position", "Motion",
 				"Input Direct", "Input Indirect",
 				"Output Direct", "Output Indirect",
 				"Composed"
@@ -252,7 +248,7 @@ void RenderImGui() {
 		}
 		else if (Settings::denoiser == Denoiser::SVGF) {
 			const char* Modes[] = {
-				"Albedo", "Normal", "Depth", "Motion",
+				"Albedo", "Normal", "Depth/Position", "Motion",
 				"Input Direct", "Input Indirect",
 				"Output Direct", "Output Indirect",
 				"Composed",

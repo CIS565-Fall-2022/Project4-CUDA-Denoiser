@@ -8,6 +8,14 @@ __device__ constexpr float Gaussian5x5[] = {
 	.0625f, .25f, .375f, .25f, .0625f
 };
 
+#if DENOISER_ENCODE_NORMAL
+#  define ENCODE_NORM(x) Math::encodeNormalHemiOct32(x)
+#  define DECODE_NORM(x) Math::decodeNormalHemiOct32(x)
+#else
+#  define ENCODE_NORM(x) x
+#  define DECODE_NORM(x) x
+#endif
+
 __global__ void renderGBuffer(DevScene* scene, Camera cam, GBuffer gBuffer) {
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
 	int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -46,9 +54,13 @@ __global__ void renderGBuffer(DevScene* scene, Camera cam, GBuffer gBuffer) {
 		Material material = scene->getTexturedMaterialAndSurface(intersec);
 
 		gBuffer.devAlbedo[idx] = material.baseColor;
-		gBuffer.normal()[idx] = intersec.norm;
+		gBuffer.normal()[idx] = ENCODE_NORM(intersec.norm);
 		gBuffer.primId()[idx] = matId;
+#if DENOISER_ENCODE_POSITION
 		gBuffer.depth()[idx] = glm::distance(intersec.pos, ray.origin);
+#else
+		gBuffer.position()[idx] = intersec.pos;
+#endif
 
 		glm::ivec2 lastPos = gBuffer.lastCamera.getRasterCoord(intersec.pos);
 		if (lastPos.x >= 0 && lastPos.x < gBuffer.width && lastPos.y >= 0 && lastPos.y < gBuffer.height) {
@@ -65,9 +77,13 @@ __global__ void renderGBuffer(DevScene* scene, Camera cam, GBuffer gBuffer) {
 			albedo = scene->envMap->linearSample(uv);
 		}
 		gBuffer.devAlbedo[idx] = albedo;
-		gBuffer.normal()[idx] = glm::vec3(0.f);
+		gBuffer.normal()[idx] = GBuffer::NormT(0.f);
 		gBuffer.primId()[idx] = NullPrimitive;
+#if DENOISER_ENCODE_POSITION
 		gBuffer.depth()[idx] = 1.f;
+#else
+		gBuffer.position()[idx] = glm::vec3(0.f);
+#endif
 		gBuffer.devMotion[idx] = 0;
 	}
 }
@@ -104,9 +120,14 @@ __global__ void waveletFilter(
 		return;
 	}
 
-	glm::vec3 normP = gBuffer.normal()[idxP];
+	glm::vec3 normP = DECODE_NORM(gBuffer.normal()[idxP]);
 	glm::vec3 colorP = devColorIn[idxP];
-	glm::vec3 posP = cam.getPosition(x, y, gBuffer.depth()[idxP]);
+	glm::vec3 posP =
+#if DENOISER_ENCODE_POSITION
+		cam.getPosition(x, y, gBuffer.depth()[idxP]);
+#else
+		gBuffer.position()[idxP];
+#endif
 
 	glm::vec3 sum(0.f);
 	float sumWeight = 0.f;
@@ -124,9 +145,14 @@ __global__ void waveletFilter(
 			if (gBuffer.primId()[idxQ] != primIdP) {
 				continue;
 			}
-			glm::vec3 normQ = gBuffer.normal()[idxQ];
+			glm::vec3 normQ = DECODE_NORM(gBuffer.normal()[idxQ]);
 			glm::vec3 colorQ = devColorIn[idxQ];
-			glm::vec3 posQ = cam.getPosition(qx, qy, gBuffer.depth()[idxQ]);
+			glm::vec3 posQ =
+#if DENOISER_ENCODE_POSITION
+				cam.getPosition(qx, qy, gBuffer.depth()[idxQ]);
+#else
+				gBuffer.position()[idxQ];
+#endif
 
 			float distColor2 = glm::dot(colorP - colorQ, colorP - colorQ);
 			float wColor = glm::min(1.f, glm::exp(-distColor2 / sigLuminance));
@@ -169,9 +195,14 @@ __global__ void waveletFilter(
 		return;
 	}
 
-	glm::vec3 normP = gBuffer.normal()[idxP];
+	glm::vec3 normP = DECODE_NORM(gBuffer.normal()[idxP]);
 	glm::vec3 colorP = devColorIn[idxP];
-	glm::vec3 posP = cam.getPosition(x, y, gBuffer.depth()[idxP]);
+	glm::vec3 posP =
+#if DENOISER_ENCODE_POSITION
+		cam.getPosition(x, y, gBuffer.depth()[idxP]);
+#else
+		gBuffer.position()[idxP];
+#endif
 
 	glm::vec3 sumColor(0.f);
 	float sumVariance = 0.f;
@@ -191,9 +222,14 @@ __global__ void waveletFilter(
 			if (gBuffer.primId()[idxQ] != primIdP) {
 				continue;
 			}
-			glm::vec3 normQ = gBuffer.normal()[idxQ];
+			glm::vec3 normQ = DECODE_NORM(gBuffer.normal()[idxQ]);
 			glm::vec3 colorQ = devColorIn[idxQ];
-			glm::vec3 posQ = cam.getPosition(qx, qy, gBuffer.depth()[idxQ]);
+			glm::vec3 posQ =
+#if DENOISER_ENCODE_POSITION
+				cam.getPosition(qx, qy, gBuffer.depth()[idxQ]);
+#else
+				gBuffer.position()[idxQ];
+#endif;
 			float varQ = devVarainceIn[idxQ];
 
 			float distPos2 = glm::dot(posP - posQ, posP - posQ);
@@ -279,8 +315,8 @@ __global__ void temporalAccumulate(
 		diff = true;
 	}
 	else {
-		glm::vec3 norm = gBuffer.normal()[idx];
-		glm::vec3 lastNorm = gBuffer.lastNormal()[lastIdx];
+		glm::vec3 norm = DECODE_NORM(gBuffer.normal()[idx]);
+		glm::vec3 lastNorm = DECODE_NORM(gBuffer.lastNormal()[lastIdx]);
 		if (glm::abs(glm::dot(norm, lastNorm)) < .1f) {
 			diff = true;
 		}
@@ -377,15 +413,16 @@ void GBuffer::create(int width, int height) {
 	this->height = height;
 	int numPixels = width * height;
 	devAlbedo = cudaMalloc<glm::vec3>(numPixels);
-#if FLOAT_MOTION_BUFFER
-	devMotion = cudaMalloc<glm::vec2>(numPixels);
-#else
 	devMotion = cudaMalloc<int>(numPixels);
-#endif
+
 	for (int i = 0; i < 2; i++) {
-		devNormal[i] = cudaMalloc<glm::vec3>(numPixels);
+		devNormal[i] = cudaMalloc<NormT>(numPixels);
 		devPrimId[i] = cudaMalloc<int>(numPixels);
+#if DENOISER_ENCODE_POSITION
 		devDepth[i] = cudaMalloc<float>(numPixels);
+#else
+		devPosition[i] = cudaMalloc<glm::vec3>(numPixels);
+#endif
 	}
 }
 
@@ -395,7 +432,11 @@ void GBuffer::destroy() {
 	for (int i = 0; i < 2; i++) {
 		cudaSafeFree(devNormal[i]);
 		cudaSafeFree(devPrimId[i]);
+#if DENOISER_ENCODE_POSITION
 		cudaSafeFree(devDepth[i]);
+#else
+		cudaSafeFree(devPosition[i]);
+#endif
 	}
 }
 
