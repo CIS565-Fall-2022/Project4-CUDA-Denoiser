@@ -2,6 +2,8 @@
 #include "preview.h"
 #include <cstring>
 
+#include "ImGui/imgui.h"
+
 static std::string startTimeString;
 
 // For camera controls
@@ -10,6 +12,18 @@ static bool rightMousePressed = false;
 static bool middleMousePressed = false;
 static double lastX;
 static double lastY;
+
+// UI - see proj 4 denoiser
+int ui_iterations = 0;
+int startupIterations = 0;
+int lastLoopIterations = 0;
+bool ui_showGbuffer = false;
+bool ui_denoise = false;
+int ui_filterSize = 80;
+float ui_colorWeight = 0.45f;
+float ui_normalWeight = 0.35f;
+float ui_positionWeight = 0.2f;
+bool ui_saveAndExit = false;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -53,6 +67,9 @@ int main(int argc, char** argv) {
 	Camera& cam = renderState->camera;
 	width = cam.resolution.x;
 	height = cam.resolution.y;
+
+	ui_iterations = renderState->iterations;
+	startupIterations = ui_iterations;
 
 	glm::vec3 view = cam.view;
 	glm::vec3 up = cam.up;
@@ -108,6 +125,10 @@ void saveImage() {
 }
 
 void runCuda() {
+	if (lastLoopIterations != ui_iterations) {
+		lastLoopIterations = ui_iterations;
+		camchanged = true;
+	}
 	if (camchanged) {
 		iteration = 0;
 		Camera& cam = renderState->camera;
@@ -130,25 +151,31 @@ void runCuda() {
 
 	// Map OpenGL buffer object for writing from CUDA on a single GPU
 	// No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-
 	if (iteration == 0) {
 		pathtraceFree();
 		pathtraceInit(scene);
 	}
 
-	if (iteration < renderState->iterations) {
-		uchar4* pbo_dptr = NULL;
+	uchar4* pbo_dptr = NULL;
+	cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
+
+	if (iteration < ui_iterations) {
 		iteration++;
-		cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
 
 		// execute the kernel
 		int frame = 0;
-		pathtrace(pbo_dptr, frame, iteration);
-
-		// unmap buffer object
-		cudaGLUnmapBufferObject(pbo);
+		pathtrace(frame, iteration);
 	}
-	else {
+
+	if (ui_showGbuffer) {
+		showGBuffer(pbo_dptr);
+	} else {
+		showImage(pbo_dptr, iteration);
+	}
+
+	cudaGLUnmapBufferObject(pbo);
+
+	if (ui_saveAndExit) { //  || iteration == ui_iterations
 		saveImage();
 		pathtraceFree();
 		cudaDeviceReset();
@@ -177,6 +204,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+	if (ImGui::GetIO().WantCaptureMouse) return;
 	if (MouseOverImGuiWindow())
 	{
 		return;

@@ -5,8 +5,9 @@
 #include <cuda_runtime.h>
 #include "glm/glm.hpp"
 
-#define BACKGROUND_COLOR (glm::vec3(0.1f))
 // --- toggleable things ---
+#define BACKGROUND_COLOR (glm::vec3(0.0f))
+
 #define _STREAM_COMPACTION_			0
 #define _GROUP_RAYS_BY_MATERIAL_	0
 #define _CACHE_FIRST_BOUNCE_		0
@@ -22,6 +23,10 @@
 enum GeomType {
     SPHERE,
     CUBE,
+};
+
+struct GBufferPixel {
+    float t;
 };
 
 enum class MatType {
