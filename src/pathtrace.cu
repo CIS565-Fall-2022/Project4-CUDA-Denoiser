@@ -28,7 +28,7 @@
 #define ANTIALIASING 0
 #define DEPTH_OF_FIELD 0 // depth of field focus defined later
 #define DIRECT_LIGHTING 0
-#define PERF_ANALYSIS 1
+#define PERF_ANALYSIS 0
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -88,6 +88,24 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 	}
 }
 
+__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+	if (x < resolution.x && y < resolution.y) {
+		int index = x + (y * resolution.x);
+		//float timeToIntersect = gBuffer[index].t * 256.0;
+		glm::vec3 gNormal = gBuffer[index].normal;
+		// printf("norm: x: %f, y: %f, z: %f \n", gNormal.x, gNormal.y, gNormal.z);
+
+		pbo[index].w = 0;
+		pbo[index].x = glm::clamp(gNormal.x * 255.f, 0.f, 255.f);
+		pbo[index].y = glm::clamp(gNormal.y * 255.f, 0.f, 255.f);
+		pbo[index].z = glm::clamp(gNormal.z * 255.f, 0.f, 255.f);
+	}
+}
+
+
 static Scene* hst_scene = NULL;
 static GuiDataContainer* guiData = NULL;
 static glm::vec3* dev_image = NULL;
@@ -95,6 +113,9 @@ static Geom* dev_geoms = NULL;
 static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
+
+static GBufferPixel* dev_gBuffer = NULL;
+
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
 #if CACHE_FIRST_BOUNCE
@@ -203,6 +224,9 @@ void pathtraceInit(Scene* scene) {
 	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 	checkCUDAError("cudaMemcpy dev_intersectionsf ailed");
 
+	cudaMalloc(&dev_gBuffer, pixelcount * sizeof(GBufferPixel));
+
+
 #if USE_UV
 	cudaMalloc(&dev_textureChannels, scene->textures.size() * sizeof(int));
 	checkCUDAError("cudaMalloc dev_textureChannels failed");
@@ -274,6 +298,8 @@ void pathtraceFree() {
 	cudaFree(dev_intersections);
 	// TODO: clean up any extra device memory you created
 
+	cudaFree(dev_gBuffer);
+
 #if DIRECT_LIGHTING
 	cudaFree(dev_lights);
 #endif
@@ -290,6 +316,20 @@ void pathtraceFree() {
 	delete[] tmp_geom_pointer;
 
 	checkCUDAError("pathtraceFree");
+}
+
+__global__ void generateGBuffer(
+	int num_paths,
+	ShadeableIntersection* shadeableIntersections,
+	PathSegment* pathSegments,
+	GBufferPixel* gBuffer) {
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx < num_paths)
+	{
+		gBuffer[idx].t = shadeableIntersections[idx].t;
+		glm::vec3 absNorm = glm::abs(shadeableIntersections[idx].surfaceNormal);
+		gBuffer[idx].normal = absNorm;
+	}
 }
 
 /**
@@ -730,7 +770,7 @@ __global__ void kernComputeShadeDirectLighting(
  * Wrapper for the __global__ call that sets up the kernel calls and does a ton
  * of memory management
  */
-void pathtrace(uchar4* pbo, int frame, int iter) {
+void pathtrace(int frame, int iter) {
 	const int traceDepth = hst_scene->state.traceDepth;
 	const Camera& cam = hst_scene->state.camera;
 	const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -789,9 +829,13 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 
 	int currNumPaths = num_paths;
 
+	// Empty gbuffer
+	cudaMemset(dev_gBuffer, 0, pixelcount * sizeof(GBufferPixel));
+
+	// clean shading chunks
+	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
+
 	while (!iterationComplete) {
-		// clean shading chunks
-		cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
 		// tracing
 		dim3 numblocksPathSegmentTracing = (currNumPaths + blockSize1d - 1) / blockSize1d;
@@ -828,6 +872,10 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		}
 
 		cudaDeviceSynchronize();
+
+		if (depth == 0) {
+			generateGBuffer << <numblocksPathSegmentTracing, blockSize1d >> > (num_paths, dev_intersections, dev_paths, dev_gBuffer);
+		}
 
 		depth++;
 
@@ -927,7 +975,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
  * Wrapper for the __global__ call that sets up the kernel calls and does a ton
  * of memory management
  */
-void pathtrace(uchar4* pbo, int frame, int iter) {
+void pathtrace(int frame, int iter) {
 	const int traceDepth = hst_scene->state.traceDepth;
 	const Camera& cam = hst_scene->state.camera;
 	const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -989,11 +1037,14 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 #if PERF_ANALYSIS
 	cudaEventRecord(beginEvent);
 #endif
+	// Empty gbuffer
+	cudaMemset(dev_gBuffer, 0, pixelcount * sizeof(GBufferPixel));
+
+	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
 	while (!iterationComplete) {
 		// clean shading chunks
-		cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
-
+		// 
 		// tracing
 		dim3 numblocksPathSegmentTracing = (currNumPaths + blockSize1d - 1) / blockSize1d;
 #if BUMP_MAP
@@ -1020,6 +1071,11 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		checkCUDAError("trace one bounce");
 #endif
 		cudaDeviceSynchronize();
+
+		if (depth == 0) {
+			generateGBuffer << <numblocksPathSegmentTracing, blockSize1d >> > (num_paths, dev_intersections, dev_paths, dev_gBuffer);
+		}
+
 
 		depth++;
 
@@ -1109,7 +1165,8 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 	///////////////////////////////////////////////////////////////////////////
 
 	// Send results to OpenGL buffer for rendering
-	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
+	// sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
+	// showGBuffer()
 
 	cudaDeviceSynchronize(); // maybe dont need
 
@@ -1119,4 +1176,26 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 
 	checkCUDAError("pathtrace");
 }
+
+void showGBuffer(uchar4* pbo) {
+	const Camera& cam = hst_scene->state.camera;
+	const dim3 blockSize2d(8, 8);
+	const dim3 blocksPerGrid2d(
+		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+
+	gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer);
+}
+
+void showImage(uchar4* pbo, int iter) {
+	const Camera& cam = hst_scene->state.camera;
+	const dim3 blockSize2d(8, 8);
+	const dim3 blocksPerGrid2d(
+		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+
+	// Send results to OpenGL buffer for rendering
+	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
+}
+
 #endif
