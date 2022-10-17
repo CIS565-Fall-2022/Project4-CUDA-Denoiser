@@ -26,7 +26,8 @@ enum GeomType {
 };
 
 struct GBufferPixel {
-    float t;
+    glm::vec3 posn;
+    glm::vec3 norm;
 };
 
 enum class MatType {
@@ -110,3 +111,30 @@ struct ShadeableIntersection {
   int materialId;
   bool outside;
 };
+
+#if _STREAM_COMPACTION_
+// predicate for thrust::remove_if stream compaction
+struct partition_terminated_paths {
+    __host__ __device__
+        bool operator()(const PathSegment& p) { return p.remainingBounces > 0; }
+};
+#endif
+
+#if _GROUP_RAYS_BY_MATERIAL_
+// _GROUP_RAYS_BY_MATERIAL_ sorting comparison
+struct compare_intersection_mat {
+    __host__ __device__
+        bool operator()(const ShadeableIntersection& i1, const ShadeableIntersection& i2) {
+        return i1.materialId < i2.materialId;
+    }
+};
+#endif
+
+#if _ADAPTIVE_DEBUG_
+struct compare_path_spp {
+    __host__ __device__
+        bool operator()(const PathSegment& p1, const PathSegment p2) {
+        return p1.spp < p2.spp;
+    }
+};
+#endif

@@ -51,10 +51,9 @@ thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int de
 __global__ void writeToImage(glm::ivec2 resolution,
 	int iter, glm::vec3* image, PathSegment* paths
 #if _ADAPTIVE_DEBUG_
-	, PathSegment* s) {
-#else
-	) {
+	, PathSegment* s
 #endif
+	) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	if (x < resolution.x && y < resolution.y) {
@@ -107,18 +106,20 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 	}
 }
 
-__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer) {
+__global__ void gbufferToPBO(uchar4* pbo,
+	glm::ivec2 resolution, GBufferPixel* gBuffer, int bit) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-
 	if (x < resolution.x && y < resolution.y) {
 		int index = x + (y * resolution.x);
-		float timeToIntersect = gBuffer[index].t * 256.0;
-
+		glm::vec3 show = bit ? 
+			gBuffer[index].posn * 0.1f : //scale down posn, o/w wrapping is intense
+			gBuffer[index].norm;
+		show = glm::abs(show) * 255.f;
 		pbo[index].w = 0;
-		pbo[index].x = timeToIntersect;
-		pbo[index].y = timeToIntersect;
-		pbo[index].z = timeToIntersect;
+		pbo[index].x = show.x;
+		pbo[index].y = show.y;
+		pbo[index].z = show.z;
 	}
 }
 
@@ -132,33 +133,6 @@ static ShadeableIntersection* dev_intersections = NULL;
 static GBufferPixel* dev_gBuffer = NULL;
 #if _CACHE_FIRST_BOUNCE_
 static ShadeableIntersection* dev_first_isecs = NULL;
-#endif
-
-#if _STREAM_COMPACTION_
-// predicate for thrust::remove_if stream compaction
-struct partition_terminated_paths {
-	__host__ __device__
-	bool operator()(const PathSegment& p) { return p.remainingBounces > 0; }
-};
-#endif
-
-#if _GROUP_RAYS_BY_MATERIAL_
-// _GROUP_RAYS_BY_MATERIAL_ sorting comparison
-struct compare_intersection_mat {
-	__host__ __device__
-	bool operator()(const ShadeableIntersection& i1, const ShadeableIntersection& i2) {
-		return i1.materialId < i2.materialId;
-	}
-};
-#endif
-
-#if _ADAPTIVE_DEBUG_
-struct compare_path_spp {
-	__host__ __device__
-	bool operator()(const PathSegment& p1, const PathSegment p2) {
-		return p1.spp < p2.spp;
-	}
-};
 #endif
 
 void InitDataContainer(GuiDataContainer* imGuiData) { guiData = imGuiData; }
@@ -407,9 +381,10 @@ __global__ void generateGBuffer(
 	PathSegment* pathSegments,
 	GBufferPixel* gBuffer) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	if (idx < num_paths)
-	{
-		gBuffer[idx].t = shadeableIntersections[idx].t;
+	if (idx < num_paths) {
+		gBuffer[idx].norm = shadeableIntersections[idx].surfaceNormal;
+		gBuffer[idx].posn = pathSegments[idx].ray.origin + 
+			shadeableIntersections[idx].t * pathSegments[idx].ray.direction;
 	}
 }
 
@@ -427,7 +402,6 @@ void pathtrace(int frame, int iter) {
 	const dim3 blocksPerGrid2d(
 		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
 		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
-
 	// 1D block for path tracing
 	const int blockSize1d = 128;
 
@@ -526,9 +500,9 @@ void pathtrace(int frame, int iter) {
 
 #if _ADAPTIVE_DEBUG_
 	PathSegment* s = thrust::max_element(thrust::device, dev_paths, dev_paths + pixelcount, compare_path_spp());
-	writeToImage <<<blocksPerGrid2d, blockSize2d>>>(cam.resolution, iter, dev_image, dev_paths, s);
+	writeToImage<<<blocksPerGrid2d, blockSize2d>>>(cam.resolution, iter, dev_image, dev_paths, s);
 #else 
-	writeToImage <<<blocksPerGrid2d, blockSize2d>>>(cam.resolution, iter, dev_image, dev_paths);
+	writeToImage<<<blocksPerGrid2d, blockSize2d>>>(cam.resolution, iter, dev_image, dev_paths);
 #endif
 
 	// Retrieve image from GPU
@@ -537,14 +511,14 @@ void pathtrace(int frame, int iter) {
 	checkCUDAError("pathtrace");
 }
 
-void showGBuffer(uchar4* pbo) {
+void showGBuffer(uchar4* pbo, int bit) { // bit = 0 for norm, 1 for posn
 	const Camera& cam = hst_scene->state.camera;
 	const dim3 blockSize2d(8, 8);
 	const dim3 blocksPerGrid2d(
 		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
 		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
-	gbufferToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_gBuffer);
+	gbufferToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_gBuffer, bit);
 }
 
 void showImage(uchar4* pbo, int iter) {

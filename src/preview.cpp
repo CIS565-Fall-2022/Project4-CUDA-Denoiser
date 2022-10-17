@@ -219,7 +219,20 @@ void RenderImGui(int windowWidth, int windowHeight)
 
 	ImGui::Separator();
 
-	ImGui::Checkbox("Show GBuffer", &ui_showGbuffer);
+	if (ImGui::Button("Show GBuffer-Normals")) {
+		ui_showGbufferNorm = true;
+		ui_showGbufferPosn = false;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Show GBuffer-Posn")) {
+		ui_showGbufferNorm = false;
+		ui_showGbufferPosn = true;
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Hide GBuffer")) {
+		ui_showGbufferNorm = false;
+		ui_showGbufferPosn = false;
+	}
 
 	ImGui::Text("Traced Depth %d", imguiData->TracedDepth);
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);

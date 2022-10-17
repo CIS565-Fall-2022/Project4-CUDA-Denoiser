@@ -17,7 +17,8 @@ static double lastY;
 int ui_iterations = 0;
 int startupIterations = 0;
 int lastLoopIterations = 0;
-bool ui_showGbuffer = false;
+bool ui_showGbufferNorm = false;
+bool ui_showGbufferPosn = false;
 bool ui_denoise = false;
 int ui_filterSize = 80;
 float ui_colorWeight = 0.45f;
@@ -167,14 +168,14 @@ void runCuda() {
 		pathtrace(frame, iteration);
 	}
 
-	if (ui_showGbuffer) {
-		showGBuffer(pbo_dptr);
+	if (ui_showGbufferNorm || ui_showGbufferPosn) {
+		// lazy thing to do norm or posn
+		ui_showGbufferNorm ? showGBuffer(pbo_dptr, 0) : showGBuffer(pbo_dptr, 1);
 	} else {
 		showImage(pbo_dptr, iteration);
 	}
 
 	cudaGLUnmapBufferObject(pbo);
-
 	if (ui_saveAndExit) { //  || iteration == ui_iterations
 		saveImage();
 		pathtraceFree();
