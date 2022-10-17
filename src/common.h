@@ -38,6 +38,7 @@ struct Settings {
     static int tracer;
     static int ImagePreviewOpt;
     static int denoiser;
+    static bool modulate;
 };
 
 struct State {

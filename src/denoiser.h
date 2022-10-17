@@ -19,16 +19,24 @@ struct GBuffer {
     void render(DevScene* scene, const Camera& cam);
     void update(const Camera& cam);
 
-    __host__ __device__ glm::vec3* normal() { return devNormal[frame]; }
-    __host__ __device__ int* primId() { return devPrimId[frame]; }
-    __host__ __device__ float* depth() { return devDepth[frame]; }
+    __device__ glm::vec3* normal() { return devNormal[frameIdx]; }
+    __device__ int* primId() { return devPrimId[frameIdx]; }
+    __device__ float* depth() { return devDepth[frameIdx]; }
+
+    __device__ glm::vec3* lastNormal() { return devNormal[frameIdx ^ 1]; }
+    __device__ int* lastPrimId() { return devPrimId[frameIdx ^ 1]; }
+    __device__ float* lastDepth() { return devDepth[frameIdx ^ 1]; }
 
     glm::vec3* devAlbedo = nullptr;
+#if FLOAT_MOTION_BUFFER
+    glm::vec2* devMotion = nullptr;
+#else
     int* devMotion = nullptr;
+#endif
     glm::vec3* devNormal[2] = { nullptr };
     float* devDepth[2] = { nullptr };
     int* devPrimId[2] = { nullptr };
-    int frame = 0;
+    int frameIdx = 0;
 
     Camera lastCamera;
     int width;
@@ -58,7 +66,7 @@ struct LeveledEAWFilter {
     void create(int width, int height, int level);
     void destroy();
 
-    void filter(glm::vec3*& devColor, const GBuffer& gBuffer, const Camera& cam);
+    void filter(glm::vec3*& devColorOut, glm::vec3* devColorIn, const GBuffer& gBuffer, const Camera& cam);
 
     EAWaveletFilter waveletFilter;
     int level = 0;
@@ -74,23 +82,23 @@ struct SpatioTemporalFilter {
     void estimateVariance();
     void filterVariance();
 
-    void filter(glm::vec3*& devColor, const GBuffer& gBuffer, const Camera& cam);
+    void filter(glm::vec3*& devColorOut, glm::vec3* devColorIn, const GBuffer& gBuffer, const Camera& cam);
+
+    void nextFrame();
 
     EAWaveletFilter waveletFilter;
     int level = 0;
 
-    glm::vec3* devAccumColor = nullptr;
-    glm::vec3* devAccumMoment = nullptr;
+    glm::vec3* devAccumColor[2] = { nullptr };
+    glm::vec3* devAccumMoment[2] = { nullptr };
     float* devVariance = nullptr;
     bool firstTime = true;
 
     glm::vec3* devTempColor = nullptr;
     float* devTempVariance = nullptr;
     float* devFilteredVariance = nullptr;
+    int frameIdx = 0;
 };
-
-void denoiserInit(int width, int height);
-void denoiserFree();
 
 void modulateAlbedo(glm::vec3* devImage, const GBuffer& gBuffer);
 void addImage(glm::vec3* devImage, glm::vec3* devIn, int width, int height);

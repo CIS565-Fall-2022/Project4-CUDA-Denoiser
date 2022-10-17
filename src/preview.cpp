@@ -233,25 +233,34 @@ void RenderImGui() {
 			State::camChanged = true;
 		}
 
-		const char* Modes[] = {
-			"Albedo", "Normal", "Depth", "Motion",
-			"Input Direct", "Input Indirect",
-			"Accumulated Color", "Accumulated Moment",
-			"Variance"
-		};
-
-		if (ImGui::Combo("Preview", &Settings::ImagePreviewOpt, Modes, IM_ARRAYSIZE(Modes))) {
-			State::camChanged = true;
-		}
-
 		ImGui::Text("Filter");
+		ImGui::Checkbox("Modulate", &Settings::modulate);
+
 		if (Settings::denoiser == Denoiser::EAWavelet) {
+			const char* Modes[] = {
+				"Albedo", "Normal", "Depth", "Motion",
+				"Input Direct", "Input Indirect",
+				"Output Direct", "Output Indirect",
+				"Composed"
+			};
+			ImGui::Combo("Preview", &Settings::ImagePreviewOpt, Modes, IM_ARRAYSIZE(Modes));
+
 			ImGui::SliderInt("Levels", &EAWFilter.level, 1, 5);
 			ImGui::DragFloat("Sigma Lumin", &EAWFilter.waveletFilter.sigLumin, .01f, 0.f);
 			ImGui::DragFloat("Sigma Normal", &EAWFilter.waveletFilter.sigNormal, .01f, 0.f);
 			ImGui::DragFloat("Sigma Depth", &EAWFilter.waveletFilter.sigDepth, .01f, 0.f);
 		}
 		else if (Settings::denoiser == Denoiser::SVGF) {
+			const char* Modes[] = {
+				"Albedo", "Normal", "Depth", "Motion",
+				"Input Direct", "Input Indirect",
+				"Output Direct", "Output Indirect",
+				"Composed",
+				"Direct Moment", "Indirect Moment",
+				"Direct Variance", "Indirect Variance"
+			};
+			ImGui::Combo("Preview", &Settings::ImagePreviewOpt, Modes, IM_ARRAYSIZE(Modes));
+
 			ImGui::SliderInt("Levels", &directFilter.level, 1, 5);
 			ImGui::DragFloat("Sigma Lumin", &directFilter.waveletFilter.sigLumin, .01f, 0.f);
 			ImGui::DragFloat("Sigma Normal", &directFilter.waveletFilter.sigNormal, .01f, 0.f);

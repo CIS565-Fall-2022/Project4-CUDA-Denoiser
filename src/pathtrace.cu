@@ -258,7 +258,7 @@ __global__ void computeIntersections(
 }
 
 __global__ void pathIntegSampleSurface(
-	int iter,
+	int looper, int iter,
 	int depth,
 	PathSegment* segments,
 	Intersection* intersections,
@@ -298,7 +298,7 @@ __global__ void pathIntegSampleSurface(
 		return;
 	}
 
-	Sampler rng = makeSeededRandomEngine(iter, idx, 4 + depth * SamplesOneIter, scene->sampleSequence);
+	Sampler rng = makeSeededRandomEngine(looper, idx, 4 + depth * SamplesOneIter, scene->sampleSequence);
 
 	Material material = scene->getTexturedMaterialAndSurface(intersec);
 
@@ -379,7 +379,8 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
 }
 
 __global__ void singleKernelPT(
-	int iter, int maxDepth, DevScene* scene, Camera cam,
+	int looper, int iter, int maxDepth,
+	DevScene* scene, Camera cam,
 	glm::vec3* directIllum, glm::vec3* indirectIllum
 ) {
 	int x = blockDim.x * blockIdx.x + threadIdx.x;
@@ -391,7 +392,7 @@ __global__ void singleKernelPT(
 	glm::vec3 indirect(0.f);
 
 	int index = y * cam.resolution.x + x;
-	Sampler rng = makeSeededRandomEngine(iter, index, 0, scene->sampleSequence);
+	Sampler rng = makeSeededRandomEngine(looper, index, 0, scene->sampleSequence);
 
 	Ray ray = cam.sample(x, y, sample4D(rng));
 	Intersection intersec;
@@ -492,17 +493,14 @@ WriteRadiance:
 	indirect /= albedo + DEMODULATE_EPS;*/
 #endif
 
-	if (!isnan(direct.x) && !isnan(direct.y) && !isnan(direct.z) &&
-		!isinf(direct.x) && !isinf(direct.y) && !isinf(direct.z)) {
-		directIllum[index] = direct / DenoiseCompress;
-		//directIllum[index] = direct / (direct + 1.f);
+	if (Math::hasNanOrInf(direct)) {
+		direct = glm::vec3(0.f);
 	}
-
-	if (!isnan(indirect.x) && !isnan(indirect.y) && !isnan(indirect.z) &&
-		!isinf(indirect.x) && !isinf(indirect.y) && !isinf(indirect.z)) {
-		indirectIllum[index] = indirect / DenoiseCompress;
-		//indirectIllum[index] = indirect / (indirect + 1.f);
+	if (Math::hasNanOrInf(indirect)) {
+		indirect = glm::vec3(0.f);
 	}
+	directIllum[index] = (directIllum[index] * float(iter) + direct / DenoiseCompress) / float(iter + 1);
+	indirectIllum[index] = (indirectIllum[index] * float(iter) + indirect / DenoiseCompress) / float(iter + 1);
 }
 
 __global__ void BVHVisualize(int iter, DevScene* scene, Camera cam, glm::vec3* image) {
@@ -540,7 +538,7 @@ struct RemoveInvalidPaths {
 	}
 };
 
-void pathTrace(glm::vec3* devDirectIllum, glm::vec3* devIndirectIllum) {
+void pathTrace(glm::vec3* devDirectIllum, glm::vec3* devIndirectIllum, int iter) {
 	const Camera& cam = hstScene->camera;
 
 	const int BlockSizeSinglePTX = 8;
@@ -552,7 +550,7 @@ void pathTrace(glm::vec3* devDirectIllum, glm::vec3* devIndirectIllum) {
 	dim3 singlePTBlockSize(BlockSizeSinglePTX, BlockSizeSinglePTY);
 
 	singleKernelPT<<<singlePTBlockNum, singlePTBlockSize>>>(
-		looper, Settings::traceDepth, hstScene->devScene, cam, devDirectIllum, devIndirectIllum
+		looper, iter, Settings::traceDepth, hstScene->devScene, cam, devDirectIllum, devIndirectIllum
 	);
 
 	checkCUDAError("pathTrace");

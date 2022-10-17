@@ -33,6 +33,10 @@ namespace Math {
         return x >= min && x <= max;
     }
 
+    __host__ __device__ inline bool hasNanOrInf(glm::vec3 v) {
+        return isnan(v.x) || isnan(v.y) || isnan(v.z) || isinf(v.x) || isinf(v.y) || isinf(v.z);
+    }
+
     __host__ __device__ inline float satDot(glm::vec3 a, glm::vec3 b) {
         return glm::max(glm::dot(a, b), 0.f);
     }

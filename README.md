@@ -48,9 +48,17 @@ Then, we send direct and indirect components to reconstruction filters guided by
 
 After filtering, we add direct and indirect components together and modulate albedo back to get the denoised illumination image.
 
+#### Filtering
+
+
+
 ### Spatiotemporal Variance-Guided Denoiser
 
 This part is implementation of the paper [SVGF]. 
+
+#### Pipeline
+
+The pipeline layout of SVGF is almost the same as EAW filter. However, since SVGF makes use of temporal accumulation, in each frame we need to generate an additional buffer -- motion vector. 
 
 ### 1 SPP Input
 

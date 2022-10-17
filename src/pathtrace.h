@@ -14,4 +14,4 @@ void copyImageToPBO(uchar4* devPBO, int* devImage, int width, int height);
 
 void pathTraceInit(Scene *scene);
 void pathTraceFree();
-void pathTrace(glm::vec3* devDirectIllum, glm::vec3* devIndirectIllum);
+void pathTrace(glm::vec3* devDirectIllum, glm::vec3* devIndirectIllum, int iter);
