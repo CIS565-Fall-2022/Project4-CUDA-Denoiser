@@ -107,6 +107,12 @@ struct ShadeableIntersection {
   int textureId;
 };
 
+// CHECKITOUT - a simple struct for storing scene geometry information per-pixel.
+// What information might be helpful for guiding a denoising filter?
+struct GBufferPixel {
+    float t;
+};
+
 struct compareIntersections 
 {
     __host__ __device__
