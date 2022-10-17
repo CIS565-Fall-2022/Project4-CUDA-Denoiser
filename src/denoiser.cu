@@ -88,18 +88,6 @@ __global__ void renderGBuffer(DevScene* scene, Camera cam, GBuffer gBuffer) {
 	}
 }
 
-__device__ float weightLuminance(glm::vec3* color, int p, int q) {
-	return 0.f;
-}
-
-__device__ float weightLuminance(glm::vec4* colorVar, int p, int q) {
-	return 0.f;
-}
-
-__device__ float weightNormal(const GBuffer& gBuffer, int p, int q) {
-
-}
-
 __global__ void waveletFilter(
 	glm::vec3* devColorOut, glm::vec3* devColorIn, GBuffer gBuffer,
 	float sigDepth, float sigNormal, float sigLuminance, Camera cam, int level
@@ -229,16 +217,16 @@ __global__ void waveletFilter(
 				cam.getPosition(qx, qy, gBuffer.depth()[idxQ]);
 #else
 				gBuffer.position()[idxQ];
-#endif;
+#endif
 			float varQ = devVarainceIn[idxQ];
 
 			float distPos2 = glm::dot(posP - posQ, posP - posQ);
-			float wPos = glm::min(1.f, glm::exp(-distPos2 / sigDepth));
+			float wPos = glm::exp(-distPos2 / sigDepth) + 1e-4f;
 
-			float wNorm = glm::pow(glm::max(0.f, glm::dot(normP, normQ)), sigNormal) + 1e-4f;
+			float wNorm = glm::pow(Math::absDot(normP, normQ), sigNormal) + 1e-4f;
 
 			float denom = sigLuminance * glm::sqrt(glm::max(devVarFiltered[idxQ], 0.f)) + 1e-4f;
-			float wColor = glm::exp(-glm::abs(Math::luminance(colorP) - Math::luminance(colorQ)) / denom);
+			float wColor = glm::exp(-glm::abs(Math::luminance(colorP) - Math::luminance(colorQ)) / denom) + 1e-4f;
 
 			float weight = wColor * wNorm * wPos * Gaussian5x5[i + 2] * Gaussian5x5[j + 2];
 			float weight2 = weight * weight;
@@ -260,7 +248,7 @@ __global__ void modulate(glm::vec3* devImage, GBuffer gBuffer, int width, int he
 	if (x < width && y < height) {
 		int idx = y * width + x;
 		glm::vec3 color = devImage[idx];
-		color *= DenoiseCompress;
+		color = Math::LDRToHDR(color);
 		devImage[idx] = color * glm::max(gBuffer.devAlbedo[idx]/* - DEMODULATE_EPS*/, glm::vec3(0.f));
 	}
 }
@@ -325,7 +313,7 @@ __global__ void temporalAccumulate(
 	glm::vec3 color = devColorIn[idx];
 	glm::vec3 lastColor = devColorAccumIn[lastIdx];
 	glm::vec3 lastMoment = devMomentAccumIn[lastIdx];
-	float lum = Math::luminance(color) * DenoiseCompress;
+	float lum = Math::luminance(color);
 
 	glm::vec3 accumColor;
 	glm::vec3 accumMoment;

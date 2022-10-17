@@ -499,8 +499,12 @@ WriteRadiance:
 	if (Math::hasNanOrInf(indirect)) {
 		indirect = glm::vec3(0.f);
 	}
-	directIllum[index] = (directIllum[index] * float(iter) + direct / DenoiseCompress) / float(iter + 1);
-	indirectIllum[index] = (indirectIllum[index] * float(iter) + indirect / DenoiseCompress) / float(iter + 1);
+	//direct = glm::min(direct / DenoiseCompress, glm::vec3(DenoiseClamp));
+	//indirect = glm::min(indirect / DenoiseCompress, glm::vec3(DenoiseClamp));
+	direct = Math::HDRToLDR(direct);
+	indirect = Math::HDRToLDR(indirect);
+	directIllum[index] = (directIllum[index] * float(iter) + direct) / float(iter + 1);
+	indirectIllum[index] = (indirectIllum[index] * float(iter) + indirect) / float(iter + 1);
 }
 
 __global__ void BVHVisualize(int iter, DevScene* scene, Camera cam, glm::vec3* image) {

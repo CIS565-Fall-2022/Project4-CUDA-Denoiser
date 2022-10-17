@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
 	return 0;
 }
 
-void saveImage() {
+void saveImage(bool jpg) {
 	cudaMemcpyDevToHost(scene->state.image.data(), devImage, width * height * sizeof(glm::vec3));
 
 	float samples = iteration;
@@ -129,8 +129,12 @@ void saveImage() {
 	filename = ss.str();
 
 	// CHECKITOUT
-	img.savePNG(filename);
-	//img.saveJPG(filename);
+	if (jpg) {
+		img.saveJPG(filename);
+	}
+	else {
+		img.savePNG(filename);
+	}
 	//img.saveHDR(filename);  // Save a Radiance HDR file
 }
 
@@ -238,11 +242,14 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	if (action == GLFW_PRESS) {
 		switch (key) {
 		case GLFW_KEY_ESCAPE:
-			saveImage();
+			saveImage(false);
 			glfwSetWindowShouldClose(window, GL_TRUE);
 			break;
 		case GLFW_KEY_S:
-			saveImage();
+			saveImage(false);
+			break;
+		case GLFW_KEY_J:
+			saveImage(true);
 			break;
 		case GLFW_KEY_T:
 			Settings::toneMapping = (Settings::toneMapping + 1) % 3;

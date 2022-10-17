@@ -33,6 +33,15 @@ namespace Math {
         return x >= min && x <= max;
     }
 
+    __host__ __device__ inline glm::vec3 HDRToLDR(glm::vec3 c) {
+        return c / (c + 1.f) * 16.f;
+    }
+
+    __host__ __device__ inline glm::vec3 LDRToHDR(glm::vec3 c) {
+        c /= 16.f;
+        return c / (1.f - c + 1e-4f);
+    }
+
     __host__ __device__ inline glm::vec2 encodeNormalHemiOct32(glm::vec3 n) {
         glm::vec2 p = glm::vec2(n) * (1.f / (glm::abs(n.x) + glm::abs(n.y) + n.z));
         return glm::vec2(p.x + p.y, p.x - p.y);

@@ -56,11 +56,13 @@ After filtering, we add direct and indirect components together and modulate alb
 
 This part is implementation of the paper [SVGF].
 
-In Edge Avoiding A-Trous Filtering, our reconstruction kernel is only driven by spatial information of the scene. Now let's consider a completely static scene. 
+In Edge Avoiding A-Trous Filtering, our reconstruction kernel is only driven by spatial information of the scene. Now let's consider a completely static scene.
+
+![](./img/svgf_pipeline.jpeg)
 
 #### Pipeline
 
-The pipeline layout of SVGF is almost the same as EAW filter. However, since SVGF makes use of temporal accumulation, in each frame we need to generate additional temporal information with G-buffer -- motion vector. That is, the index of 
+The pipeline layout of SVGF is almost the same as EAW filter. However, since SVGF makes use of temporal accumulation, in each frame we need to generate additional temporal information with G-buffer -- motion vector. That is, the index of
 
 #### Filtering
 
@@ -82,7 +84,13 @@ SVGF's filtering kernel is more complicated than EAW as well.
 
 ![](./img/cornell_3000spp.jpg)
 
+### EAW (Converged)
 
+![](./img/cornell_eaw_conv.jpg)
+
+### SVGF (Converged)
+
+![](./img/cornell_svgf_conv.jpg)
 
 CUDA Path Tracer
 ================
