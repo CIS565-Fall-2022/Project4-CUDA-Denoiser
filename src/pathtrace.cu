@@ -43,6 +43,14 @@
 
 #define DIRECT_LIGHTING 0
 
+#define GBUFFER_VIS_MODE 1
+enum GBUFFER_VIS
+{
+	ISECT = 0,
+	POS = 1,
+	NOR = 2
+};
+
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
 void checkCUDAErrorFn(const char* msg, const char* file, int line) {
@@ -102,10 +110,29 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
 		int index = x + (y * resolution.x);
 		float timeToIntersect = gBuffer[index].t * 256.0;
 
-		pbo[index].w = 0;
-		pbo[index].x = timeToIntersect;
-		pbo[index].y = timeToIntersect;
-		pbo[index].z = timeToIntersect;
+		if (GBUFFER_VIS_MODE ==  GBUFFER_VIS::ISECT)
+		{
+			pbo[index].w = 0;
+			pbo[index].x = timeToIntersect;
+			pbo[index].y = timeToIntersect;
+			pbo[index].z = timeToIntersect;
+		}
+		else if (GBUFFER_VIS_MODE == GBUFFER_VIS::POS)
+		{
+			glm::vec3 pos = gBuffer[index].pos * 255.0f;
+			pbo[index].w = 0;
+			pbo[index].x = abs(pos.x);
+			pbo[index].y = abs(pos.y);
+			pbo[index].z = abs(pos.z);
+		}
+		else if (GBUFFER_VIS_MODE == GBUFFER_VIS::NOR)
+		{
+			glm::vec3 nor = gBuffer[index].nor * 255.0f;
+			pbo[index].w = 0;
+			pbo[index].x = abs(nor.x);
+			pbo[index].y = abs(nor.y);
+			pbo[index].z = abs(nor.z);
+		}
 	}
 }
 
@@ -603,7 +630,10 @@ __global__ void generateGBuffer(
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num_paths)
 	{
+		Ray ray = pathSegments[idx].ray;
 		gBuffer[idx].t = shadeableIntersections[idx].t;
+		gBuffer[idx].pos = ray.origin + ray.direction * gBuffer[idx].t;
+		gBuffer[idx].nor = shadeableIntersections[idx].surfaceNormal;
 	}
 }
 
