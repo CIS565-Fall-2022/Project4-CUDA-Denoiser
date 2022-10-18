@@ -20,7 +20,7 @@ int lastLoopIterations = 0;
 bool ui_showGbufferNorm = false;
 bool ui_showGbufferPosn = false;
 bool ui_denoise = false;
-int ui_filterSize = 80;
+int ui_filterSize = 4;
 float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
@@ -125,6 +125,22 @@ void saveImage() {
 	//img.saveHDR(filename);  // Save a Radiance HDR file
 }
 
+void showImage(uchar4 *pbo_dptr, bool save) {
+	if (ui_showGbufferNorm || ui_showGbufferPosn) {
+		// lazy thing to do norm or posn
+		ui_showGbufferNorm ? showGBuffer(pbo_dptr, 0, save) : showGBuffer(pbo_dptr, 1, save);
+	}
+	else {
+		showImage(pbo_dptr,
+			ui_denoise,
+			ui_filterSize,
+			ui_colorWeight,
+			ui_normalWeight,
+			ui_positionWeight,
+			save);
+	}
+}
+
 void runCuda() {
 	if (lastLoopIterations != ui_iterations) {
 		lastLoopIterations = ui_iterations;
@@ -168,15 +184,11 @@ void runCuda() {
 		pathtrace(frame, iteration);
 	}
 
-	if (ui_showGbufferNorm || ui_showGbufferPosn) {
-		// lazy thing to do norm or posn
-		ui_showGbufferNorm ? showGBuffer(pbo_dptr, 0) : showGBuffer(pbo_dptr, 1);
-	} else {
-		showImage(pbo_dptr, iteration);
-	}
-
+	showImage(pbo_dptr, false);
 	cudaGLUnmapBufferObject(pbo);
 	if (ui_saveAndExit) { //  || iteration == ui_iterations
+		// save 
+		showImage(pbo_dptr, true);
 		saveImage();
 		pathtraceFree();
 		cudaDeviceReset();
@@ -187,13 +199,13 @@ void runCuda() {
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
 		switch (key) {
-		case GLFW_KEY_ESCAPE:
-			saveImage();
-			glfwSetWindowShouldClose(window, GL_TRUE);
-			break;
-		case GLFW_KEY_S:
-			saveImage();
-			break;
+		//case GLFW_KEY_ESCAPE:
+		//	saveImage();
+		//	glfwSetWindowShouldClose(window, GL_TRUE);
+		//	break;
+		//case GLFW_KEY_S:
+		//	saveImage();
+		//	break;
 		case GLFW_KEY_SPACE:
 			camchanged = true;
 			renderState = &scene->state;

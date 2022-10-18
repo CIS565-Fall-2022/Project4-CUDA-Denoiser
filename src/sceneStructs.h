@@ -18,6 +18,8 @@
     #define _ADAPTIVE_DEBUG_    1
     #define _PIX_COV_TO_SKIP_   1
 #endif
+
+#define _TIME_ATROUS_DENOISER_       0
 // --- end toggleable things ---
 
 enum GeomType {

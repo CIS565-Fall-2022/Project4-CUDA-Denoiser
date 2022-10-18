@@ -92,40 +92,81 @@ __global__ void writeToImage(glm::ivec2 resolution,
 	}
 }
 
-__global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
-	int iter, glm::vec3* image, PathSegment* paths) {
+// generating kernel to create discrete wavelet transform
+__device__ constexpr float generatingKern[5] = { 1.f / 16, 1.f / 4, 3.f / 8, 1.f / 4, 1.f / 16 };
+__global__ void aTrousDenoise(glm::ivec2 resolution, glm::vec3* image, GBufferPixel *gBuffer,
+	int stride, float colorWeight, float posnWeight, float normWeight) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	if (x < resolution.x && y < resolution.y) {
+		int index = x + (y * resolution.x);
+		// A'Trous Denoising
+		glm::vec3 sum(0.f);
+		float totalWeight = 0.f;
+#pragma unroll
+		for (int i = -2; i <= 2; ++i) {
+			for (int j = -2; j <= 2; ++j) {
+				// Sample surrounding content; stride for empty btwn filter entries
+				int sampleIndex = index + (i + resolution.x * j) * stride;
+				if (0 <= sampleIndex && sampleIndex < resolution.x * resolution.y) {
+					glm::vec3 diff = image[index] - image[sampleIndex];
+					float dist = glm::dot(diff, diff);
+					float cW = glm::min(glm::exp(-dist / colorWeight), 1.f);
+
+					diff = gBuffer[index].norm - gBuffer[sampleIndex].norm;
+					dist = glm::max(glm::dot(diff, diff) / (stride * stride), 0.f);
+					float nW = glm::min(glm::exp(-dist / normWeight), 1.f);
+
+					diff = gBuffer[index].posn - gBuffer[sampleIndex].posn;
+					dist = glm::dot(diff, diff);
+					float pW = glm::min(glm::exp(-dist / posnWeight), 1.f);
+
+					float weight = cW * nW * pW *
+						generatingKern[i + 2] * generatingKern[j + 2];
+					sum += image[sampleIndex] * weight;
+					totalWeight += weight;
+				}
+			}
+		}
+		image[index] = sum / totalWeight;
+		// End A'Trous Denoising
+	}
+}
+
+
+__global__ void bufToPBO(uchar4* pbo, glm::ivec2 resolution, glm::vec3* buffer) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	if (x < resolution.x && y < resolution.y) {
 		int index = x + (y * resolution.x);
 		// Each thread writes one pixel location in the texture (textel)
+
 		pbo[index].w = 0;
-		pbo[index].x = glm::clamp((int)(image[index].x * 255.0), 0, 255);
-		pbo[index].y = glm::clamp((int)(image[index].y * 255.0), 0, 255);
-		pbo[index].z = glm::clamp((int)(image[index].z * 255.0), 0, 255);
+		pbo[index].x = glm::clamp((int)(buffer[index].x * 255.0), 0, 255);
+		pbo[index].y = glm::clamp((int)(buffer[index].y * 255.0), 0, 255);
+		pbo[index].z = glm::clamp((int)(buffer[index].z * 255.0), 0, 255);
 	}
 }
 
-__global__ void gbufferToPBO(uchar4* pbo,
-	glm::ivec2 resolution, GBufferPixel* gBuffer, int bit) {
+__global__ void gBufferFetchAttrib(glm::ivec2 resolution, GBufferPixel* gBuffer,
+	int bit, glm::vec3* buffer) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	if (x < resolution.x && y < resolution.y) {
 		int index = x + (y * resolution.x);
-		glm::vec3 show = bit ? 
+		glm::vec3 pix = bit ?
 			gBuffer[index].posn * 0.1f : //scale down posn, o/w wrapping is intense
 			gBuffer[index].norm;
-		show = glm::abs(show) * 255.f;
-		pbo[index].w = 0;
-		pbo[index].x = show.x;
-		pbo[index].y = show.y;
-		pbo[index].z = show.z;
+		pix = glm::abs(pix);
+
+		buffer[index] = pix;
 	}
 }
 
 static Scene* hst_scene = NULL;
 static GuiDataContainer* guiData = NULL;
 static glm::vec3* dev_image = NULL;
+static glm::vec3* dev_temp = NULL; // for misc. things like saving image
 static Geom* dev_geoms = NULL;
 static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
@@ -145,6 +186,8 @@ void pathtraceInit(Scene* scene) {
 
 	cudaMalloc(&dev_image, pixelcount * sizeof(glm::vec3));
 	cudaMemset(dev_image, 0, pixelcount * sizeof(glm::vec3));
+
+	cudaMalloc(&dev_temp, pixelcount * sizeof(glm::vec3));
 
 	cudaMalloc(&dev_paths, pixelcount * sizeof(PathSegment));
 	cudaMalloc(&dev_geoms, scene->geoms.size() * sizeof(Geom));
@@ -167,6 +210,7 @@ void pathtraceInit(Scene* scene) {
 
 void pathtraceFree() {
 	cudaFree(dev_image);  // no-op if dev_image is null
+	cudaFree(dev_temp);
 	cudaFree(dev_paths);
 	cudaFree(dev_geoms);
 	cudaFree(dev_materials);
@@ -504,30 +548,67 @@ void pathtrace(int frame, int iter) {
 #else 
 	writeToImage<<<blocksPerGrid2d, blockSize2d>>>(cam.resolution, iter, dev_image, dev_paths);
 #endif
-
-	// Retrieve image from GPU
-	cudaMemcpy(hst_scene->state.image.data(), dev_image,
-		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	checkCUDAError("pathtrace");
 }
 
-void showGBuffer(uchar4* pbo, int bit) { // bit = 0 for norm, 1 for posn
+// bit = 0 for norm, 1 for posn. better as enum
+void showGBuffer(uchar4* pbo, int bit, bool save) {
 	const Camera& cam = hst_scene->state.camera;
 	const dim3 blockSize2d(8, 8);
 	const dim3 blocksPerGrid2d(
 		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
 		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
-	gbufferToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_gBuffer, bit);
+	gBufferFetchAttrib<<<blocksPerGrid2d, blockSize2d>>>
+		(cam.resolution, dev_gBuffer, bit, dev_temp);
+
+	if (!save) {
+		bufToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_temp);
+	} else {
+		bufToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_temp);
+		const int pixelcount = cam.resolution.x * cam.resolution.y;
+		cudaMemcpy(hst_scene->state.image.data(), dev_temp,
+			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+	}
 }
 
-void showImage(uchar4* pbo, int iter) {
+// timing for analysis stuff
+#if _TIME_ATROUS_DENOISER_
+#include <chrono>
+#endif
+
+void showImage(uchar4* pbo, bool denoise, int filterSize, float colorWeight, float posWeight, float normWeight, bool save) {
 	const Camera& cam = hst_scene->state.camera;
 	const dim3 blockSize2d(8, 8);
 	const dim3 blocksPerGrid2d(
 		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
 		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
-	// Send results to OpenGL buffer for rendering
-	sendImageToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, iter, dev_image, dev_paths);
+	const int pixelcount = cam.resolution.x * cam.resolution.y;
+
+	// if denoising, use dev_temp for stuff
+	if (denoise) {
+		cudaMemcpy(dev_temp, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
+		
+#if _TIME_ATROUS_DENOISER_
+		auto start = chrono::high_resolution_clock::now();
+#endif
+		for (int f = 0; f < filterSize; ++f) {
+			aTrousDenoise<<<blocksPerGrid2d, blockSize2d>>>(cam.resolution, dev_temp, dev_gBuffer,
+				1 << f, colorWeight, posWeight, normWeight);
+		}
+#if _TIME_ATROUS_DENOISER_
+		auto stop = chrono::high_resolution_clock::now();
+		auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
+		cout << duration.count() << endl;
+#endif
+		bufToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_temp);
+		if (save) {
+			cudaMemcpy(hst_scene->state.image.data(), dev_temp, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+		}
+	} else {
+		bufToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_image);
+		if (save) {
+			cudaMemcpy(hst_scene->state.image.data(), dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+		}
+	}
 }
