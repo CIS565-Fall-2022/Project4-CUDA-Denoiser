@@ -9,7 +9,7 @@ def diff(truthFilename, filename) -> None:
     diff = 255 - np.abs(truth - image)
     plt.imsave(filename[:len(filename) - 4] + "_diff.png", diff)
 
-truth = "./img/denoise_ground_truth.png"
-images = ["./img/denoise_ground_truth.png", "./img/denoise_100_iters.png", "./img/denoise_20_iters.png"]
+truth = "./img/denoise_diffuse_ground_truth.png"
+images = ["./img/denoise_diffuse_100_iter.png"]
 for file in images:
     diff(truth, file)
