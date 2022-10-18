@@ -6,6 +6,8 @@
 #include "sceneStructs.h"
 #include "utilities.h"
 
+#define CULLING 1
+
 /**
  * Handy-dandy hash function that provides seeds for random number generation.
  */
@@ -19,6 +21,7 @@ __host__ __device__ inline unsigned int utilhash(unsigned int a) {
     return a;
 }
 
+// CHECKITOUT
 /**
  * Compute a point at parameter value `t` on ray `r`.
  * Falls slightly short so that it doesn't intersect the object it's hitting.
@@ -34,6 +37,7 @@ __host__ __device__ glm::vec3 multiplyMV(glm::mat4 m, glm::vec4 v) {
     return glm::vec3(m * v);
 }
 
+// CHECKITOUT
 /**
  * Test intersection between a ray and a transformed cube. Untransformed,
  * the cube ranges from -0.5 to 0.5 in each axis and is centered at the origin.
@@ -87,6 +91,7 @@ __host__ __device__ float boxIntersectionTest(Geom box, Ray r,
     return -1;
 }
 
+// CHECKITOUT
 /**
  * Test intersection between a ray and a transformed sphere. Untransformed,
  * the sphere always has radius 0.5 and is centered at the origin.
@@ -139,3 +144,121 @@ __host__ __device__ float sphereIntersectionTest(Geom sphere, Ray r,
 
     return glm::length(r.origin - intersectionPoint);
 }
+
+__host__ __device__ inline void swap(float& a, float& b) {
+    float tmp = a;
+    a = b;
+    b = tmp;
+}
+
+__host__ __device__ bool intersectionCheck(glm::vec3 aabb_min, glm::vec3 aabb_max, Ray q) {
+    glm::vec3 inv_dir = 1.0f / q.direction;
+    float xmin = (aabb_min.x - q.origin.x) * inv_dir.x;
+    float xmax = (aabb_max.x - q.origin.x) * inv_dir.x;
+    float ymin = (aabb_min.y - q.origin.y) * inv_dir.y;
+    float ymax = (aabb_max.y - q.origin.y) * inv_dir.y;
+    
+    if (xmin > xmax) swap(xmin, xmax);
+    if (ymin > ymax) swap(ymin, ymax);
+    if (xmin > ymax || ymin > xmax) {
+        return false;
+    }
+    if (ymin > xmin) xmin = ymin;
+    if (ymax < xmax) xmax = ymax;
+
+    float zmin = (aabb_min.z - q.origin.z) * inv_dir.z;
+    float zmax = (aabb_max.z - q.origin.z) * inv_dir.z;
+    if (zmin > zmax) swap(zmin, zmax);
+
+    if (xmin > zmax || xmax < zmin) {
+        return false;
+    }
+    if (zmin > xmin) {
+        xmin = zmin;
+    }
+    if (zmax < xmax) {
+        xmax = zmax;
+    }
+    return true;
+}
+
+__host__ __device__ float primitiveIntersectionTest(Geom& geom, Ray r,
+    glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec2& uv, glm::vec4& tangent, Primitive* prims, Material* material, glm::vec3* texData) {
+#if CULLING
+    if (!intersectionCheck(geom.aabb_min, geom.aabb_max, r)) {
+        return -1;
+    }
+#endif // CULLING
+    Ray q;
+    q.origin = multiplyMV(geom.inverseTransform, glm::vec4(r.origin, 1.0f));
+    q.direction = glm::normalize(multiplyMV(geom.inverseTransform, glm::vec4(r.direction, 0.0f)));
+
+    glm::vec3 bary;
+    float t1 = FLT_MAX;
+    bool intersect = false;
+
+    for (int primId = geom.primBegin; primId < geom.primEnd; primId++) {
+        const Primitive& prim = prims[primId];
+        
+        //TODO aabb here?
+        if (glm::intersectRayTriangle(q.origin, q.direction, prim.pos[0], prim.pos[1], prim.pos[2], bary)) {
+            intersect = true;
+            if (bary.z > t1) {
+                continue;
+            }
+            t1 = bary.z;
+            bary.z = 1.0f - bary.x - bary.y;
+            geom.matId = prim.mat_id;
+            //we interpolate three vectors 
+            if (prim.hasNormal) {
+                normal = glm::normalize(prim.normal[0] * bary.z + prim.normal[1] * bary.x + prim.normal[2] * bary.y);
+            }
+            if (prim.hasUV) {
+                uv = prim.uv[0] * bary.z + prim.uv[1] * bary.x + prim.uv[2] * bary.y;
+            }
+            else {
+                uv = glm::vec2(-1);
+            }
+            if (prim.hasTangent) {
+                tangent = prim.tangent[0] * bary.z + prim.tangent[1] * bary.x + prim.tangent[2] * bary.y;
+            }
+            else {//or we have to calculate Tangent for the mesh
+                //https://www.cs.upc.edu/~virtual/G/1.%20Teoria/06.%20Textures/Tangent%20Space%20Calculation.pdf
+                glm::vec3 q1 = prim.pos[1] - prim.pos[0];
+                glm::vec3 q2 = prim.pos[2] - prim.pos[0];
+                glm::vec2 st1 = prim.uv[1] - prim.uv[0];
+                glm::vec2 st2 = prim.uv[2] - prim.uv[0];
+
+                float r = 1.0f / (st1.x * st2.y - st1.y * st2.x);
+                glm::vec3 sdir((st2.y * q1.x - st1.y * q2.x) * r, (st2.y * q1.y - st2.x * q2.y) * r, (st2.y * q1.z - st1.y * q2.z) * r);
+                glm::vec3 tdir((st1.x * q2.x - st2.x * q1.x) * r, (st1.x * q2.y - st2.x * q1.y) * r, (st1.x * q2.z - st2.x * q1.z) * r);
+                //gram-schmidt orthogonalize and calculate handedness
+                tangent = glm::vec4(
+                    glm::normalize(sdir - normal * glm::dot(normal, sdir)),
+                    glm::dot(glm::cross(normal, sdir), tdir) < 0.0f ? -1.0f : 1.0f);
+            }
+            //do bump mapping if possible
+            if (material[prim.mat_id].bump.TexIndex >= 0) {
+                glm::vec3 tan = glm::vec3(tangent);
+                glm::vec3 bitan = glm::cross(normal, tan) * tangent.w;
+                glm::mat3 tbn = glm::mat3(tan, bitan, normal);
+                int w = material[prim.mat_id].bump.width;
+                int x = uv.x * (w - 1);
+                int y = uv.y * (material[prim.mat_id].bump.height - 1);
+                normal = texData[material[prim.mat_id].bump.TexIndex + +y * w + x];
+                normal = normal * 2.0f - 1.0f;
+                normal = glm::normalize(tbn * normal);
+            }
+        }
+    }
+    if (!intersect) {
+        return -1;
+    }
+    intersectionPoint = multiplyMV(geom.transform, glm::vec4(getPointOnRay(q, t1), 1.0f));
+    normal = glm::normalize(multiplyMV(geom.invTranspose, glm::vec4(normal, 1.f)));
+    tangent = glm::vec4(glm::normalize(multiplyMV(geom.invTranspose, tangent)), tangent.z);
+    return glm::length(r.origin - intersectionPoint);
+    
+}
+
+
