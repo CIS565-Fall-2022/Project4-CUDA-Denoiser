@@ -43,7 +43,7 @@
 
 #define DIRECT_LIGHTING 0
 
-#define GBUFFER_VIS_MODE 1
+#define GBUFFER_VIS_MODE 0
 enum GBUFFER_VIS
 {
 	ISECT = 0,
@@ -119,7 +119,7 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
 		}
 		else if (GBUFFER_VIS_MODE == GBUFFER_VIS::POS)
 		{
-			glm::vec3 pos = gBuffer[index].pos * 255.0f;
+			glm::vec3 pos =  0.1f * gBuffer[index].pos * 255.0f;
 			pbo[index].w = 0;
 			pbo[index].x = abs(pos.x);
 			pbo[index].y = abs(pos.y);
