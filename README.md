@@ -12,15 +12,13 @@ CUDA Denoiser
 
 <div>
     <div align="center">
-        <img src="./img/svgf_1.gif" width="49%"/>
-        <img src="./img/svgf_2.gif" width="49%"/><br>
+        <a href="https://youtu.be/75MrzV-2qw8"><img src="./img/svgf_1.gif" width="49%"/></a>
+        <a href="https://youtu.be/DVkk4yPoPVs"><img src="./img/svgf_2.gif" width="49%"/></a><br>
         <p>Stable denoised result by SVGF</p><br>
     </div>
 </div>
-Watch recorded videos of two gifs:
 
-- [Cornell Box](./img/cornell.mp4)
-- [Sponza](./img/sponza.mp4)
+#### Click each GIF to watch its full demo video on Youtube.
 
 ## Features
 
