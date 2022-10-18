@@ -40,6 +40,9 @@ struct Settings {
     static int ImagePreviewOpt;
     static int denoiser;
     static bool modulate;
+    static bool animateCamera;
+    static float animateRadius;
+    static float animateSpeed;
 };
 
 struct State {

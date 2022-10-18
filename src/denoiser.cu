@@ -1,11 +1,25 @@
 #include "denoiser.h"
 
-__device__ constexpr float Gaussian3x3[] = {
+/*__device__ constexpr float Gaussian3x3[] = {
 	.25f, .5f, .25f
 };
 
 __device__ constexpr float Gaussian5x5[] = {
 	.0625f, .25f, .375f, .25f, .0625f
+};*/
+
+__device__ constexpr float Gaussian3x3[3][3] = {
+	{ .075f, .124f, .075f },
+	{ .124f, .204f, .124f },
+	{ .075f, .124f, .075f }
+};
+
+__device__ constexpr float Gaussian5x5[5][5] = {
+	{ .0030f, .0133f, .0219f, .0133f, .0030f },
+	{ .0133f, .0596f, .0983f, .0596f, .0133f },
+	{ .0219f, .0983f, .1621f, .0983f, .0219f },
+	{ .0133f, .0596f, .0983f, .0596f, .0133f },
+	{ .0030f, .0133f, .0219f, .0133f, .0030f }
 };
 
 #if DENOISER_ENCODE_NORMAL
@@ -88,6 +102,45 @@ __global__ void renderGBuffer(DevScene* scene, Camera cam, GBuffer gBuffer) {
 	}
 }
 
+__global__ void naiveWaveletFilter(
+	glm::vec3* devColorOut, glm::vec3* devColorIn, GBuffer gBuffer,
+	float sigDepth, float sigNormal, float sigLuminance, Camera cam, int level
+) {
+	int step = 1 << level;
+
+	int x = blockDim.x * blockIdx.x + threadIdx.x;
+	int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+	if (x >= cam.resolution.x || y >= cam.resolution.y) {
+		return;
+	}
+	int idxP = y * cam.resolution.x + x;
+	int primIdP = gBuffer.primId()[idxP];
+
+	glm::vec3 colorP = devColorIn[idxP];
+
+	glm::vec3 sum(0.f);
+	float sumWeight = 0.f;
+#pragma unroll
+	for (int i = -2; i <= 2; i++) {
+		for (int j = -2; j <= 2; j++) {
+			int qx = x + j * step;
+			int qy = y + i * step;
+			int idxQ = qy * cam.resolution.x + qx;
+
+			if (qx >= cam.resolution.x || qy >= cam.resolution.y ||
+				qx < 0 || qy < 0) {
+				continue;
+			}
+
+			float weight = Gaussian5x5[i + 2][j + 2];
+			sum += devColorIn[idxQ] * weight;
+			sumWeight += weight;
+		}
+	}
+	devColorOut[idxP] = (sumWeight == 0.f) ? devColorIn[idxP] : sum / sumWeight;
+}
+
 __global__ void waveletFilter(
 	glm::vec3* devColorOut, glm::vec3* devColorIn, GBuffer gBuffer,
 	float sigDepth, float sigNormal, float sigLuminance, Camera cam, int level
@@ -130,6 +183,7 @@ __global__ void waveletFilter(
 				qx < 0 || qy < 0) {
 				continue;
 			}
+
 			if (gBuffer.primId()[idxQ] != primIdP) {
 				continue;
 			}
@@ -151,7 +205,7 @@ __global__ void waveletFilter(
 			float distPos2 = glm::dot(posP - posQ, posP - posQ);
 			float wPos = glm::min(1.f, glm::exp(-distPos2 / sigDepth));
 
-			float weight = wColor * wNorm * wPos * Gaussian5x5[i + 2] * Gaussian5x5[j + 2];
+			float weight = wColor * wNorm * wPos * Gaussian5x5[i + 2][j + 2];
 			sum += colorQ * weight;
 			sumWeight += weight;
 		}
@@ -223,12 +277,12 @@ __global__ void waveletFilter(
 			float distPos2 = glm::dot(posP - posQ, posP - posQ);
 			float wPos = glm::exp(-distPos2 / sigDepth) + 1e-4f;
 
-			float wNorm = glm::pow(Math::absDot(normP, normQ), sigNormal) + 1e-4f;
+			float wNorm = glm::pow(Math::satDot(normP, normQ), sigNormal) + 1e-4f;
 
 			float denom = sigLuminance * glm::sqrt(glm::max(devVarFiltered[idxQ], 0.f)) + 1e-4f;
 			float wColor = glm::exp(-glm::abs(Math::luminance(colorP) - Math::luminance(colorQ)) / denom) + 1e-4f;
 
-			float weight = wColor * wNorm * wPos * Gaussian5x5[i + 2] * Gaussian5x5[j + 2];
+			float weight = wColor * wNorm * wPos * Gaussian5x5[i + 2][j + 2];
 			float weight2 = weight * weight;
 
 			sumColor += colorQ * weight;
@@ -237,8 +291,8 @@ __global__ void waveletFilter(
 			sumWeight2 += weight2;
 		}
 	}
-	devColorOut[idxP] = (sumWeight == 0.f) ? devColorIn[idxP] : sumColor / sumWeight;
-	devVarianceOut[idxP] = (sumWeight2 == 0.f) ? devVarainceIn[idxP] : sumVariance / sumWeight2;
+	devColorOut[idxP] = (sumWeight < FLT_EPSILON) ? devColorIn[idxP] : sumColor / sumWeight;
+	devVarianceOut[idxP] = (sumWeight2 < FLT_EPSILON) ? devVarainceIn[idxP] : sumVariance / sumWeight2;
 }
 
 __global__ void modulate(glm::vec3* devImage, GBuffer gBuffer, int width, int height) {
@@ -388,7 +442,7 @@ __global__ void filterVariance(float* devVarianceOut, float* devVarianceIn, int 
 				continue;
 			}
 			int idxQ = qy * width + qx;
-			float weight = Gaussian3x3[i + 1] * Gaussian3x3[j + 1];
+			float weight = Gaussian3x3[i + 1][j + 1];
 			sum += devVarianceIn[idxQ] * weight;
 			sumWeight += weight;
 		}

@@ -229,7 +229,13 @@ void RenderImGui() {
 			State::camChanged = true;
 		}
 
-		ImGui::Text("Filter");
+		ImGui::Checkbox("Animate Camera", &Settings::animateCamera);
+		if (Settings::animateCamera) {
+			State::camChanged = true;
+			ImGui::SliderFloat("Radius", &Settings::animateRadius, 0.f, 10.f);
+			ImGui::SliderFloat("Speed", &Settings::animateSpeed, 0.1f, 10.f);
+		}
+		
 		ImGui::Checkbox("Modulate", &Settings::modulate);
 
 		if (Settings::denoiser == Denoiser::EAWavelet) {

@@ -34,11 +34,11 @@ namespace Math {
     }
 
     __host__ __device__ inline glm::vec3 HDRToLDR(glm::vec3 c) {
-        return c / (c + 1.f) * 16.f;
+        return c / (c + 1.f) * 1.f;
     }
 
     __host__ __device__ inline glm::vec3 LDRToHDR(glm::vec3 c) {
-        c /= 16.f;
+        c /= 1.f;
         return c / (1.f - c + 1e-4f);
     }
 

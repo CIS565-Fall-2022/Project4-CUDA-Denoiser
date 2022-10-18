@@ -139,6 +139,14 @@ void saveImage(bool jpg) {
 }
 
 void runCuda() {
+	glm::vec3 camOrigPos = scene->camera.position;
+
+	if (Settings::animateCamera) {
+		float t = glfwGetTime() * Settings::animateSpeed;
+		scene->camera.position = camOrigPos +
+			glm::vec3(glm::cos(t), 0.f, glm::sin(t)) * Settings::animateRadius;
+	}
+
 	if (State::camChanged) {
 		iteration = 0;
 		scene->camera.update();
@@ -150,6 +158,8 @@ void runCuda() {
 	pathTrace(devDirectIllum, devIndirectIllum, iteration);
 
 	if (Settings::denoiser == Denoiser::None) {
+		cudaMemcpyDevToDev(devTempDirect, devDirectIllum, width * height * sizeof(glm::vec3));
+		cudaMemcpyDevToDev(devTempIndirect, devIndirectIllum, width * height * sizeof(glm::vec3));
 	}
 	else if (Settings::denoiser == Denoiser::Gaussian) {
 	}
@@ -165,6 +175,13 @@ void runCuda() {
 	if (Settings::modulate) {
 		modulateAlbedo(devTempDirect, gBuffer);
 		modulateAlbedo(devTempIndirect, gBuffer);
+
+		if (Settings::ImagePreviewOpt == 4) {
+			modulateAlbedo(devDirectIllum, gBuffer);
+		}
+		else if (Settings::ImagePreviewOpt == 5) {
+			modulateAlbedo(devIndirectIllum, gBuffer);
+		}
 		//modulateAlbedo(devTemp, gBuffer);
 	}
 	addImage(devTemp, devTempDirect, devTempIndirect, width, height);
@@ -234,6 +251,7 @@ void runCuda() {
 	cudaGLUnmapBufferObject(pbo);
 	iteration++;
 	gBuffer.update(scene->camera);
+	scene->camera.position = camOrigPos;
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
