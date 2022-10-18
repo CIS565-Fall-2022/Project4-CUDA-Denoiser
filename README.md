@@ -17,11 +17,14 @@ CUDA Denoiser
         <p>Stable denoised result by SVGF</p><br>
     </div>
 </div>
+Watch recorded videos of two gifs:
 
+- [Cornell Box](./img/cornell.mp4)
+- [Sponza](./img/sponza.mp4)
 
 ## Features
 
-### Edge Avoiding A-Trous Wavelet Denoiser (EAW Denoiser)
+### Edge-Avoiding A-Trous Wavelet Denoiser (EAW Denoiser)
 
 #### Pipeline Overview
 
@@ -74,7 +77,7 @@ In the graph above, A-Trous wavelet filter produces similar result to Gaussian (
 
 This denoiser's reconstruction filter includes five levels of A-Trous wavelet filters. The filters' radius increase from 1 to 16, covering an area of 31x31 pixels.
 
-##### G-Buffer Guided Edge Avoiding
+##### G-Buffer Guided edge-avoiding
 
 To avoid blending some high frequency details like the boundary between two objects with different colors, additional geometry information is needed to adjust the weight of kernel. For example, the farther the sampled pixel's position from the pixel to be filtered, they are less likely to come from the same part of an object, so the weight of sampled pixel is supposed to be smaller.
 
@@ -86,18 +89,29 @@ For EAW filter, the required geometry information includes:
 - Albedo, for modulation after filtering
 - Mesh ID or object IDs, used to check if two pixels belong to a same object so that they can probably be blended
 
+The kernel EAW uses is actually a multilateral filter kernel. Its weight is the product of four Gaussian kernels:
+
+- The original 5x5 Gaussian kernel
+- The luminance difference kernel $\exp(-\frac{||luminance_p - luminance_q||^2}{\sigma_{luminance}})$
+- The normal difference kernel $\exp(-\frac{||normal_p - normal_q||^2}{\sigma_{normal}})$
+- The distance kernel $\exp(-\frac{||position_p - position_q||^2}{\sigma_{position}})$
+
+These four kernels work together to determine the filter's shape.
+
+#### Results
+
+
+
 ### Spatiotemporal Variance Guided Denoiser (SVGF Denoiser)
 
 This part is implementation of the paper [SVGF].
 
-In Edge Avoiding A-Trous Filtering, our reconstruction kernel is only driven by spatial information of the scene at a certain frame. However, usually among several consecutive frames, if there isn't drastic change in camera's perspective or objects' position, we can still find rendered part of objects in the current frame to be appearing in previous frames. It turns out, these pixels can be taken into consideration for determining the weight of reconstruction filter.
+In edge-avoiding A-Trous Filtering, our reconstruction kernel is only driven by spatial information of the scene at a certain frame. However, usually among several consecutive frames, if there isn't drastic change in camera's perspective or objects' position, we can still find rendered part of objects in the current frame to be appearing in previous frames. It turns out, these pixels can be taken into consideration for determining the weight of reconstruction filter.
 
 Here are three critical ideas of SVGF in my opinion, which will be discussed later:
 
 - Temporal color and moment accumulation
 - Variance estimation
-  - Temportal variance
-  - Spatial variance
 - Variance guided filtering
 
 #### Pipeline
@@ -114,31 +128,50 @@ I applied Reinhard because it's simple to inverse. It worked well but introduced
 
 ![](./img/svgf_filter.jpeg)
 
-SVGF's reconstruction filter is more complicated than EAW. 
+SVGF's reconstruction filter is much more complicated than EAW. It has three main steps:
 
-### 1 SPP Input
+- Temporal accumulation: this is very similar to TAA in real-time rendering. By mixing path traced input with past frames'  history, the input to wavelet filters is more temporally stable. SVGF even makes this idea further by filtering color history with the first wavelet (equivalent to a 5x5 Gaussian kernel) before mixing it with path traced input. SVGF uses exponential average to keep the number of history frames restricted for real-time respond to scene change, also to avoid ghosting:
 
-![](./img/cornell_1spp.jpg)
+$$
+\bar{c}_i=\alpha\bar{c}_{i-1}+(1-\alpha)c
+$$
 
-### 5 Level Edge-Avoiding A-Trous Filter
+- Variance estimation: this is another important factor SVGF introduced to drive edge-avoiding kernels along with geometry information. There are two  kinds of variance:
 
-![](./img/cornell_eaw.jpg)
+  - Temporal variance: the variance of pixel's brightness in its valid history. This is derived from the variance formula $V(X)=E^2(X)-E(X^2)$, where the expectation is replaced by exponential average. It also means the first and second moments of pixel's brightness are to be temporally accumulated as well, so additional buffers are required
 
-### Spatiotemporal Variance-Guided Filter
+  - Spatial variance: the variance of pixels' brightness in its neighboring area. Larger variance indicates that the area is possibly noisier so that larger filter will be applied. In this denoiser, the area is set 5x5. This approach is also used by many variants of Bilateral Filter
 
-![](./img/cornell_svgf.jpg)
+  To combine these two for spatiotemporal variance, SVGF does something tricky but reasonable: temporal variance is used only when there are more than 5 valid history frames for a pixel. Otherwise, spatial variance is used. This is to prevent introduced variance with insufficient history
 
-### Ground Truth (3000 SPP)
+- Variance guided filtering: SVGF's edge-avoiding kernel is based on EAW's, but modified:
 
-![](./img/cornell_3000spp.jpg)
+  - To let variance also drive the shape of filter, the new luminance difference kernel is $\exp(-\frac{||luminance_p - luminance_q||}{\sigma_{luminance}\sqrt{Gaussian_{3x3}(Var_p)}+\epsilon})$, with standard deviation of current pixel added to scale the exponent. And the variance of current pixel is even prefiltered by a 3x3 Gaussian kernel
+  - The normal difference kernel is replaced by a step-like function $\max(0, normal_p \cdot normal_q)^{\sigma_{normal}}$
+  - The distance kernel is also replaced by $\exp(-\frac{||depth_p-depth_q||}{\sigma_{depth}||\nabla depth_p \cdot(p-q)||+\epsilon})$, which requires to calculate the gradient of clip-space depth with respect to screen space. This is difficult to do with CUDA, so this denoiser uses EAW's original distance kernel
 
-### EAW (Converged)
+#### Result
 
-![](./img/cornell_eaw_conv.jpg)
+It turns out that SVGF's spatiotemporal variance guiding is pretty efficient. 1spp input is sufficient to produce temporally stable output (see video), which is smoother than EAW. High frequency details like specular reflections are also better preserved.
 
-### SVGF (Converged)
+<table>
+    <tr>
+        <th>EAW (sigma normal = 0.02)</th>
+        <th>SVGF</th>
+    </tr>
+    <tr>
+        <th><img src="./img/cornell_eaw_1spp.jpg"/></th>
+        <th><img src="./img/cornell_svgf_1spp.jpg"/></th>
+    </tr>
+</table>
 
-![](./img/cornell_svgf_conv.jpg)
+If we let the scene stay still and accumulate ray traced color, the filter size will gradually shrink in response to reduced variance. The denoised image will finally converge to the noiseless image we desire with all details preserved (see how specular reflection on the teapot becomes clearer):
+
+![](./img/cornell_svgf_inc.jpg)
+
+## Performance Analysis
+
+
 
 
 
