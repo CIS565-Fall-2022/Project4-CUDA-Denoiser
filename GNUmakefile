@@ -23,7 +23,7 @@ RelWithDebugInfo: build
 
 
 run:
-	build/cis565_denoiser scenes/sphere.txt
+	build/cis565_path_tracer scenes/sphere.txt
 
 build:
 	mkdir -p build

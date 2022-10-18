@@ -14,7 +14,7 @@ GLuint texcoordsLocation = 1;
 GLuint pbo;
 GLuint displayImage;
 
-GLFWwindow *window;
+GLFWwindow* window;
 
 std::string currentTimeString() {
     time_t now;
@@ -33,7 +33,7 @@ void initTextures() {
     glBindTexture(GL_TEXTURE_2D, displayImage);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
 void initVAO(void) {
@@ -71,7 +71,7 @@ void initVAO(void) {
 }
 
 GLuint initShader() {
-    const char *attribLocations[] = { "Position", "Texcoords" };
+    const char* attribLocations[] = { "Position", "Texcoords" };
     GLuint program = glslUtility::createDefaultProgram(attribLocations, 2);
     GLint location;
 
@@ -185,7 +185,7 @@ bool init() {
     return true;
 }
 
-static ImGuiWindowFlags windowFlags= ImGuiWindowFlags_None | ImGuiWindowFlags_NoMove;
+static ImGuiWindowFlags windowFlags = ImGuiWindowFlags_None | ImGuiWindowFlags_NoMove;
 static bool ui_hide = false;
 
 void drawGui(int windowWidth, int windowHeight) {
@@ -214,8 +214,8 @@ void drawGui(int windowWidth, int windowHeight) {
 
     ImGui::Checkbox("Denoise", &ui_denoise);
 
-    ImGui::SliderInt("Filter Size", &ui_filterSize, 0, 100);
-    ImGui::SliderFloat("Color Weight", &ui_colorWeight, 0.0f, 10.0f);
+    ImGui::SliderInt("Filter Size", &ui_filterSize, 0, 300);
+    ImGui::SliderFloat("Color Weight", &ui_colorWeight, 0.0f, 150.0f);
     ImGui::SliderFloat("Normal Weight", &ui_normalWeight, 0.0f, 10.0f);
     ImGui::SliderFloat("Position Weight", &ui_positionWeight, 0.0f, 10.0f);
 
@@ -249,7 +249,7 @@ void mainLoop() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         // VAO, shader program, and texture already bound
-        glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
         // Draw imgui
         int display_w, display_h;
