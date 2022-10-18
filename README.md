@@ -1,7 +1,7 @@
 CUDA Denoiser For CUDA Path Tracer
 ================
 
-<img align="center" src="img/scuffed.png" width=50% height=50%>
+<img align="center" src="img/scuffedv2.png" width=50% height=50%>
 
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
 
@@ -17,7 +17,6 @@ Illumination Filtering by Dammertz, et al.](https://jo.dreggn.org/home/2010_atro
 The name À-Trous means "with holes" in French; our denoised image is produced by convoluting the base image with larger and larger blur kernels with larger and larger holes (0-value indices). See paper for in-depth explanation and refer to the previous project link for the base path tracer functionality.
 
 ## Denoiser Analysis
-The performance of the features in this section are measured with frames per second (FPS) of the overall render, so a higher FPS is better.
 
 ### Denoiser Visuals
 The section uses a [rudimentary python program](./diff.py) to determine the difference between two images. This difference is output as a "diff" image, which demonstrates per-pixel difference between ground truth and the denoised version. The brighter/whiter a pixel in the "diff", the more correct it is.
@@ -55,6 +54,17 @@ The below is denoised on 50 iterations of the Cornell scene.
 
 As expected, a greater filter size correlates with a "stronger" blur.
 
+#### Visual influence of scenes on denoising output
+Scenes that have a smaller wealth of light sources find it harder to converge in a short number of iterations. Here we compare denoising a Cornell box with a small vs big light at 100 iterations.
+
+| Scene | Small light | Big light |
+| :----: | :--------: | :---------: |
+| Truth | <img src="img/denoise_small_light_ground_truth.png"> | <img src="img/denoise_ground_truth.png"> |
+| Denoised | <img src="img/denoise_small_light_100_iters.png"> | <img src="img/denoise_spec_100_iter.png"> |
+| Diff | <img src="img/denoise_small_light_100_iters_diff.png"> | <img src="img/denoise_100_iters_diff.png"> |
+
+As expected, with a smaller light at 100 iterations, less of the scene is developed, giving the denoiser less to work with. The worse denoised output for the smaller light source as shown above is the consequence.
+
 ### Denoiser Performance
 The denoiser is run on the noisy output image, so it is independent of things like number of iterations run by the path tracer prior to denoising. As demonstrated by the below sections, the denoiser runs in a matter of microseconds; the time added by denoising is negligible. All benchmarks are made on the same Cornell scene (see above visual analysis for visual).
 
@@ -68,3 +78,11 @@ To the left is a chart to roughly show the linear relation between runtime and l
 With greater resolutions comes greater number of pixels to traverse. As expected, increases in resolution mean an increased runtime for the denoiser to work. Still, the overall times are very low.
 
 <img src="img/denoising_res_runtime.png" width=80% height=80%>
+
+### Misc. Debugging Images
+| Normal | Position |
+| :----: | :--------: |
+| <img src="img/denoise_gbuffer_normals.png"> | <img src="img/denoise_gbuffer_posn.png"> |
+
+Below is a weird image output that occurred due to a mixup of buffers and some strange wrapping.
+<img src="img/denoise_blooper.png" width=80% height=80%>
