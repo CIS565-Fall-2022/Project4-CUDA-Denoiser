@@ -190,11 +190,8 @@
 ### How Good is the Denoiser?
 #### Image Quality over Time and Increasing Filter Size
 - To measure how "smooth" the image is after denoising, I used Peak Signal-to-Noise Ratio (abbr. PSNR). It can be defined in terms of Mean Square Error (MSE) as shown:
-$$
-\mathrm{MSE}\left( S,R \right) =\frac{1}{N}\sum_{i=0}^{n-1}{\left( S_i-R_i \right) ^2}
-\\
-\mathrm{PSNR}\left( S,R \right) =10\log _{10}\left( \frac{255^2}{\mathrm{MSE}\left( S,R \right)} \right) 
-$$
+$$\mathrm{MSE}\left( S,R \right) =\frac{1}{N}\sum_{i=0}^{n-1}{\left( S_i-R_i \right) ^2}$$
+$$\mathrm{PSNR}\left( S,R \right) =10\log _{10}\left( \frac{255^2}{\mathrm{MSE}\left( S,R \right)} \right) $$
 
 - I have incorporated the functionality of measuring PSNR interactively through ImGui. Below is a simple demo of how to do it.
 ![](./img/Denoise/PSNR/psnr_demo.gif)
