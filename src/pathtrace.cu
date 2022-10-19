@@ -146,6 +146,7 @@ static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
 
 static GBufferPixel* dev_gBuffer = NULL;
+static glm::vec3* dev_image_denoised = NULL;
 
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
@@ -203,6 +204,8 @@ void pathtraceInit(Scene* scene) {
 	// Project 4
 	cudaMalloc(&dev_gBuffer, pixelcount * sizeof(GBufferPixel));
 
+	cudaMalloc(&dev_image_denoised, pixelcount * sizeof(glm::vec3));
+	cudaMemset(dev_image_denoised, 0, pixelcount * sizeof(glm::vec3));
 
 	checkCUDAError("pathtraceInit");
 }
@@ -223,6 +226,7 @@ void pathtraceFree() {
 
 	// Project 4
 	cudaFree(dev_gBuffer);
+	cudaFree(dev_image_denoised);
 
 	checkCUDAError("pathtraceFree");
 }
@@ -621,7 +625,6 @@ __global__ void postShade(
 	}
 }
 
-
 __global__ void generateGBuffer(
 	int num_paths,
 	ShadeableIntersection* shadeableIntersections,
@@ -636,6 +639,60 @@ __global__ void generateGBuffer(
 		gBuffer[idx].nor = shadeableIntersections[idx].surfaceNormal;
 	}
 }
+
+__global__ void ATrousKernel(glm::ivec2 resolution, glm::vec3* image_in, glm::vec3* image_out, GBufferPixel* gBuffer,
+	float c_phi, float n_phi, float p_phi, float stepwidth)
+{
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	if (x >= resolution.x || y >= resolution.y) {
+		return;
+	}
+
+	float kernel[5][5] = {
+	0.00390625, 0.015625, 0.0234375, 0.015625, 0.00390625,
+	0.015625, 0.0625, 0.09375, 0.0625, 0.015625,
+	0.0234375, 0.09375, 0.140625, 0.09375, 0.0234375,
+	0.015625, 0.0625, 0.09375, 0.0625, 0.015625,
+	0.00390625, 0.015625, 0.0234375, 0.015625, 0.00390625 };
+
+	int idx = x + (y * resolution.x);
+
+	glm::vec3 sum = glm::vec3(0.f);
+
+	glm::vec3 cval = image_in[idx];
+	glm::vec3 nval = gBuffer[idx].nor;
+	glm::vec3 pval = gBuffer[idx].pos;
+
+	float cum_w = 0.0;
+
+	for (int i = -2; i <= 2; ++i)
+	{
+		for (int j = -2; j <= 2; ++j)
+		{
+			int u = x + i * stepwidth;
+			int v = y + j * stepwidth;
+
+			float weight = 1.0f;
+
+			// Bound check
+			if (u >= 0 && u < resolution.x && v >= 0 && v <= resolution.y)
+			{
+				int idxtmp = u + v * resolution.x;
+				glm::vec3 ctmp = image_in[idxtmp];
+				//glm::vec3 t = cval - ctmp;
+				float kernel_i = kernel[i + 2][j + 2];
+				sum += ctmp * weight * kernel_i;
+				cum_w += weight * kernel_i;
+			}
+		}
+	}
+
+	image_out[idx] = sum / cum_w;
+
+}
+
+
 
 // Add the current iteration's output to the overall image
 __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iterationPaths)
@@ -904,4 +961,18 @@ void showImage(uchar4* pbo, int iter) {
 
 	// Send results to OpenGL buffer for rendering
 	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
+}
+
+void showDenoised(uchar4* pbo, int iter) {
+	const Camera& cam = hst_scene->state.camera;
+	const dim3 blockSize2d(8, 8);
+	const dim3 blocksPerGrid2d(
+		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+
+	ATrousKernel << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, dev_image, dev_image_denoised, dev_gBuffer,
+			0.0, 0.0, 0.0, 1.0);
+
+	// Send results to OpenGL buffer for rendering
+	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image_denoised);
 }
