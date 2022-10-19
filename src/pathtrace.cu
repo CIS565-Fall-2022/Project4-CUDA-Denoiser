@@ -44,6 +44,9 @@
 #define DIRECT_LIGHTING 0
 
 #define GBUFFER_VIS_MODE 0
+
+#define EDGE_AVOID 1
+
 enum GBUFFER_VIS
 {
 	ISECT = 0,
@@ -147,6 +150,7 @@ static ShadeableIntersection* dev_intersections = NULL;
 
 static GBufferPixel* dev_gBuffer = NULL;
 static glm::vec3* dev_image_denoised = NULL;
+static glm::vec3* dev_image_denoise_buffer = NULL;
 
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
@@ -207,6 +211,9 @@ void pathtraceInit(Scene* scene) {
 	cudaMalloc(&dev_image_denoised, pixelcount * sizeof(glm::vec3));
 	cudaMemset(dev_image_denoised, 0, pixelcount * sizeof(glm::vec3));
 
+	cudaMalloc(&dev_image_denoise_buffer, pixelcount * sizeof(glm::vec3));
+	cudaMemset(dev_image_denoise_buffer, 0, pixelcount * sizeof(glm::vec3));
+
 	checkCUDAError("pathtraceInit");
 }
 
@@ -227,6 +234,7 @@ void pathtraceFree() {
 	// Project 4
 	cudaFree(dev_gBuffer);
 	cudaFree(dev_image_denoised);
+	cudaFree(dev_image_denoise_buffer);
 
 	checkCUDAError("pathtraceFree");
 }
@@ -680,7 +688,26 @@ __global__ void ATrousKernel(glm::ivec2 resolution, glm::vec3* image_in, glm::ve
 			{
 				int idxtmp = u + v * resolution.x;
 				glm::vec3 ctmp = image_in[idxtmp];
-				//glm::vec3 t = cval - ctmp;
+				
+#if EDGE_AVOID 
+				// Edge-avoiding
+				glm::vec3 t = cval - ctmp;
+				float dist2 = glm::dot(t, t);
+				float c_w = glm::min(glm::exp(-dist2 / c_phi), 1.0f);
+
+				glm::vec3 ntmp = gBuffer[idxtmp].nor;
+				t = nval - ntmp;
+				dist2 = glm::max(glm::dot(t, t) / (stepwidth * stepwidth), 0.0f);
+				float n_w = glm::min(glm::exp(-dist2 / n_phi), 1.0f);
+
+				glm::vec3 ptmp = gBuffer[idxtmp].pos;
+				t = pval - ptmp;
+				dist2 = glm::dot(t, t);
+				float p_w = glm::min(glm::exp(-dist2 / p_phi), 1.0f);
+				
+				weight = c_w * n_w * p_w;
+#endif
+
 				float kernel_i = kernel[i + 2][j + 2];
 				sum += ctmp * weight * kernel_i;
 				cum_w += weight * kernel_i;
@@ -930,15 +957,41 @@ void pathtrace(int frame, int iter) {
 	// Send results to OpenGL buffer for rendering
 	// sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
 
+
 	// CHECKITOUT: use dev_image as reference if you want to implement saving denoised images.
 	// Otherwise, screenshots are also acceptable.
 	// Retrieve image from GPU
-	cudaMemcpy(hst_scene->state.image.data(), dev_image,
-		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
 	checkCUDAError("pathtrace");
 }
 
+
+void denoise(float c_phi, float n_phi, float p_phi, float filterSize)
+{
+	const Camera& cam = hst_scene->state.camera;
+	const dim3 blockSize2d(8, 8);
+	const dim3 blocksPerGrid2d(
+		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+
+	int pixelcount = cam.resolution.x * cam.resolution.y;
+	cudaMemcpy(dev_image_denoise_buffer, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
+
+	for (int stepwidth = 1; stepwidth < filterSize; stepwidth *= 2)
+	{
+			ATrousKernel << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, dev_image_denoise_buffer, dev_image_denoised, dev_gBuffer,
+				c_phi, n_phi, p_phi, stepwidth);
+
+			cudaDeviceSynchronize();
+
+			glm::vec3* image_tmp = dev_image_denoised;
+			dev_image_denoise_buffer = dev_image_denoised;
+			dev_image_denoised = image_tmp;
+	}
+
+		cudaMemcpy(hst_scene->state.image.data(), dev_image_denoised,
+			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+}
 
 // CHECKITOUT: this kernel "post-processes" the gbuffer/gbuffers into something that you can visualize for debugging.
 void showGBuffer(uchar4* pbo) {
@@ -969,9 +1022,6 @@ void showDenoised(uchar4* pbo, int iter) {
 	const dim3 blocksPerGrid2d(
 		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
 		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
-
-	ATrousKernel << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, dev_image, dev_image_denoised, dev_gBuffer,
-			0.0, 0.0, 0.0, 1.0);
 
 	// Send results to OpenGL buffer for rendering
 	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image_denoised);

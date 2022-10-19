@@ -30,7 +30,6 @@ float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
 
-
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
 static glm::vec3 cammove;
@@ -179,6 +178,7 @@ void runCuda() {
 	}
 	else if (ui_denoise)
 	{
+		denoise(ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_filterSize);
 		showDenoised(pbo_dptr, iteration);
 	}
 	else {
