@@ -17,7 +17,10 @@ CUDA Denoiser
         <p>Stable denoised result by SVGF</p>
     </div>
 </div>
-### Demo videos: [*Cornell Box*](https://youtu.be/75MrzV-2qw8)   [*Sponza*](https://youtu.be/DVkk4yPoPVs)
+Demo videos:
+
+- [*Cornell Box*](https://youtu.be/75MrzV-2qw8)
+- [*Sponza*](https://youtu.be/DVkk4yPoPVs)
 
 
 
