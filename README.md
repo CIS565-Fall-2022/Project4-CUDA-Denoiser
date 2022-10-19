@@ -99,7 +99,7 @@ As shown in the demonstration video, it took 64 iterations for generating a plau
 
 ### Performance impacted by luminance weight
 
-![](./img/wl.png)
+![](./img/WL.png)
 
 By introducing the luminance weight, the filter will be aware of the edges between light and dark, thus better preserving the edges of shadows and light sources.
 
@@ -111,11 +111,11 @@ By adding dilations, wavelet filters can a have larger reception field than norm
 
 **5x5 wavelet filter, 4 times, 4.96ms**
 
-![](./img/5x5 wavelet.png)
+![](./img/5x5_wavelet.png)
 
 **9x9 normal filter, 5ms**
 
-![](./img/9x9 normal.png)
+![](./img/9x9_normal.png)
 
 At the same time cost, the wavelet filter generates better result.
 
@@ -123,18 +123,16 @@ At the same time cost, the wavelet filter generates better result.
 
 **9x9 wavelet filter, 4 times, 18.5ms**
 
-![](./img/9x9 wavelet.png)
+![](./img/9x9_wavelet.png)
 
 **7x7 wavelet filter, 4 times, 10.9ms**
 
-![](./img/7x7 wavelet.png)
+![](./img/7x7_wavelet.png)
 
 **5x5 wavelet filter, 4 times, 4.96ms**
 
-![](./img/5x5 wavelet.png)
+![](./img/5x5_wavelet.png)
 
 **3x3 wavelet filter, 4 times, 2ms**
 
-![](./img/3x3 wavelet.png)
-
-
+![](./img/3x3_wavelet.png)
