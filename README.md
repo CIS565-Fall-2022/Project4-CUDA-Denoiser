@@ -17,8 +17,9 @@ CUDA Denoiser
         <p>Stable denoised result by SVGF</p>
     </div>
 </div>
+### Demo videos: [*Cornell Box*](https://youtu.be/75MrzV-2qw8)   [*Sponza*](https://youtu.be/DVkk4yPoPVs)
 
-### Click each GIF to watch its full demo video on Youtube
+
 
 ### Link to the base project: [*Project 3: CUDA Path Tracer*](https://github.com/HummaWhite/Project3-CUDA-Path-Tracer/tree/main), welcome to see!
 
@@ -97,23 +98,11 @@ The kernel EAW uses is actually a multilateral filter kernel. Its weight is the 
 
 - The original 5x5 Gaussian kernel
 
-- The luminance difference kernel
-  $$
-  \exp(-\frac{||luminance_p - luminance_q||^2}{\sigma_{luminance}})
-  $$
+- The luminance difference kernel $\exp(-\frac{||luminance_p - luminance_q||^2}{\sigma_{luminance}})$
   
-
-- The normal difference kernel
-  $$
-  \exp(-\frac{||normal_p - normal_q||^2}{\sigma_{normal}})
-  $$
+- The normal difference kernel $\exp(-\frac{||normal_p - normal_q||^2}{\sigma_{normal}})$
   
-
-- The distance kernel
-  $$
-  \exp(-\frac{||position_p - position_q||^2}{\sigma_{position}})
-  $$
-  
+- The distance kernel $\exp(-\frac{||position_p - position_q||^2}{\sigma_{position}})$
 
 These four kernels work together to determine the filter's shape.
 
@@ -182,39 +171,24 @@ SVGF's reconstruction filter is much more complicated than EAW. It has three mai
 - Temporal accumulation: this is very similar to TAA in real-time rendering. By mixing path traced input with past frames'  history, the input to wavelet filters is more temporally stable. SVGF even makes this idea further by filtering color history with the first wavelet (equivalent to a 5x5 Gaussian kernel) before mixing it with path traced input. SVGF uses exponential average to keep the number of history frames restricted for real-time respond to scene change, also to avoid ghosting:
 
 $$
-\bar{c}_i=\alpha\bar{c}_{i-1}+(1-\alpha)c
+\bar{c_i}=\alpha\bar{c_{i-1}}+(1-\alpha)c
 $$
 
 - Variance estimation: this is another important factor SVGF introduced to drive edge-avoiding kernels along with geometry information. There are two  kinds of variance:
 
-  - Temporal variance: the variance of pixel's brightness in its valid history. This is derived from the variance formula
-    $$
-    V(X)=E^2(X)-E(X^2)
-    $$
+  - Temporal variance: the variance of pixel's brightness in its valid history. This is derived from the variance formula $V(X)=E^2(X)-E(X^2)$
+    
     where the expectation is replaced by exponential average. It also means the first and second moments of pixel's brightness are to be temporally accumulated as well, so additional buffers are required
-
+    
   - Spatial variance: the variance of pixels' brightness in its neighboring area. Larger variance indicates that the area is possibly noisier so that larger filter will be applied. In this denoiser, the area is set 5x5. This approach is also used by many variants of Bilateral Filter
 
   To combine these two for spatiotemporal variance, SVGF does something tricky but reasonable: temporal variance is used only when there are more than 5 valid history frames for a pixel. Otherwise, spatial variance is used. This is to prevent introduced variance with insufficient history
 
 - Variance guided filtering: SVGF's edge-avoiding kernel is based on EAW's, but modified:
 
-  - To let variance also drive the shape of filter, the new luminance difference kernel is
-    $$
-    \exp(-\frac{||luminance_p - luminance_q||}{\sigma_{luminance}\sqrt{Gaussian_{3x3}(Var_p)}+\epsilon})
-    $$
-    with standard deviation of current pixel added to scale the exponent. And the variance of current pixel is even prefiltered by a 3x3 Gaussian kernel
-
-  - The normal difference kernel is replaced by a step-like function
-    $$
-    \max(0, normal_p \cdot normal_q)^{\sigma_{normal}}
-    $$
-
-  - The distance kernel is also replaced by
-    $$
-    \exp(-\frac{||depth_p-depth_q||}{\sigma_{depth}||\nabla depth_p \cdot(p-q)||+\epsilon})
-    $$
-    which requires to calculate the gradient of clip-space depth with respect to screen space. This is difficult to do with CUDA, so this denoiser uses EAW's original distance kernel
+  - To let variance also drive the shape of filter, the new luminance difference kernel is $\exp(-\frac{||luminance_p - luminance_q||}{\sigma_{luminance}\sqrt{Gaussian_{3x3}(Var_p)}+\epsilon})$, with standard deviation of current pixel added to scale the exponent. And the variance of current pixel is even prefiltered by a 3x3 Gaussian kernel
+  - The normal difference kernel is replaced by a step-like function $\max(0, normal_p \cdot normal_q)^{\sigma_{normal}}$
+  - The distance kernel is also replaced by $\exp(-\frac{||depth_p-depth_q||}{\sigma_{depth}||\nabla depth_p \cdot(p-q)||+\epsilon})$, which requires to calculate the gradient of clip-space depth with respect to screen space. This is difficult to do with CUDA, so this denoiser uses EAW's original distance kernel
 
 #### Result
 
