@@ -99,7 +99,7 @@ As shown in the demonstration video, it took 64 iterations for generating a plau
 
 ### Performance impacted by luminance weight
 
-![](./img/WL.png)
+![](./img/Wl.png)
 
 By introducing the luminance weight, the filter will be aware of the edges between light and dark, thus better preserving the edges of shadows and light sources.
 
