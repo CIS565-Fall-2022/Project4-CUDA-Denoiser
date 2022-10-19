@@ -224,7 +224,7 @@ void RenderImGui() {
 	}
 
 	ImGui::Begin("Options"); {
-		const char* Denoisers[] = { "None", "Gaussian", "EA A-Trous", "SVGF" };
+		const char* Denoisers[] = { "None", "EA A-Trous", "SVGF" };
 		if (ImGui::Combo("Denoiser", &Settings::denoiser, Denoisers, IM_ARRAYSIZE(Denoisers))) {
 			State::camChanged = true;
 		}

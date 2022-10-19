@@ -6,8 +6,8 @@
 #define SCENE_LIGHT_SINGLE_SIDED true
 
 #define DENOISER_DEMODULATE true
-#define DENOISER_ENCODE_NORMAL true
-#define DENOISER_ENCODE_POSITION true
+#define DENOISER_ENCODE_NORMAL false
+#define DENOISER_ENCODE_POSITION false
 
 #define DEMODULATE_EPS 1e-3f
 
@@ -29,7 +29,7 @@ struct Tracer {
 
 struct Denoiser {
     enum {
-        None, Gaussian, EAWavelet, SVGF
+        None, EAWavelet, SVGF
     };
 };
 

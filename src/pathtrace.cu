@@ -488,19 +488,13 @@ __global__ void singleKernelPT(
 		}
 	}
 WriteRadiance:
-#if DENOISER_DEMODULATE
-	/*direct /= albedo + DEMODULATE_EPS;
-	indirect /= albedo + DEMODULATE_EPS;*/
-#endif
-
 	if (Math::hasNanOrInf(direct)) {
 		direct = glm::vec3(0.f);
 	}
 	if (Math::hasNanOrInf(indirect)) {
 		indirect = glm::vec3(0.f);
 	}
-	//direct = glm::min(direct / DenoiseCompress, glm::vec3(DenoiseClamp));
-	//indirect = glm::min(indirect / DenoiseCompress, glm::vec3(DenoiseClamp));
+
 	direct = Math::HDRToLDR(direct);
 	indirect = Math::HDRToLDR(indirect);
 	directIllum[index] = (directIllum[index] * float(iter) + direct) / float(iter + 1);
@@ -559,102 +553,4 @@ void pathTrace(glm::vec3* devDirectIllum, glm::vec3* devIndirectIllum, int iter)
 
 	checkCUDAError("pathTrace");
 	looper = (looper + 1) % SobolSampleNum;
-
-	/*
-	const int pixelCount = cam.resolution.x * cam.resolution.y;
-
-	// 2D block for generating ray from camera
-	const dim3 blockSize2D(8, 8);
-	const dim3 blocksPerGrid2D(
-		(cam.resolution.x + blockSize2D.x - 1) / blockSize2D.x,
-		(cam.resolution.y + blockSize2D.y - 1) / blockSize2D.y);
-
-	int depth = 0;
-	int numPaths = pixelCount;
-
-	auto devTerminatedThr = devTerminatedPathsThr;
-
-	if (Settings::tracer == Tracer::Streamed) {
-		generateRayFromCamera<<<blocksPerGrid2D, blockSize2D>>>(hstScene->devScene, cam, looper, Settings::traceDepth, devPaths);
-		checkCUDAError("PT::generateRayFromCamera");
-		cudaDeviceSynchronize();
-
-		bool iterationComplete = false;
-		while (!iterationComplete) {
-			// clean shading chunks
-			cudaMemset(devIntersections, 0, pixelCount * sizeof(Intersection));
-
-			// tracing
-			const int BlockSizeIntersec = 128;
-			int blockNumIntersec = (numPaths + BlockSizeIntersec - 1) / BlockSizeIntersec;
-			computeIntersections<<<blockNumIntersec, BlockSizeIntersec>>>(
-				depth, numPaths, devPaths, hstScene->devScene, devIntersections
-			);
-			checkCUDAError("PT::computeInteractions");
-			cudaDeviceSynchronize();
-
-			const int BlockSizeSample = 64;
-			int blockNumSample = (numPaths + BlockSizeSample - 1) / BlockSizeSample;
-
-			pathIntegSampleSurface<<<blockNumSample, BlockSizeSample>>>(
-				looper, depth, devPaths, devIntersections, hstScene->devScene, numPaths
-			);
-			checkCUDAError("PT::sampleSurface");
-			cudaDeviceSynchronize();
-
-			// Compact paths that are terminated but carry contribution into a separate buffer
-			devTerminatedThr = thrust::remove_copy_if(devPathsThr, devPathsThr + numPaths, devTerminatedThr, CompactTerminatedPaths());
-			// Only keep active paths
-			auto end = thrust::remove_if(devPathsThr, devPathsThr + numPaths, RemoveInvalidPaths());
-			numPaths = end - devPathsThr;
-			//std::cout << "Remaining paths: " << numPaths << "\n";
-
-			iterationComplete = (numPaths == 0);
-			depth++;
-
-			if (guiData != nullptr) {
-				guiData->TracedDepth = depth;
-			}
-		}
-
-		// Assemble this iteration and apply it to the image
-		const int BlockSizeGather = 128;
-		dim3 numBlocksPixels = (pixelCount + BlockSizeGather - 1) / BlockSizeGather;
-		int numContributing = devTerminatedThr.get() - devTerminatedPaths;
-		finalGather<<<numBlocksPixels, BlockSizeGather>>>(numContributing, devImage, devTerminatedPaths);
-	}
-	else
-	{
-		const int BlockSizeSinglePTX = 8;
-		const int BlockSizeSinglePTY = 8;
-		int blockNumSinglePTX = (cam.resolution.x + BlockSizeSinglePTX - 1) / BlockSizeSinglePTX;
-		int blockNumSinglePTY = (cam.resolution.y + BlockSizeSinglePTY - 1) / BlockSizeSinglePTY;
-
-		dim3 singlePTBlockNum(blockNumSinglePTX, blockNumSinglePTY);
-		dim3 singlePTBlockSize(BlockSizeSinglePTX, BlockSizeSinglePTY);
-
-		if (Settings::tracer == Tracer::SingleKernel) {
-			singleKernelPT<<<singlePTBlockNum, singlePTBlockSize>>>(looper, Settings::traceDepth, hstScene->devScene, cam, devImage);
-		}
-		
-		else if (Settings::tracer == Tracer::BVHVisualize) {
-			BVHVisualize<<<singlePTBlockNum, singlePTBlockSize>>>(looper, hstScene->devScene, cam, devImage);
-		}
-		else {
-			previewGBuffer<<<singlePTBlockNum, singlePTBlockSize>>>(looper, hstScene->devScene, cam, devImage,
-				Settings::GBufferPreviewOpt);
-		}
-
-		if (guiData != nullptr) {
-			guiData->TracedDepth = Settings::traceDepth;
-		}
-	}
-
-	// Send results to OpenGL buffer for rendering
-	sendImageToPBO<<<blocksPerGrid2D, blockSize2D>>>(pbo, cam.resolution, iter, devImage, Settings::toneMapping);
-
-	// Retrieve image from GPU
-	cudaMemcpy(hstScene->state.image.data(), devImage,
-		pixelCount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	*/
 }
