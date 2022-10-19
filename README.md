@@ -1,13 +1,47 @@
 CUDA Denoiser For CUDA Path Tracer
 ==================================
 
-**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
+**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
 
-* (TODO) YOUR NAME HERE
-* Tested on: (TODO) Windows 22, i7-2222 @ 2.22GHz 22GB, GTX 222 222MB (Moore 2222 Lab)
+- Alex Fu
+  
+  - [LinkedIn](https://www.linkedin.com/in/alex-fu-b47b67238/)
+  - [Twitter](https://twitter.com/AlexFu8304)
+  - [Personal Website](https://thecger.com/)
+  
+  Tested on: Windows 10, i7-10750H @ 2.60GHz, 16GB, GTX 3060 6GB
+* [repo link](https://github.com/IwakuraRein/Nagi)
 
-### (TODO: Your README)
+## Features
 
-*DO NOT* leave the README to the last minute! It is a crucial part of the
-project, and we will not be able to grade you without a good README.
+A real-time path tracing denoiser. Reference: [*Spatiotemporal variance-guided filtering: real-time reconstruction for path-traced global illumination*](https://dl.acm.org/doi/10.1145/3105762.3105770).
 
+<video src='./img/feature.mp4' width=540/>
+
+## G-Buffer optimization
+
+In order to represent the geometries of reflection, I blend the geometries according to material types:
+
+Diffuse material:
+
+* Albedo buffer: store first bounce albedo
+
+* Normal buffer: store first bounce normal
+
+* Depth buffer: store first bounce depth
+
+Glossy Material:
+
+- Albedo buffer: blend the first and second bounce albedo
+
+- Normal buffer: store first bounce normal
+
+- Depth buffer: store first bounce depth
+
+Specular Material:
+
+* Albedo buffer: blend the albedo until hit non-specular material
+
+* Normal buffer: store the first non-specular material
+
+* Dpeth buffer: accumulate depth until hit non-specular material
