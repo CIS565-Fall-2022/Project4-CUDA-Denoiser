@@ -16,7 +16,7 @@ CUDA Denoiser For CUDA Path Tracer
 
 A real-time path tracing denoiser. Reference: [*Spatiotemporal variance-guided filtering: real-time reconstruction for path-traced global illumination*](https://dl.acm.org/doi/10.1145/3105762.3105770).
 
-<video src='./img/feature.mp4' width=540/>
+<video src="https://user-images.githubusercontent.com/28486541/196747599-32b3307a-4af8-43af-bf47-4a27321f0234.mp4"></video>
 
 ## G-Buffer optimization
 
@@ -45,3 +45,4 @@ Specular Material:
 * Normal buffer: store the first non-specular material
 
 * Dpeth buffer: accumulate depth until hit non-specular material
+
