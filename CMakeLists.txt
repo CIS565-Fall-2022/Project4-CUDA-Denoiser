@@ -73,18 +73,7 @@ set(headers
     src/sceneStructs.h
     src/preview.h
     src/utilities.h
-    src/ImGui/imconfig.h
     src/setting.h
-	
-	src/ImGui/imgui.h
-    src/ImGui/imconfig.h
-    src/ImGui/imgui_impl_glfw.h
-     src/ImGui/imgui_impl_opengl3.h 
-     src/ImGui/imgui_impl_opengl3_loader.h 
-     src/ImGui/imgui_internal.h 
-     src/ImGui/imstb_rectpack.h 
-     src/ImGui/imstb_textedit.h 
-     src/ImGui/imstb_truetype.h
 
      src/tiny_obj_loader.h
      src/texture.h
@@ -102,27 +91,38 @@ set(sources
     src/scene.cpp
     src/preview.cpp
     src/utilities.cpp
-	
-    src/ImGui/imgui.cpp 
-      src/ImGui/imgui_demo.cpp 
-      src/ImGui/imgui_draw.cpp 
-     src/ImGui/imgui_impl_glfw.cpp 
-     src/ImGui/imgui_impl_opengl3.cpp 
-     src/ImGui/imgui_tables.cpp 
-     src/ImGui/imgui_widgets.cpp 
+    )
+
+
+set(imgui
+    imgui/imconfig.h
+    imgui/imgui.cpp
+    imgui/imgui.h
+    imgui/imgui_draw.cpp
+    imgui/imgui_internal.h
+    imgui/imgui_widgets.cpp
+    imgui/imgui_demo.cpp
+    imgui/imgui_impl_glfw.cpp
+    imgui/imgui_impl_glfw.h
+    imgui/imgui_impl_opengl2.cpp
+    imgui/imgui_impl_opengl2.h
+    imgui/imgui_impl_opengl3.cpp
+    imgui/imgui_impl_opengl3.h
     )
 
 list(SORT headers)
 list(SORT sources)
+list(SORT imgui)
 
 source_group(Headers FILES ${headers})
 source_group(Sources FILES ${sources})
+source_group(imgui FILES ${imgui})
 
 #add_subdirectory(src/ImGui)
 add_subdirectory(stream_compaction)
 
 
-cuda_add_executable(${CMAKE_PROJECT_NAME} ${sources} ${headers})
+cuda_add_executable(${CMAKE_PROJECT_NAME} ${sources} ${headers} ${imgui})
 target_link_libraries(${CMAKE_PROJECT_NAME}
     ${LIBRARIES}
     stream_compaction

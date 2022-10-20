@@ -257,3 +257,10 @@ struct LinearBVHNode{
     uint8_t axis = 3;
     uint8_t pad[1]; // Ensure 32 byte total size
 };
+
+
+// CHECKITOUT - a simple struct for storing scene geometry information per-pixel.
+// What information might be helpful for guiding a denoising filter?
+struct GBufferPixel {
+    float t;
+};
