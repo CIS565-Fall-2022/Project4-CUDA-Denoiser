@@ -290,6 +290,12 @@ G-buffer optimization negatively optimized XD. When I used NSight to inspect the
 
 Still, I can't believe decoding position from depth has introduced so many additional instructions, no wonder it's slower!
 
+### SVGF Denoising Time Breakup
+
+<div align="center">
+    <image src="./img/svgf_time.jpg" width="80%"/>
+</div>
+
 ### Denoising Quality by Different Levels of A-Trous Wavelet Kernel
 
 These results are from SVGF. By each level of wavelet kernel, denoising quality improves with diffuse surfaces. However, glossy and specular surfaces can't avoid being over blended.
@@ -297,6 +303,19 @@ These results are from SVGF. By each level of wavelet kernel, denoising quality 
 ![](./img/wavelets.jpg)
 
 ### Denoising Quality by Different Surfaces
+
+<table>
+    <tr>
+        <th>EAW (1 SPP)</th>
+        <th>SVGF (1 SPP)</th>
+        <th>Ground Truth</th>
+    </tr>
+    <tr>
+        <th><img src="./img/mat_eaw.jpg"/></th>
+        <th><img src="./img/mat_svgf.jpg"/></th>
+        <th><img src="./img/mat_gc.jpg"/></th>
+    </tr>
+</table>
 
 It shows that both denoisers are better at denoising surfaces with low frequency details than that with high frequency details in general. More specifically, they are good at denoising:
 
