@@ -170,7 +170,8 @@ void runCuda() {
     }
     else if (iteration == ui_iterations) {
         denoise(pbo_dptr, iteration);
-    } else {
+    } 
+    else {
         showImage(pbo_dptr, iteration);
     }
 
