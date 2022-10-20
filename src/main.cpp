@@ -10,7 +10,9 @@ int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
+
 int ui_filterSize = 80;
+int ui_filterPasses = 1;
 float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
@@ -139,6 +141,10 @@ void runCuda() {
 		cam.position = cameraPosition;
 		cameraPosition += cam.lookAt;
 		cam.position = cameraPosition;
+
+		cam.viewMat = glm::lookAt(cam.position, cam.lookAt, cam.up);
+		cam.projMat = glm::perspective(cam.fov.y, float(cam.resolution.x) / float(cam.resolution.y), cam.nearClip, cam.farClip);
+
 		camchanged = false;
 	}
 
@@ -146,6 +152,7 @@ void runCuda() {
 	// No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
 	bool sortMaterial = true;
+	bool denoise = ui_denoise;
 
 	if (iteration == 0) {
 		pathtraceFree();
@@ -159,16 +166,15 @@ void runCuda() {
 		iteration++;
 		// execute the kernel
 		int frame = 0;
-		pathtrace(pbo_dptr, frame, iteration,sortMaterial);
-		// unmap buffer object
-		//cudaGLUnmapBufferObject(pbo);
+		pathtrace(pbo_dptr, frame, iteration,sortMaterial,denoise,ui_filterSize,ui_filterPasses,
+			ui_colorWeight,ui_normalWeight,ui_positionWeight);
 	}
 
 	if (ui_showGbuffer) {
 		showGBuffer(pbo_dptr);
 	}
 	else {
-		showImage(pbo_dptr, iteration);
+		showImage(pbo_dptr, iteration,denoise);
 	}
 
 	cudaGLUnmapBufferObject(pbo);

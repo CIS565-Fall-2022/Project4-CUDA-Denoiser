@@ -158,8 +158,9 @@ int Scene::loadCamera() {
     float xscaled = (yscaled * camera.resolution.x) / camera.resolution.y;
     float fovx = (atan(xscaled) * 180) / PI;
     camera.fov = glm::vec2(fovx, fovy);
-
+  //  glm::vec3 temp = glm::cross(camera.view, camera.up);
     camera.right = glm::normalize(glm::cross(camera.view, camera.up));
+
     camera.pixelLength = glm::vec2(2 * xscaled / (float)camera.resolution.x,
                                    2 * yscaled / (float)camera.resolution.y);
 
@@ -169,10 +170,13 @@ int Scene::loadCamera() {
     int arraylen = camera.resolution.x * camera.resolution.y;
     state.image.resize(arraylen);
     std::fill(state.image.begin(), state.image.end(), glm::vec3());
+    
+    //Compute camera Proj mat and view Mat
 
     cout << "Loaded camera!" << endl;
     return 1;
 }
+
 
 int Scene::loadMaterial(string materialid) {
     int id = atoi(materialid.c_str());
@@ -411,9 +415,9 @@ int Scene::loadGLTF(const std::string filename)
                     const float* data = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + attributeAccessor.byteOffset]);
                     const int byte_stride = attributeAccessor.ByteStride(bufferView);
                     int offset = byte_stride / sizeof(float);
-                    std::cout << "attribute has count " << count
+       /*             std::cout << "attribute has count " << count
                         << " and stride " << byte_stride << " bytes\n";
-                    std::cout << "attribute name is: " << attribute.first << std::endl;
+                    std::cout << "attribute name is: " << attribute.first << std::endl;*/
                     if (attribute.first == "POSITION")
                     {
                         std::cout << "Load position:" << std::endl;

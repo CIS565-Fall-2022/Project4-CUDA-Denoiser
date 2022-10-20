@@ -171,8 +171,6 @@ struct Material {
 
 };
 
-
-
 struct Camera {
     glm::ivec2 resolution;
     glm::vec3 position;
@@ -182,6 +180,12 @@ struct Camera {
     glm::vec3 right;
     glm::vec2 fov;
     glm::vec2 pixelLength;
+
+    float farClip = 100.f;
+    float nearClip = 1.f;
+    glm::mat4 viewMat;
+    glm::mat4 projMat;
+    glm::vec3 forward;
 };
 
 struct RenderState {
@@ -235,8 +239,17 @@ struct compareIntersection
     }
 };
 
-
-
 struct GBufferPixel {
     float t;
+    glm::vec3 normal;
+    glm::vec3 position;
+    float depth;
+};
+
+enum GBufferMode 
+{
+    Position,
+    Normal,
+    Depth,
+    Time
 };

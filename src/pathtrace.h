@@ -6,6 +6,7 @@
 void InitDataContainer(GuiDataContainer* guiData);
 void pathtraceInit(Scene *scene);
 void pathtraceFree();
-void pathtrace(uchar4 *pbo, int frame, int iteration,bool sortMaterial);
+void pathtrace(uchar4 *pbo, int frame, int iteration,bool sortMaterial,bool denoise, 
+	int filterSize, int filterPasses, float colorWeight, float normalWeight, float postionWeight);
 void showGBuffer(uchar4* pbo);
-void showImage(uchar4* pbo, int iter);
+void showImage(uchar4* pbo, int iter,bool denoise);
