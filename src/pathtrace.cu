@@ -642,8 +642,6 @@ __global__ void shadeFakeMaterial(
                     TextureInfo norMap = textureNormals[material.normalMapIndex];
                     int index = getTextureElementIndex(norMap, intersection.uv);
 
-                    //normal = ;    // Normal map normal in tangnet space
-
                     // Tangent space to model space
                     if (intersection.triangleId >= 0)
                     {
@@ -657,11 +655,8 @@ __global__ void shadeFakeMaterial(
                         float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
                         glm::vec3 tagent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y) * r;
                         glm::vec3 bitangent = (deltaPos2 * deltaUV1.x - deltaPos1 * deltaUV2.x) * r;
-                        //glm::vec3 nor = glm::normalize(glm::cross(tagent, bitangent));
                         glm::vec3 nor = glm::normalize(multiplyMV(geom.inverseTransform, glm::vec4(intersection.surfaceNormal, 0.0f)));
-                        //glm::cross(tagent, bitangent);
 
-                        //glm::mat3 TBN = glm::transpose(glm::mat3(tagent, bitangent, nor));
                         glm::mat3 TBN = glm::mat3(tagent, bitangent, nor);
 
                         normal = glm::normalize(TBN * normals[index]);
@@ -681,8 +676,11 @@ __global__ void shadeFakeMaterial(
         }
         else {
 #if ENABLE_SKYBOX
-
-            if (pathSegments[idx].isRefrectiveRay || depth == 0)
+            if (skyboxInfo == NULL)
+            {
+                pathSegments[idx].color *= glm::vec3(DEFAULT_SKY_COLOR);
+            }
+            else if (pathSegments[idx].isRefrectiveRay || depth == 0)
             {
                 glm::vec2 uv = DirectionToSpereUV(pathSegments[idx].ray.direction);
                 int index = getTextureElementIndex(*skyboxInfo, uv);
@@ -849,7 +847,7 @@ void pathtrace(int frame, int iter)
             , hst_scene->geoms.size()
             , dev_intersections
             );
-        checkCUDAError("trace one bounce");
+        checkCUDAError("trace one bounce 222");
 
 #endif
         cudaDeviceSynchronize();
@@ -880,7 +878,7 @@ void pathtrace(int frame, int iter)
             dev_skyBbxTexture,
             dev_skyboxPixels
             );
-        checkCUDAError("trace one bounce");
+        checkCUDAError("shade material");
 
         dev_path_end = thrust::partition(thrust::device, dev_paths, dev_paths + num_paths, pathPartition);
         num_paths = dev_path_end - dev_paths;

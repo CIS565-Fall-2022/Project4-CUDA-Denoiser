@@ -91,8 +91,28 @@ int main(int argc, char** argv) {
     // Initialize CUDA and GL components
     init();
 
+#if ENABLE_SKYBOX
+    LoadSkyboxTextureToDevice(scene);
+#endif
+
+#if ENABLE_BVH
+    LoadBVHToDevice(scene);
+#endif
+
+    LoadTexturesToDevice(scene);
+
     // GLFW main loop
     mainLoop();
+
+    FreeTextures();
+
+#if ENABLE_BVH
+    FreeBVH();
+#endif
+
+#if ENABLE_SKYBOX
+    FreeSkyboxTexure();
+#endif
 
     return 0;
 }
