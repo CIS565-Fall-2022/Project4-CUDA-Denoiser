@@ -47,6 +47,8 @@
 
 #define EDGE_AVOID 1
 
+#define GAUSSIAN_BLUR 0
+
 enum GBUFFER_VIS
 {
 	ISECT = 0,
@@ -721,6 +723,77 @@ __global__ void ATrousKernel(glm::ivec2 resolution, glm::vec3* image_in, glm::ve
 
 
 
+
+__global__ void GaussianKernel(glm::ivec2 resolution, glm::vec3* image_in, glm::vec3* image_out, GBufferPixel* gBuffer,
+	float c_phi, float n_phi, float p_phi, int filtersize)
+{
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	if (x >= resolution.x || y >= resolution.y) {
+		return;
+	}
+
+	int idx = x + (y * resolution.x);
+
+	glm::vec3 sum = glm::vec3(0.f);
+
+	glm::vec3 cval = image_in[idx];
+	glm::vec3 nval = gBuffer[idx].nor;
+	glm::vec3 pval = gBuffer[idx].pos;
+
+	float cum_w = 0.0;
+
+	int halfSize = (filtersize - 1) / 2;
+	// Per 3-Sigma rule, s = size / 6
+	int s = filtersize / 6;
+
+	for (int i = -halfSize; i <= halfSize; ++i)
+	{
+		for (int j = -halfSize; j <= halfSize; ++j)
+		{
+			int u = x + i;
+			int v = y + j;
+
+			float weight = 1.0f;
+
+			// Bound check
+			if (u >= 0 && u < resolution.x && v >= 0 && v <= resolution.y)
+			{
+				int idxtmp = u + v * resolution.x;
+				glm::vec3 ctmp = image_in[idxtmp];
+
+#if EDGE_AVOID 
+				// Edge-avoiding
+				glm::vec3 t = cval - ctmp;
+				float dist2 = glm::dot(t, t);
+				float c_w = glm::min(glm::exp(-dist2 / c_phi), 1.0f);
+
+				glm::vec3 ntmp = gBuffer[idxtmp].nor;
+				t = nval - ntmp;
+				dist2 = glm::max(glm::dot(t, t), 0.0f);
+				float n_w = glm::min(glm::exp(-dist2 / n_phi), 1.0f);
+
+				glm::vec3 ptmp = gBuffer[idxtmp].pos;
+				t = pval - ptmp;
+				dist2 = glm::dot(t, t);
+				float p_w = glm::min(glm::exp(-dist2 / p_phi), 1.0f);
+
+				weight = c_w * n_w * p_w;
+#endif
+				float kernel_i = (1.f / (2.f * PI * s * s)) * exp(-(i * i + j * j) / (2.f * s * s));
+				sum += ctmp * weight * kernel_i;
+				cum_w += weight * kernel_i;
+			}
+		}
+	}
+
+	image_out[idx] = sum / cum_w;
+
+}
+
+
+
+
 // Add the current iteration's output to the overall image
 __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iterationPaths)
 {
@@ -977,7 +1050,11 @@ void denoise(float c_phi, float n_phi, float p_phi, float filterSize)
 	int pixelcount = cam.resolution.x * cam.resolution.y;
 	cudaMemcpy(dev_image_denoise_buffer, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
-	for (int stepwidth = 1; stepwidth < filterSize; stepwidth *= 2)
+#if GAUSSIAN_BLUR
+	GaussianKernel << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, dev_image_denoise_buffer, dev_image_denoised, dev_gBuffer,
+		c_phi, n_phi, p_phi, filterSize);
+#else
+	for (int stepwidth = 1; stepwidth * 4 < filterSize; stepwidth *= 2)
 	{
 			ATrousKernel << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, dev_image_denoise_buffer, dev_image_denoised, dev_gBuffer,
 				c_phi, n_phi, p_phi, stepwidth);
@@ -988,7 +1065,7 @@ void denoise(float c_phi, float n_phi, float p_phi, float filterSize)
 			dev_image_denoise_buffer = dev_image_denoised;
 			dev_image_denoised = image_tmp;
 	}
-
+#endif
 		cudaMemcpy(hst_scene->state.image.data(), dev_image_denoised,
 			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 }
