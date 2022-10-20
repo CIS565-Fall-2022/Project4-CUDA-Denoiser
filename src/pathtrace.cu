@@ -44,19 +44,21 @@ thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int de
     return thrust::default_random_engine(h);
 }
 
-__global__ void denoiseImage(glm::vec3* denoisedImage, glm::ivec2 resolution,
+__global__ void denoiseBasicBlur(glm::vec3* denoisedImage, glm::ivec2 resolution,
     int iter, int stepsize, glm::vec3* image, GBufferPixel* dev_gBuffer,
     float* dev_kernel, glm::ivec2* dev_offset) {
    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
    if (x < resolution.x && y < resolution.y) {
-       int index = x + (y * resolution.x);
+       int index = x + (y * resolution.x); 
 
        glm::vec3 sum = glm::vec3(0.f, 0.f, 0.f);
        for (int i = 0; i < 25; i++) {
            glm::ivec2 offset = dev_offset[i] * stepsize;
            glm::ivec2 uv = glm::ivec2(x, y) + offset;
+
+           uv = glm::clamp(uv, glm::ivec2(0, 0), glm::ivec2(resolution.x - 1, resolution.y - 1));
 
            if (uv.x >= 0 && uv.y >= 0 && uv.x < resolution.x && uv.y < resolution.y) {
                glm::vec3 col = image[uv.x + resolution.x * uv.y];
@@ -517,9 +519,9 @@ void denoise(uchar4* pbo, int iter, bool& ui_denoise) {
 
         // Denoise image
         int stepsize = 1;
-        int num_iterations = 3;
+        int num_iterations = 10;
         for (int i = 0; i < num_iterations; ++i) {
-            denoiseImage << <blocksPerGrid2d, blockSize2d >> > (dev_denoised_image_out, cam.resolution, iter, stepsize,
+            denoiseBasicBlur << <blocksPerGrid2d, blockSize2d >> > (dev_denoised_image_out, cam.resolution, iter, stepsize,
                 dev_denoised_image_in, dev_gBuffer, dev_kernel, dev_offsets);
             if (i != num_iterations - 1) {
                 std::swap(dev_denoised_image_in, dev_denoised_image_out);
