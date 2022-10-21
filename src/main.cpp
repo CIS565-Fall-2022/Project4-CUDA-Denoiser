@@ -45,6 +45,14 @@ int iteration;
 int width;
 int height;
 
+cudaEvent_t start;
+cudaEvent_t stop;
+
+float t;
+float t_denoise = 0;
+float t_pathtrace = 0;
+float count_denoise = 0;
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -91,6 +99,9 @@ int main(int argc, char** argv) {
     // Initialize CUDA and GL components
     init();
 
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
     // GLFW main loop
     mainLoop();
 
@@ -101,6 +112,8 @@ void saveImage() {
     float samples = iteration;
     // output image file
     image img(width, height);
+
+    update();
 
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
@@ -162,12 +175,41 @@ void runCuda() {
 
         // execute the kernel
         int frame = 0;
+
+        cudaEventRecord(start);
+
         pathtrace(frame, iteration);
+
+        
+
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&t, start, stop);
+        t_pathtrace += t;
+        if (iteration == ui_iterations){
+            printf("pathtrace time:%f\n", t_pathtrace / iteration);
+        }
     }
 
-    if (ui_showGbuffer) {
+    if (ui_denoise) {
+        cudaEventRecord(start);
+
+        denoise(ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_filterSize);
+
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&t, start, stop);
+        t_denoise += t;
+        count_denoise++;
+
+        showDenoisedImage(pbo_dptr, iteration);
+    } else if (ui_showGbuffer) {
+      count_denoise = 0.f;
+      t_denoise = 0.f;
       showGBuffer(pbo_dptr);
     } else {
+      count_denoise = 0.f;
+      t_denoise = 0.f;
       showImage(pbo_dptr, iteration);
     }
 
@@ -192,6 +234,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
       case GLFW_KEY_S:
         saveImage();
         break;
+      case GLFW_KEY_I:
+        printf("denoise count:%f,denoise time:%f\n", count_denoise,t_denoise / count_denoise);
+        break;
       case GLFW_KEY_SPACE:
         camchanged = true;
         renderState = &scene->state;
@@ -203,6 +248,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    return;
   if (ImGui::GetIO().WantCaptureMouse) return;
   leftMousePressed = (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS);
   rightMousePressed = (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS);
@@ -210,6 +256,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 }
 
 void mousePositionCallback(GLFWwindow* window, double xpos, double ypos) {
+    return;
   if (xpos == lastX || ypos == lastY) return; // otherwise, clicking back into window causes re-start
   if (leftMousePressed) {
     // compute new camera parameters

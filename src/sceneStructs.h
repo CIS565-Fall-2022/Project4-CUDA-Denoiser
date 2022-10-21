@@ -78,5 +78,6 @@ struct ShadeableIntersection {
 // CHECKITOUT - a simple struct for storing scene geometry information per-pixel.
 // What information might be helpful for guiding a denoising filter?
 struct GBufferPixel {
-  float t;
+  glm::vec3 n;
+  glm::vec3 x;
 };
