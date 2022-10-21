@@ -81,7 +81,7 @@ SCALE       10 .3 10
 // Floor
 OBJECT 1
 cube
-material 5
+material 1
 TRANS       0 0 0
 ROTAT       0 0 0
 SCALE       10 .01 10

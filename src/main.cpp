@@ -71,6 +71,7 @@ int main(int argc, char** argv) {
     height = cam.resolution.y;
 
     ui_iterations = renderState->iterations;
+    ui_iterations = 5000;
     startupIterations = ui_iterations;
 
     glm::vec3 view = cam.view;

@@ -18,6 +18,10 @@
 
 #define ERRORCHECK 1
 
+#define gauss 1
+#define stride 25
+#define show_pos 0
+
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
 void checkCUDAErrorFn(const char *msg, const char *file, int line) {
@@ -69,7 +73,7 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
     }
 }
 
-__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer) {
+__global__ void gbufferToPBO_Normal(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer) {
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
@@ -94,9 +98,9 @@ __global__ void gbufferToPBO_Position(uchar4* pbo, glm::ivec2 resolution, GBuffe
 
         glm::vec3 position = gBuffer[index].position;
         pbo[index].w = 0;
-        pbo[index].x = glm::clamp(abs(position.x * 30.f), 0.f, 255.f);
-        pbo[index].y = glm::clamp(abs(position.y * 30.f), 0.f, 255.f);
-        pbo[index].z = glm::clamp(abs(position.z * 30.f), 0.f, 255.f);
+        pbo[index].x = glm::clamp(abs(position.x * stride), 0.f, 255.f);
+        pbo[index].y = glm::clamp(abs(position.y * stride), 0.f, 255.f);
+        pbo[index].z = glm::clamp(abs(position.z * stride), 0.f, 255.f);
 
     }
 }
@@ -112,6 +116,16 @@ static GBufferPixel* dev_gBuffer = NULL;
 
 static glm::vec3* dev_denoised_image = NULL;
 static glm::vec3* dev_denoised_buffer = NULL;
+static float* dev_gauss_kernal = NULL;
+
+//https://www.geeksforgeeks.org/gaussian-filter-generation-c/
+static float gauss_kernel[25] = {
+0.00296902, 0.0133062, 0.0219382, 0.0133062, 0.00296902,
+0.0133062, 0.0596343, 0.0983203, 0.0596343, 0.0133062,
+0.0219382, 0.0983203, 0.162103, 0.0983203, 0.0219382,
+0.0133062, 0.0596343, 0.0983203, 0.0596343, 0.0133062,
+0.00296902, 0.0133062, 0.0219382, 0.0133062, 0.00296902,
+};
 
 void pathtraceInit(Scene *scene) {
     hst_scene = scene;
@@ -138,6 +152,9 @@ void pathtraceInit(Scene *scene) {
     cudaMalloc(&dev_denoised_image, pixelcount * sizeof(glm::vec3));
     cudaMalloc(&dev_denoised_buffer, pixelcount * sizeof(glm::vec3));
 
+    cudaMalloc(&dev_gauss_kernal, 25 * sizeof(float));
+    cudaMemcpy(dev_gauss_kernal, gauss_kernel, 25 * sizeof(float), cudaMemcpyHostToDevice);
+
     checkCUDAError("pathtraceInit");
 }
 
@@ -151,6 +168,7 @@ void pathtraceFree() {
     // TODO: clean up any extra device memory you created
     cudaFree(dev_denoised_image);
     cudaFree(dev_denoised_buffer);
+    cudaFree(dev_gauss_kernal);
 
     checkCUDAError("pathtraceFree");
 }
@@ -309,7 +327,6 @@ __global__ void generateGBuffer (
     gBuffer[idx].t = shadeableIntersections[idx].t;
     gBuffer[idx].normal = shadeableIntersections[idx].surfaceNormal;
     gBuffer[idx].position = getPointOnRay(pathSegments[idx].ray, shadeableIntersections[idx].t);
-    //pathSegments[idx].ray.origin + shadeableIntersections[idx].t * glm::normalize(pathSegments[idx].ray.direction);
 
   }
 }
@@ -465,25 +482,54 @@ __global__ void ATrousDenoise(float c_phi, float n_phi, float p_phi, glm::ivec2 
                 glm::vec3 ctmp = pt_image[tmp];
 
                 glm::vec3 t = cval - ctmp;
-                float dist2 = glm::dot(t, t);
-                float c_w = min(exp(-(dist2) / c_phi), 1.0f);
+
+                float dist2 =  glm::dot(t, t);
+                float c_w = min(exp(-dist2 / (c_phi* c_phi)), 1.0f);
 
                 glm::vec3 ntmp = gBuffer[tmp].normal;
                 t = nval - ntmp;
                 dist2 = max(glm::dot(t, t) / (stepWidth * stepWidth), 0.0f);
-                float n_w = min(exp(-(dist2) / n_phi), 1.f);
+                float n_w = min(exp(-dist2 / (n_phi* n_phi)), 1.f);
 
                 glm::vec3 ptmp = gBuffer[tmp].position;
                 t = pval - ptmp;
                 dist2 = glm::dot(t, t);
-                float p_w = min(exp(-(dist2) / p_phi), 1.f);
+                float p_w = min(exp(-dist2 / (p_phi * n_phi)), 1.f);
 
+                float filter = kernal[i] * kernal[j];//NOT SURE WHETHER THIS KERNAL IS CORREST
                 float weight = c_w * n_w * p_w;
-                sum += ctmp * weight * (kernal[i] * kernal[j]); //NOT SURE WHETHER THIS KERNAL IS CORREST
-                cum_w += weight * (kernal[i] * kernal[j]);
+                sum += ctmp * weight * filter; 
+                cum_w += weight * filter;
+
             }
         }
         denoised_image[index] = sum / cum_w;    
+    }
+}
+
+__global__ void GaussBlur(glm::ivec2 resolution, int stepWidth, float* gauss_kernal,
+    glm::vec3* pt_image, glm::vec3* denoised_image)
+{
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+    if (x < resolution.x && y < resolution.y) {
+        int index = y * resolution.x + x;
+        glm::vec3 sum(0.f, 0.f, 0.f);
+        for (int i = 0; i < 5; i++) {
+            for (int j = 0; j < 5; j++) {
+                glm::ivec2 offset;
+                offset.x = x + (i - 2) * stepWidth;
+                offset.y = y + (j - 2) * stepWidth;
+                offset = glm::clamp(offset, glm::ivec2(0, 0), glm::ivec2(resolution.x - 1, resolution.y - 1));
+
+                int tmp = offset.y * resolution.x + offset.x;
+
+                glm::vec3 ctmp = pt_image[tmp];
+                float weight = gauss_kernal[j * 5 + i];
+                sum += weight * ctmp;
+            }
+        }
+        denoised_image[index] = sum;
     }
 }
 
@@ -499,10 +545,14 @@ void Denoise_Image(float c_phi, float n_phi, float p_phi, float stepWidth)
 
     cudaMemcpy(dev_denoised_image, dev_image, resolution.x * resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
-    int times = ceil(glm::log2(stepWidth));
-    for (int i = 0; i < times; i++) {
+    int iteration = ceil(glm::log2(stepWidth));
+    for (int i = 0; i < iteration; i++) {
+#if gauss
+        GaussBlur << <blocksPerGrid2d, blockSize2d >> > (resolution, 1 << i, dev_gauss_kernal, dev_denoised_image, dev_denoised_buffer);
+#else 
         ATrousDenoise << <blocksPerGrid2d, blockSize2d >> > (c_phi, n_phi, p_phi, resolution, 1 << i, dev_gBuffer, dev_denoised_image, dev_denoised_buffer);
         
+#endif
         std::swap(dev_denoised_buffer, dev_denoised_image);
     }
     cudaMemcpy(hst_scene->state.image.data(), dev_denoised_image, resolution.x * resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
@@ -517,8 +567,13 @@ void showGBuffer(uchar4* pbo) {
             (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
     // CHECKITOUT: process the gbuffer results and send them to OpenGL buffer for visualization
-    gbufferToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_gBuffer);
-    //gbufferToPBO_Position << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer);
+#if show_pos
+    gbufferToPBO_Position << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer);
+
+#else
+    gbufferToPBO_Normal <<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_gBuffer);
+
+#endif
 }
 
 void showImage(uchar4* pbo, int iter) {
