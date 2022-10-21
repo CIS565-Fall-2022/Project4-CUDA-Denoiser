@@ -20,7 +20,7 @@
 //#define DISPLAY_NORMAL
 //#define DISPLAY_DEPTH
 
-//#define WAVELET
+#define WAVELET
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -491,7 +491,6 @@ const Camera &cam = hst_scene->state.camera;
     sendImageToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, iter, dev_image);
 }
 
-#define NUM_ITER 7
 #ifdef WAVELET
 
 // implements the a trous (ratatouille) filter
@@ -562,9 +561,9 @@ void denoiseAndShowImage(uchar4* pbo, int iter, DenoiseParams denoise_params) {
         
         int iter_offset = 1;
         
-        for (int i = 0; i < NUM_ITER; ++i) {
+        for (int i = 0; i < denoise_params.denoise_iterations; ++i) {
             denoiseRatatouille << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, iter, dev_h_kernel, dev_h_kernel_offsets, iter_offset, denoise_params.sigma_p * denoise_params.sigma_p, denoise_params.sigma_n * denoise_params.sigma_n, denoise_params.sigma_rt * denoise_params.sigma_rt, dev_gBuffer, dev_image_denoised_a, dev_image_denoised_b);
-            if (i < NUM_ITER - 1) {
+            if (i < denoise_params.denoise_iterations - 1) {
                 glm::vec3* temp = dev_image_denoised_b;
                 dev_image_denoised_b = dev_image_denoised_a;
                 dev_image_denoised_a = temp;
@@ -616,9 +615,9 @@ void denoiseAndShowImage(uchar4* pbo, int iter, DenoiseParams denoise_params) {
         cudaMemcpy(dev_image_denoised_a, dev_image, cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
         int iter_offset = 1;
-        for (int i = 0; i < NUM_ITER; ++i) {
+        for (int i = 0; i < denoise_params.denoise_iterations; ++i) {
             denoiseRatatouille << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, iter, dev_h_kernel, dev_h_kernel_offsets, iter_offset, dev_gBuffer, dev_image_denoised_a, dev_image_denoised_b);
-            if (i < NUM_ITER - 1) {
+            if (i < denoise_params.denoise_iterations - 1) {
                 glm::vec3* temp = dev_image_denoised_b;
                 dev_image_denoised_b = dev_image_denoised_a;
                 dev_image_denoised_a = temp;

@@ -53,7 +53,7 @@ cornell box render, without the edge detection described in the next section:
 
 | Max Kernel Size 1     | Max Kernel Size 4 | Max Kernel size 16 | Max Kernel size 64 |
 | ----------- | ----------- |  ----------- |  ----------- |
-| ![](img/results/plain_blur_i1.PNG)      |   ![](img/results/plain_blur_i3.PNG)     | ![](img/results/plain_blur_i5.PNG) | ![](img/results/plain_blur_i7.PNG) |
+| ![](img/results/plain_blur_i1.PNG)      |   ![](img/results/plain_blur_i3.PNG)     | ![](img/results/plain_blur_i5.PNG) | ![](img/results/plain_blur_i.PNG) |
 
 As can be seen, this looks very similar to the pure gaussian blur from the previous section.
 It just blurs the entire screen, and it would be rare to describe it as "denoising".
@@ -83,5 +83,22 @@ Below you can see a visualization of the data collected in this G-Buffer for a s
 
 ## Visual Analysis
 
+Below is a visual comparison of different filter sizes with edge detection. The number of
+sample-per-pixel is only 20, with a very high color weight.
+
+| Max Kernel Size 1     | Max Kernel Size 2 | Max Kernel size 4 |
+| ----------- | ----------- |  ----------- |
+| ![](img/results/kernel_size_1_iter_20.PNG)      |   ![](img/results/kernel_size_2_iter_20.PNG)     | ![](img/results/kernel_size_3_iter_20.PNG) |
+
+| Max Kernel Size 8     | Max Kernel Size 16 | Max Kernel size 32 |
+| ----------- | ----------- |  ----------- |
+| ![](img/results/kernel_size_4_iter_20.PNG)      |   ![](img/results/kernel_size_5_iter_20.PNG)     | ![](img/results/kernel_size_6_iter_20.PNG) |
+
+| Max Kernel Size 64     | Max Kernel Size 128 | Max Kernel size 256 |
+| ----------- | ----------- |  ----------- |
+| ![](img/results/kernel_size_7_iter_20.PNG)      |   ![](img/results/kernel_size_8_iter_20.PNG)     | ![](img/results/kernel_size_9_iter_20.PNG) |
+
 ## Performance Analysis
+
+Below shows renders of different samples-per-pixel before and after denoising:
 

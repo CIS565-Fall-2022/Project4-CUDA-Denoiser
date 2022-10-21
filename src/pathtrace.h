@@ -8,6 +8,7 @@ struct DenoiseParams {
 	float sigma_p;
 	float sigma_n;
 	float sigma_rt;
+	int denoise_iterations;
 };
 
 void pathtraceInit(Scene *scene);

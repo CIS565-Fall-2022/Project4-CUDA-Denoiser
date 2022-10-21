@@ -24,10 +24,14 @@ int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
-int ui_filterSize = 80;
+int ui_filterIterations= 1;
+int lastFilterIterations = 1;
 float ui_colorWeight = 0.45f;
+float lastColorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
+float lastNormalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
+float lastPositionWeight = 0.2f;
 bool ui_saveAndExit = false;
 
 static bool camchanged = true;
@@ -128,6 +132,23 @@ void runCuda() {
       camchanged = true;
     }
 
+    if (lastColorWeight != ui_colorWeight) {
+        lastColorWeight = ui_colorWeight;
+        denoise = true;
+    }
+    if (lastNormalWeight != ui_normalWeight) {
+        lastNormalWeight = ui_normalWeight;
+        denoise = true;
+    }
+    if (lastPositionWeight != ui_positionWeight) {
+        lastPositionWeight = ui_positionWeight;
+        denoise = true;
+    }
+    if (lastFilterIterations != ui_filterIterations) {
+        lastFilterIterations = ui_filterIterations;
+        denoise = true;
+    }
+
     if (camchanged) {
         iteration = 0;
         Camera &cam = renderState->camera;
@@ -172,7 +193,7 @@ void runCuda() {
       showGBuffer(pbo_dptr);
     }
     else if (iteration == ui_iterations) {
-        DenoiseParams denoise_params{ denoise, ui_positionWeight, ui_normalWeight, ui_colorWeight };
+        DenoiseParams denoise_params{ denoise, ui_positionWeight, ui_normalWeight, ui_colorWeight, ui_filterIterations };
         denoiseAndShowImage(pbo_dptr, iteration, denoise_params);
         denoise = false;
         //iteration++;
