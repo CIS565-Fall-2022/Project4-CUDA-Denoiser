@@ -464,8 +464,9 @@ __global__ void denoise(GBufferPixel* gBuffer, Camera cam, glm::vec3* image, flo
 #pragma unroll
             for (int i = 0; i < 5; i++)
             {
-                int x = x_o + (i - 2) * (1 << level);
-                int y = y_o + (j - 2) * (1 << level);
+				int step = (1 << level);
+                int x = x_o + (i - 2) * step;
+                int y = y_o + (j - 2) * step;
 
                 if (x < cam.resolution.x && y < cam.resolution.y && (x >= 0) && (y >= 0))
                 {
@@ -473,12 +474,13 @@ __global__ void denoise(GBufferPixel* gBuffer, Camera cam, glm::vec3* image, flo
                     int index = (x + (y * cam.resolution.x));
                     float kernel_weight = kernel[i] * kernel[j];
                     glm::vec3 t = image[origin_index] - image_denoise[index];
-                    float c_w = glm::min(glm::exp(-glm::dot(t, t) / (colorWeight)),1.0f);
+                    float c_w = min(exp(-glm::dot(t, t) / (colorWeight)),1.0f);
                     t = gBuffer[origin_index].normal - gBuffer[index].normal;
                     //Need to update based on step size?
-                    float n_w = glm::min(glm::exp(-glm::dot(t, t) / (normalWeight )), 1.0f);
+					float dist_n = max((glm::dot(t, t) /(step * step)), 0.0f);
+                    float n_w = min(exp(-dist_n / (normalWeight)), 1.0f);
                     t = gBuffer[origin_index].position - gBuffer[index].position;
-                    float p_w = glm::min(glm::exp(-glm::dot(t, t) / (positionWeight)), 1.0f);
+                    float p_w = min(exp(-glm::dot(t, t) / (positionWeight)), 1.0f);
                     float weight = c_w * n_w * p_w;
                     sum += (kernel_weight * image_denoise[index] * weight);
                     cum_weight += kernel_weight * weight;
