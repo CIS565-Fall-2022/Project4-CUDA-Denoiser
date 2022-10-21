@@ -35,6 +35,8 @@ extern int height;
 extern int ui_iterations;
 extern int startupIterations;
 extern bool ui_showGbuffer;
+extern bool ui_showGbufferNor;
+extern bool ui_showGbufferPos;
 extern bool ui_denoise;
 extern bool ui_showGaussian;
 extern int ui_filterSize;

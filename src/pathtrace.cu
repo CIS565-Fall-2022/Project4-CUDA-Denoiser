@@ -115,21 +115,42 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 	}
 }
 
-__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer) {
+// Mode:
+// 0 - display t
+// 1 - display nor
+// 2 - display pos
+__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer, int mode = 0) {
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
     if (x < resolution.x && y < resolution.y) {
         int index = x + (y * resolution.x);
-        float timeToIntersect = gBuffer[index].t * 256.0;
-
-        pbo[index].w = 0;
-        pbo[index].x = timeToIntersect;
-        pbo[index].y = timeToIntersect;
-        pbo[index].z = timeToIntersect;
+        
+        if (mode == 0)
+        {
+            float timeToIntersect = gBuffer[index].t * 256.0;
+            pbo[index].w = 0;
+            pbo[index].x = timeToIntersect;
+            pbo[index].y = timeToIntersect;
+            pbo[index].z = timeToIntersect;
+        }
+        else if (mode == 1)
+        {
+            pbo[index].w = 0;
+            pbo[index].x = abs(gBuffer[index].nor.x) * 255.0;
+            pbo[index].y = abs(gBuffer[index].nor.y) * 255.0;
+            pbo[index].z = abs(gBuffer[index].nor.z) * 255.0;
+        }
+        else if (mode == 2)
+        {
+            pbo[index].w = 0;
+            pbo[index].x = abs(gBuffer[index].pos.x) * 255.0 * 0.05;
+            pbo[index].y = abs(gBuffer[index].pos.y) * 255.0 * 0.05;
+            pbo[index].z = abs(gBuffer[index].pos.z) * 255.0 * 0.05;
+        }
     }
 }
-
+ 
 static Scene* hst_scene = NULL;
 static GuiDataContainer* guiData = NULL;
 static glm::vec3* dev_image = NULL;
@@ -1097,7 +1118,7 @@ void showDenoiseImage(uchar4* pbo, int iter) {
 }
 
 // CHECKITOUT: this kernel "post-processes" the gbuffer/gbuffers into something that you can visualize for debugging.
-void showGBuffer(uchar4* pbo) {
+void showGBuffer(uchar4* pbo, int mode) {
     const Camera& cam = hst_scene->state.camera;
     const dim3 blockSize2d(8, 8);
     const dim3 blocksPerGrid2d(
@@ -1105,5 +1126,5 @@ void showGBuffer(uchar4* pbo) {
         (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
     // CHECKITOUT: process the gbuffer results and send them to OpenGL buffer for visualization
-    gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer);
+    gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer, mode);
 }

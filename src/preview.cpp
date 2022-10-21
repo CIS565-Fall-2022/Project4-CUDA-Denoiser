@@ -465,7 +465,7 @@ void drawGui(int windowWidth, int windowHeight) {
 
     // Dear imgui define
     ImVec2 minSize(300.f, 220.f);
-    ImVec2 maxSize((float)windowWidth * 0.5, (float)windowHeight * 0.3);
+    ImVec2 maxSize((float)windowWidth * 0.5, (float)windowHeight * 0.4);
     ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
 
     ImGui::SetNextWindowPos(ui_hide ? ImVec2(-1000.f, -1000.f) : ImVec2(0.0f, 0.0f));
@@ -490,7 +490,9 @@ void drawGui(int windowWidth, int windowHeight) {
 
     ImGui::Separator();
 
-    ImGui::Checkbox("Show GBuffer", &ui_showGbuffer); 
+    ImGui::Checkbox("Show GBuffer", &ui_showGbuffer);
+    ImGui::Checkbox("Show GBuffer Nor", &ui_showGbufferNor);
+    ImGui::Checkbox("Show GBuffer Pos", &ui_showGbufferPos);
 
     ImGui::Separator();
 

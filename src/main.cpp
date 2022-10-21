@@ -23,6 +23,8 @@ int ui_iterations = 0;
 int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
+bool ui_showGbufferNor = false;
+bool ui_showGbufferPos = false;
 bool ui_denoise = false;
 bool ui_showGaussian = false;
 int ui_filterSize = 80;
@@ -186,8 +188,20 @@ void runCuda() {
         pathtrace(frame, iteration);
     }
 
-    if (ui_showGbuffer) {
-        showGBuffer(pbo_dptr);
+    if (ui_showGbuffer) 
+    {
+        if (ui_showGbufferNor)
+        {
+            showGBuffer(pbo_dptr, 1);
+        }
+        else if (ui_showGbufferPos)
+        {
+            showGBuffer(pbo_dptr, 2);
+        }
+        else
+        {
+            showGBuffer(pbo_dptr, 0);
+        }       
     }
     else if (ui_denoise) 
     {

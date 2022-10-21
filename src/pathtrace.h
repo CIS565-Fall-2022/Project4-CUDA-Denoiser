@@ -8,7 +8,7 @@ void pathtraceInit(Scene *scene);
 void pathtraceFree();
 void pathtrace(int frame, int iteration);
 
-void showGBuffer(uchar4* pbo);
+void showGBuffer(uchar4* pbo, int mode);
 void showImage(uchar4* pbo, int iter);
 
 // Textures load and free
