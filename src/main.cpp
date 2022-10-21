@@ -162,13 +162,17 @@ void runCuda() {
 
         // execute the kernel
         int frame = 0;
-        pathtrace(frame, iteration);
+        pathtrace(frame, iteration, ui_filterSize, ui_colorWeight, ui_positionWeight, ui_normalWeight, ui_denoise);
     }
 
     if (ui_showGbuffer) {
-      showGBuffer(pbo_dptr);
-    } else {
-      showImage(pbo_dptr, iteration);
+        showGBuffer(pbo_dptr);
+    }
+    else if (ui_denoise) {
+        showDenoisedImage(pbo_dptr, iteration);
+    }
+    else {
+        showImage(pbo_dptr, iteration);
     }
 
     // unmap buffer object
