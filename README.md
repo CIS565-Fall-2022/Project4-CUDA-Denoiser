@@ -88,17 +88,37 @@ sample-per-pixel is only 20, with a very high color weight.
 
 | Max Kernel Size 1     | Max Kernel Size 2 | Max Kernel size 4 |
 | ----------- | ----------- |  ----------- |
-| ![](img/results/kernel_size_1_iter_20.PNG)      |   ![](img/results/kernel_size_2_iter_20.PNG)     | ![](img/results/kernel_size_3_iter_20.PNG) |
+| ![](img/results/kernel_size_1_iter_1.PNG)      |   ![](img/results/kernel_size_2_iter_1.PNG)     | ![](img/results/kernel_size_3_iter_1.PNG) |
 
 | Max Kernel Size 8     | Max Kernel Size 16 | Max Kernel size 32 |
 | ----------- | ----------- |  ----------- |
-| ![](img/results/kernel_size_4_iter_20.PNG)      |   ![](img/results/kernel_size_5_iter_20.PNG)     | ![](img/results/kernel_size_6_iter_20.PNG) |
+| ![](img/results/kernel_size_4_iter_1.PNG)      |   ![](img/results/kernel_size_5_iter_1.PNG)     | ![](img/results/kernel_size_6_iter_1.PNG) |
 
 | Max Kernel Size 64     | Max Kernel Size 128 | Max Kernel size 256 |
 | ----------- | ----------- |  ----------- |
-| ![](img/results/kernel_size_7_iter_20.PNG)      |   ![](img/results/kernel_size_8_iter_20.PNG)     | ![](img/results/kernel_size_9_iter_20.PNG) |
+| ![](img/results/kernel_size_7_iter_1.PNG)      |   ![](img/results/kernel_size_8_iter_1.PNG)     | ![](img/results/kernel_size_9_iter_1.PNG) |
 
 ## Performance Analysis
 
 Below shows renders of different samples-per-pixel before and after denoising:
 
+| 1 Iteration     | 5 Iterations  | 10 Iterations |
+| ----------- | ----------- |  ----------- |
+| Original     | Original  | Original |
+| ![](img/results/iteration_1.PNG)      |   ![](img/results/iteration_5.PNG)     | ![](img/results/iteration_10.PNG) |
+| Denoised     | Denoised  | Denoised |
+| ![](img/results/iteration_1_denoised.PNG)      |   ![](img/results/iteration_5_denoised.PNG)     | ![](img/results/iteration_10_denoised.PNG) |
+
+| 50 Iteration     | 100 Iterations  | 500 Iterations |
+| ----------- | ----------- |  ----------- |
+| Original     | Original  | Original |
+| ![](img/results/iteration_50.PNG)      |   ![](img/results/iteration_100.PNG)     | ![](img/results/iteration_500.PNG) |
+| Denoised     | Denoised  | Denoised |
+| ![](img/results/iteration_50_denoised.PNG)      |   ![](img/results/iteration_100_denoised.PNG)     | ![](img/results/iteration_500_denoised.PNG) |
+
+| 1000 Iteration     | 5000 Iterations  |
+| ----------- | ----------- |
+| Original     | Original  |
+| ![](img/results/iteration_1000.PNG)      |   ![](img/results/iteration_5000.PNG)     |
+| Denoised     | Denoised  |
+| ![](img/results/iteration_1000_denoised.PNG)      |   ![](img/results/iteration_5000_denoised.PNG)     |
