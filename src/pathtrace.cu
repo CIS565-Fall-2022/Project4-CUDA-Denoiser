@@ -390,9 +390,6 @@ __global__ void ATrousFilter(
     {
         return;
     }
-
-    //glm::vec3 kernelArr = glm::vec3(1 / 16.f, 1 / 4.f, 3 / 8.f);
-    //glm::vec3 kernelArr = glm::vec3(3 / 8.f, 1 / 4.f, 1 / 16.f);
     
     float kernelArr[5][5] = {
         0.00390625, 0.015625, 0.0234375, 0.015625, 0.00390625,
@@ -412,7 +409,6 @@ __global__ void ATrousFilter(
     {
         for (int j = -2; j <= 2; ++j)
         {         
-            //float kernel = kernelArr[glm::max(glm::abs(i), glm::abs(j))];
             float kernel = kernelArr[i + 2][j + 2];
 
             glm::ivec2 uv = glm::ivec2(idx_x + j * stepwidth, idx_y + i * stepwidth);
