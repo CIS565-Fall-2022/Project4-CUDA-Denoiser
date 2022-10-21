@@ -48,7 +48,7 @@ Although A-Trous Filtering clears the noise effectively, the details and focus o
 |![](img/Denoiser/Non-ATroused.png) | ![](img/Denoiser/ATroused-64.png) | ![](img/Denoiser/ATroused-Edge-avoiding.png) |
 
 ### Additional features
-* **Gaussian Filtering**
+* **<a name="gaussian"> Gaussian Filtering </a>**
 
 As mentioned above, Gaussian Filter blurs an image by sampling all the neighboring pixels of each pixel, and compute its new color by taking the weighted average of them, with the closer pixels having a higher weight.    
 According to my own result, Gaussian Filter seems to produce a blurrier image with edge-avoiding turned off, and it produce a slightly noisy image with edge-avoiding turned on.
@@ -108,14 +108,23 @@ Filter Size = 0 | Filter Size = 20 | Filter Size = 40 | Filter Size = 60 | Filte
 :----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|
 ![](img/Denoiser/filter-0.png) | ![](img/Denoiser/filter-20.png) | ![](img/Denoiser/filter-40.png) | ![](img/Denoiser/filter-60.png) | ![](img/Denoiser/filter-80.png) | ![](img/Denoiser/filter-100.png) |  
 
-* **How effective/ineffective is this method with different material types**
+* **How effective/ineffective is this method with different material types**   
 
-Diffuse | Specular | Refraction
+This method works very well with diffuse materials, although the "roughness" feeling gets reduced and it looks very soft due to the color being "smoothed".    
+It works less well on specular materials, because the reflection gets blurred very noticeably and the shiness of the material also gets reduced.    
+It does not work well on refractional materials, as the translucency will be marred by averaging the color, and the specular component will also be reduced. 
+
+Diffuse | Specular | Refractions
 :----------:|:-----------:|:-----------:
 ![](img/Denoiser/diffuse.png) | ![](img/Denoiser/specular.png)  | ![](img/Denoiser/refract.png) 
 
 
 * **How do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?**
+
+The results across different scenes vary greatly. For example, the denoiser works exceptionally on the `cornell_ceiling_light` scene, but not so much on the regular `cornell` scene.    
+From my testing, denoiser seems to work better on bright scenes. As I dig deeper, I realize that it's not actually the brightness, but the color variations. In a bright scene, most pixels are lit up uniformly and the LTE computation converges more quickly. On the other hand, when the scene is dark, the bright pixels are more sparse and there are inherently more noises in the scene, which makes denoising a harder task.     
+Since we are using normals/positions/time to intersect to avoid the edges, when the different edges actually have different normal/position/time, our algorithm will expectedly work better.    
+It is worth mentioning that different scenes also require different norm/pos/t configurations to look the best.   
 
 Bright Scene | Dark Scene 
 :----------:|:-----------:
@@ -123,7 +132,13 @@ Bright Scene | Dark Scene
 ![](img/Denoiser/big-light-cow.png) | ![](img/Denoiser/small-light-cow.png) 
 
 
-* **A-Trous vs. Gaussian Filtering**
+* **A-Trous Filtering vs. Gaussian Filtering: Performance Analysis**
+
+Please see [here](#gaussian) for visual comparison.    
+For performance comparison, as expected, A-Trous Filtering outperforms Gaussian Filtering significantly. Specifically, the performance of A-Trous and Gaussian are comparable with a filter size of 10 (resolution 800x800), but the runtime of A-Trous increases almost linearly whereas the runtime of Gaussian increases exponentially. They are also comparable at very small resolution, but again the runtime of Gaussian increases exponentially with the resolution whereas A-Trous only increases linearly.    
+This makes perfect sense since A-Trous algorithm always takes 5x5 samples for each pixel, and only increase the number of iterations when the filter size increases. However, Gaussian blur takes nxn samples, which is a exponential increase.     
+
+![](img/Denoiser/chart4.png)
 
 
 
