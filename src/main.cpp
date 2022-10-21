@@ -194,8 +194,8 @@ void runCuda() {
     }
     else if (iteration == ui_iterations) {
         DenoiseParams denoise_params{ denoise, ui_positionWeight, ui_normalWeight, ui_colorWeight, ui_filterIterations };
-        //denoiseAndShowImage(pbo_dptr, iteration, denoise_params);
-        showImage(pbo_dptr, iteration);
+        denoiseAndShowImage(pbo_dptr, iteration, denoise_params);
+        //showImage(pbo_dptr, iteration);
         denoise = false;
         //iteration++;
     }

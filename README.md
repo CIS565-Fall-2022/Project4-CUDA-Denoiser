@@ -106,6 +106,13 @@ sample-per-pixel is only 20, with a very high color weight.
 | ----------- | ----------- |  ----------- |
 | ![](img/results/matcom_1iter.PNG)      |   ![](img/results/matcomp_denoised.PNG)     | ![](img/results/matcomp_5000iter.PNG) |
 
+### Different Scenes
+
+|  | 1 Iteration  | 100 Iterations |
+| ----------- | ----------- | ----------- |
+| Smaller Ceiling Light     |   ![](img/results/cornell_1iter_denoised.PNG)     | ![](img/results/cornell_100iter_denoised.PNG) |
+| Larger Ceiling Light     |   ![](img/results/iteration_1_denoised.PNG)     | ![](img/results/iteration_100_denoised.PNG) |
+
 ## Performance Analysis
 
 ### Convergence
