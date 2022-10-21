@@ -170,7 +170,10 @@ void runCuda() {
       showGBuffer(pbo_dptr);
     }
     else if (iteration == ui_iterations) {
-        denoise(pbo_dptr, iteration, ui_denoise);
+        if (ui_denoise) {
+            denoise(pbo_dptr, iteration, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+            ui_denoise = false;
+        }
     } 
     else {
         showImage(pbo_dptr, iteration);

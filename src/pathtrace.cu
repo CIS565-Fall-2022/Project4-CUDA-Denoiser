@@ -15,6 +15,7 @@
 #include "interactions.h"
 
 #define ERRORCHECK 1
+#define DENOISE_ITERATIONS 5
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -58,17 +59,73 @@ __global__ void denoiseBasicBlur(glm::vec3* denoisedImage, glm::ivec2 resolution
            glm::ivec2 offset = dev_offset[i] * stepsize;
            glm::ivec2 uv = glm::ivec2(x, y) + offset;
 
+           // Clamp indices to image width and height
            uv = glm::clamp(uv, glm::ivec2(0, 0), glm::ivec2(resolution.x - 1, resolution.y - 1));
 
-           if (uv.x >= 0 && uv.y >= 0 && uv.x < resolution.x && uv.y < resolution.y) {
-               glm::vec3 col = image[uv.x + resolution.x * uv.y];
-               sum += col * dev_kernel[i];
-           }
+           // Apply kernel
+           glm::vec3 col = image[uv.x + resolution.x * uv.y];
+           sum += col * dev_kernel[i];
        }
        
        // Write color to OpenGL PBO
        denoisedImage[index] = sum;
    }
+}
+
+__global__ void denoiseWeighted(glm::vec3* denoisedImage, glm::ivec2 resolution,
+    int iter, int stepsize, float sigma_col, float sigma_norm, float sigma_pos,
+    glm::vec3* image, GBufferPixel* dev_gBuffer,
+    float* dev_kernel, glm::ivec2* dev_offset) {
+    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+    if (x < resolution.x && y < resolution.y) {
+        int index = x + (y * resolution.x);
+
+        // Read G-Buffer values for current pixel
+        glm::vec3 col = image[index];
+        glm::vec3 norm = dev_gBuffer[index].normal;
+        glm::vec3 pos = dev_gBuffer[index].position;
+
+        // Sum to accumulate color
+        glm::vec3 sum = glm::vec3(0.f, 0.f, 0.f);
+        float sum_weights = 0.f;
+        
+        glm::vec3 test_col;
+
+        for (int i = 0; i < 25; i++) {
+            // Find pixel in image at desired offset (clamp to image boundaries)
+            glm::ivec2 offset = dev_offset[i] * stepsize;
+            glm::ivec2 uv = glm::ivec2(x, y) + offset;
+            uv = clamp(uv, glm::ivec2(0, 0), glm::ivec2(resolution.x - 1, resolution.y - 1));
+
+            // Find difference in color between current and neighboring pixel
+            glm::vec3 col_n = image[uv.x + resolution.x * uv.y];
+            glm::vec3 col_diff = col - col_n;
+            float dist2 = glm::dot(col_diff, col_diff);
+            float col_w = glm::min(glm::exp(-(dist2) / (sigma_col * sigma_col)), 1.f);
+
+            // Normal
+            glm::vec3 norm_n = dev_gBuffer[uv.x + resolution.x * uv.y].normal;
+            glm::vec3 norm_diff = norm - norm_n;
+            dist2 = glm::max(glm::dot(norm_diff, norm_diff) / (float)(stepsize * stepsize), 0.f);
+            float norm_w = glm::min(glm::exp(-(dist2) / (sigma_norm * sigma_norm)), 1.f);
+
+            // Position
+            glm::vec3 pos_n = dev_gBuffer[uv.x + resolution.x * uv.y].position;
+            glm::vec3 pos_diff = pos - pos_n;
+            dist2 = glm::dot(pos_diff, pos_diff);
+            float pos_w = glm::min(glm::exp(-(dist2) / (sigma_pos * sigma_pos)), 1.f);
+
+            // Calculate weighting
+            float weight = col_w * norm_w * pos_w;
+            sum += col_n * weight * dev_kernel[i];
+            sum_weights += weight * dev_kernel[i];
+        }
+
+        // Write color to OpenGL PBO
+        denoisedImage[index] = sum / sum_weights;
+    }
 
 }
 
@@ -502,36 +559,35 @@ void showGBuffer(uchar4* pbo) {
     gbufferToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_gBuffer);
 }
 
-void denoise(uchar4* pbo, int iter, bool& ui_denoise) {
-    if (ui_denoise) {
-        ui_denoise = false;
-        const Camera& cam = hst_scene->state.camera;
-        const dim3 blockSize2d(8, 8);
-        const dim3 blocksPerGrid2d(
-            (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
-            (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+void denoise(uchar4* pbo, int iter, float sigma_col, float sigma_norm, float sigma_pos) {
+    const Camera& cam = hst_scene->state.camera;
+    const dim3 blockSize2d(8, 8);
+    const dim3 blocksPerGrid2d(
+        (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+        (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
-        // Copy initial image input data
-        int pixelcount = cam.resolution.x * cam.resolution.y;
-        cudaMemcpy(dev_denoised_image_in, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
+    // Copy initial image input data
+    int pixelcount = cam.resolution.x * cam.resolution.y;
+    cudaMemcpy(dev_denoised_image_in, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
-        //std::cout << "in denoise" << std::endl;
+    std::cout << "in denoise" << std::endl;
 
-        // Denoise image
-        int stepsize = 1;
-        int num_iterations = 10;
-        for (int i = 0; i < num_iterations; ++i) {
-            denoiseBasicBlur << <blocksPerGrid2d, blockSize2d >> > (dev_denoised_image_out, cam.resolution, iter, stepsize,
-                dev_denoised_image_in, dev_gBuffer, dev_kernel, dev_offsets);
-            if (i != num_iterations - 1) {
-                std::swap(dev_denoised_image_in, dev_denoised_image_out);
-            }
-            stepsize *= 2;
+    // Denoise image
+    int stepsize = 1;
+    float sigma_col_div = sigma_col;
+    for (int i = 0; i < DENOISE_ITERATIONS; ++i) {
+        denoiseWeighted << <blocksPerGrid2d, blockSize2d >> > (dev_denoised_image_out, cam.resolution, iter, stepsize,
+            sigma_col_div, sigma_norm, sigma_pos,
+            dev_denoised_image_in, dev_gBuffer, dev_kernel, dev_offsets);
+        if (i != DENOISE_ITERATIONS - 1) {
+            std::swap(dev_denoised_image_in, dev_denoised_image_out);
         }
-
-        // Send results to OpenGL buffer for rendering
-        sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_denoised_image_out);
+        stepsize *= 2;
+        sigma_col_div /= (float)stepsize;
     }
+
+    // Send results to OpenGL buffer for rendering
+    sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_denoised_image_out);
 }
 
 void showImage(uchar4* pbo, int iter) {
