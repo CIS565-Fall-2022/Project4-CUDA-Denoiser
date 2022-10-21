@@ -39,7 +39,7 @@ Lastly, here is the render with all weights applied, and with no denoising at al
 
 ### Performance Analysis
 
-Denoising is actually a very efficient process. For starters it's also a highly parallelizable process, just like path tracing, meaning it can be accelerated with use of the GPU. It also only needs to be done once at the final iteration of the pathtracer. Even if the pathtracer has a relatively modest 50 iterations, the addition of a denoiser at the end would have little impact on the runtime. As a result, we will be denoising at every iteration, to get a better idea of the added runtime of using the denoiser at one iteration.
+Denoising is actually a very efficient process. For starters it's also a highly parallelizable process, just like path tracing, meaning it can be accelerated with use of the GPU. It also only needs to be done once at the final iteration of the pathtracer. Even if the pathtracer has a relatively modest 50 iterations, the addition of a denoiser at the end would have little impact on the runtime. As a result, we will be denoising at every iteration, to get a better idea of the added runtime of using the denoiser at one iteration. Unless otherwise specified, filtersize will be 80 and image resolution is 800 x 800. 
 
 <br />
 It's difficult to quantify how much quicker the denoising causes convergence. Here is a scene from before of the denoised image at 10 iterations.
