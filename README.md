@@ -89,7 +89,18 @@ To stabilize the preview, the GUI will blend the last result and the current res
 
 ## Comapre to Gaussian Filter
 
+<table>
+    <tr>
+        <th>wavelet filter</th>
+        <th>gaussian filter</th>
+    </tr>
+    <tr>
+        <th><img src="./img/wavelet.png"/></th>
+        <th><img src="./img/gaussian.png"/></th>
+    </tr>
+</table>
 
+The results of wavelet filter and gaussian filter look similar. However, the computation of wavelet filter is less.
 
 ## Performance Analysis
 
@@ -103,7 +114,7 @@ As shown in the demonstration video, it took 64 iterations for generating a plau
 
 ### Performance impacted by luminance weight
 
-![](./img/Wl.png)
+![](./img/WL.png)
 
 By introducing the luminance weight, the filter will be aware of the edges between light and dark, thus better preserving the edges of shadows and light sources.
 
@@ -113,17 +124,42 @@ Also, introducing the deviation term further improves the edge preservation and 
 
 By adding dilations, wavelet filters can a have larger reception field than normal filters with similar computational costs.
 
-**5x5 wavelet filter, 4 times, 4.96ms**
-
-![](./img/5x5_wavelet.png)
-
-**9x9 normal filter, 5ms**
-
-![](./img/9x9_normal.png)
+<table>
+    <tr>
+        <th>5x5 wavelet filter, 4 times, 4.96ms</th>
+        <th>9x9 normal filter, 5ms</th>
+    </tr>
+    <tr>
+        <th><img src="./img/5x5_wavelet.png"/></th>
+        <th><img src="./img/9x9_normal.png"/></th>
+    </tr>
+</table>
 
 At the same time cost, the wavelet filter generates better result.
 
 ### Performance impacted by filter size
+
+<table>
+    <tr>
+        <th>9x9 wavelet filter, 4 times, 18.5ms</th>
+        <th>7x7 wavelet filter, 4 times, 10.9ms</th>
+    </tr>
+    <tr>
+        <th><img src="./img/9x9_wavelet.png"/></th>
+        <th><img src="./img/7x7_wavelet.png"/></th>
+    </tr>
+</table>
+
+<table>
+    <tr>
+        <th>5x5 wavelet filter, 4 times, 4.96ms</th>
+        <th>3x3 wavelet filter, 4 times, 2ms</th>
+    </tr>
+    <tr>
+        <th><img src="./img/5x5_wavelet.png"/></th>
+        <th><img src="./img/3x3_wavelet.png"/></th>
+    </tr>
+</table>
 
 **9x9 wavelet filter, 4 times, 18.5ms**
 
