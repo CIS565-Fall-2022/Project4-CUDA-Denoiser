@@ -83,6 +83,8 @@ Below you can see a visualization of the data collected in this G-Buffer for a s
 
 ## Visual Analysis
 
+
+### Filter Size
 Below is a visual comparison of different filter sizes with edge detection. The number of
 sample-per-pixel is only 20, with a very high color weight.
 
@@ -98,8 +100,15 @@ sample-per-pixel is only 20, with a very high color weight.
 | ----------- | ----------- |  ----------- |
 | ![](img/results/kernel_size_7_iter_1.PNG)      |   ![](img/results/kernel_size_8_iter_1.PNG)     | ![](img/results/kernel_size_9_iter_1.PNG) |
 
+### Different Material Types
+
+| 1 Iteration Not Denoised     | 1 Iteration Denoised | 5000 Iterations Not Denoised |
+| ----------- | ----------- |  ----------- |
+| ![](img/results/matcom_1iter.PNG)      |   ![](img/results/matcomp_denoised.PNG)     | ![](img/results/matcomp_5000iter.PNG) |
+
 ## Performance Analysis
 
+### Convergence
 Below shows renders of different samples-per-pixel before and after denoising:
 
 | 1 Iteration     | 5 Iterations  | 10 Iterations |
