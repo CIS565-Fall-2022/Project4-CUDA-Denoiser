@@ -51,9 +51,9 @@ required. An illustration of this is shown in the below figure:
 Below is also a demonstration of the À-Trous Wavelet Transform applied to a noisy path-traced
 cornell box render, without the edge detection described in the next section:
 
-| Max Kernel Size 1     | Max Kernel Size 4 | Max Kernel size 16 | Max Kernel size 64 |
+| Max Kernel Size 1 (1 iter)    | Max Kernel Size 4 (3 iter) | Max Kernel size 16 (5 iter) | Max Kernel size 64 (7 iter) |
 | ----------- | ----------- |  ----------- |  ----------- |
-| ![](img/results/plain_blur_i1.PNG)      |   ![](img/results/plain_blur_i3.PNG)     | ![](img/results/plain_blur_i5.PNG) | ![](img/results/plain_blur_i.PNG) |
+| ![](img/results/no_edge_detection_filter1.PNG)      |   ![](img/results/no_edge_detection_filter3.PNG)     | ![](img/results/no_edge_detection_filter5.PNG) | ![](img/results/no_edge_detection_filter7.PNG) |
 
 As can be seen, this looks very similar to the pure gaussian blur from the previous section.
 It just blurs the entire screen, and it would be rare to describe it as "denoising".

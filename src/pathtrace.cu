@@ -20,7 +20,7 @@
 //#define DISPLAY_NORMAL
 //#define DISPLAY_DEPTH
 
-#define WAVELET
+//#define WAVELET
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
