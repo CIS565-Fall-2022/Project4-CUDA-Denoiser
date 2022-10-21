@@ -23,7 +23,7 @@ With just the position weights, the image develops a bit more crispness. Especia
 
 ![](img/p_w.PNG)
 <br />
-With just normal weights, the corners of the wall are more clear. The sphere still has the same level of crispness on the edges as well. Here all the crisp edges are a result of objects having different normals than other
+With just normal weights, the corners of the wall are more clear. The sphere still has the same level of crispness on the edges as well. Here all the crisp edges are a result of objects having different normals than other. Note though, that the sphere itself is quite blurry because all the pixels showing the sphere have different normals.
 
 ![](img/n_w.PNG)
 <br />
@@ -36,3 +36,30 @@ Lastly, here is the render with all weights applied, and with no denoising at al
 ![](img/all.PNG)
 ![](img/none.PNG)
 <br />
+
+### Performance Analysis
+
+Denoising is actually a very efficient process. For starters it's also a highly parallelizable process, just like path tracing, meaning it can be accelerated with use of the GPU. It also only needs to be done once at the final iteration of the pathtracer. Even if the pathtracer has a relatively modest 50 iterations, the addition of a denoiser at the end would have little impact on the runtime. As a result, we will be denoising at every iteration, to get a better idea of the added runtime of using the denoiser at one iteration.
+
+<br />
+It's difficult to quantify how much quicker the denoising causes convergence. Here is a scene from before of the denoised image at 10 iterations.
+
+![](img/all.PNG)
+
+<br />
+And here is the same scene but at 200 iterations but with no denoising. 
+
+![](img/200n.PNG)
+
+<br />
+Both images are lacking in different ways. The denoised image is splotchy as not enough convergence has occured for the blur effect to generate uniform colors. The nondenoised image is simply still a bit grainy. Both could be considered acceptably converged, as nothing is off at first glance though. 
+
+<br />
+Also, here is the scene at 200 iterations while denoised, and 2000 iterations not denoised. 
+
+![](img/200d.PNG) 
+
+![](img/2000n.PNG) 
+
+<br />
+The scenes are pretty indistinguishible. It may be safe to say that the denoiser, when paramaters are adjusted properly, can reduce the number of required iterations for an image to converge by a factor of 10 to 20. However, this statement is completely subjective.
