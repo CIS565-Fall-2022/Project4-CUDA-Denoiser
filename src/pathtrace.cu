@@ -508,7 +508,8 @@ __global__ void generateGBuffer(
 #if Z_DEPTH
 		gBuffer[idx].z = shadeableIntersections[idx].t;
 #else
-		gBuffer[idx].pos = pathSegments[idx].ray.origin + shadeableIntersections[idx].t * pathSegments[idx].ray.direction;
+		
+		gBuffer[idx].pos = getPointOnRay(pathSegments[idx].ray, shadeableIntersections[idx].t);
 #endif //Z_DEPTH
 
 #if OCT_ENCODING_NOR
@@ -760,7 +761,7 @@ __global__ void aTrousFilter
 				t = gBuffer[idx].normal - gBuffer[t_idx].normal;
 #endif //OCT_ENCODING_NOR
 
-				dist2 = max(glm::dot(t, t) / (stepWidth * stepWidth), 0.f);
+				dist2 = glm::length(t);
 				float n_w = min(exp(-dist2 / n_phi), 1.f);
 
 #if Z_DEPTH
@@ -784,7 +785,7 @@ void denoise()
 {
 	const glm::ivec2 resolution = hst_scene->state.camera.resolution;
 	const Camera& cam = hst_scene->state.camera;
-	const dim3 blockSize2d(8, 8);
+	const dim3 blockSize2d(32, 32);
 	const dim3 blocksPerGrid2d((resolution.x + blockSize2d.x - 1) / blockSize2d.x, (resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
 	//performance time tracking

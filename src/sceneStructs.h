@@ -6,8 +6,8 @@
 #include "glm/glm.hpp"
 
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
-#define Z_DEPTH 1
-#define OCT_ENCODING_NOR 1
+#define Z_DEPTH 0
+#define OCT_ENCODING_NOR 0
 
 enum GeomType {
 	SPHERE,
