@@ -523,7 +523,7 @@ void pathtrace(int frame, int iter, int filterSize, float col_weight, float pos_
         int numIterations = 0;
         int stepSize = 1;
         int limit = ceil(glm::log2(filterSize * filterSize / 25.f));
-        while (numIterations < 4) {
+        while (numIterations < limit / 2) {
             aTrousWavelet << <numBlocksPixels, blockSize1d >> > (hst_scene->state.camera.resolution.x,
                 num_paths,
                 iter,
