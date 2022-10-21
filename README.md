@@ -1,13 +1,19 @@
 CUDA Denoiser For CUDA Path Tracer
 ==================================
 
-**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
+**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
 
-* (TODO) YOUR NAME HERE
-* Tested on: (TODO) Windows 22, i7-2222 @ 2.22GHz 22GB, GTX 222 222MB (Moore 2222 Lab)
+* Zhangkaiwen Chu
+  * [LinkedIn](https://www.linkedin.com/in/zhangkaiwen-chu-b53060225/)
+* Tested on: Windows 10, R7-5800H @ 3.20GHz 16GB, RTX 3070 Laptop GPU 16310MB (Personal Laptop)
 
-### (TODO: Your README)
+This project implement a pathtracing denoiser that uses geometry buffers to guide a smoothing filter, which is based on the paper ["Edge-Avoiding A-Trous Wavelet Transform for fast Global Illumination Filtering"](https://jo.dreggn.org/home/2010_atrous.pdf). This paper use wavelet to approximmate Gaussion filter. By guiding the filter with edge-stopping function, the denoiser will not make the whole image blurry.
 
-*DO NOT* leave the README to the last minute! It is a crucial part of the
-project, and we will not be able to grade you without a good README.
+| raw pathtraced image | simple blur | blur guided by G-buffers |
+|---|---|---|
+|![](img/origin.png)|![](img/blur.png)|![](img/denoise.png)|
 
+The G-buffer contains position and surface normal informations.
+| scene | position | surface normal |
+|---|---|---|
+|![](img/scene.png)|![](img/position.png)|![](img/normal.png)|

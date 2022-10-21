@@ -113,7 +113,7 @@ void saveImage() {
     // output image file
     image img(width, height);
 
-    update();
+    update(ui_denoise);
 
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
@@ -163,6 +163,7 @@ void runCuda() {
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
     if (iteration == 0) {
+        t_pathtrace = 0.f;
         pathtraceFree();
         pathtraceInit(scene);
     }

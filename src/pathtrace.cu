@@ -431,13 +431,13 @@ __global__ void ATrousFilter(
         for (int i = -2; i <= 2; i++) {
             for (int j = -2; j <= 2; j++) {
                 int neighbor = glm::clamp(x + i * stride, 0, resolution.x - 1) + glm::clamp(y + j * stride, 0, resolution.y - 1) * resolution.x;
-                //float wrt = exp(-glm::length(in[index] - in[neighbor]) / sigma_c / sigma_c);
-                //float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n / sigma_n);
-                //float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x / sigma_x);
+                float wrt = exp(-glm::length(in[index] - in[neighbor]) / sigma_c / sigma_c);
+                float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n / sigma_n);
+                float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x / sigma_x);
 
-                float wrt = exp(-glm::length(in[index] - in[neighbor]) / sigma_c);
-                float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n );
-                float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x );
+                //float wrt = exp(-glm::length(in[index] - in[neighbor]) / sigma_c);
+                //float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n );
+                //float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x );
 
                 sum += in[neighbor] * filter[max(abs(i), abs(j))] * wrt * wn * wx;
                 k += filter[max(abs(i), abs(j))] * wrt * wn * wx;
@@ -455,7 +455,7 @@ void denoise(float sigma_c, float sigma_n, float sigma_x, int filterSize) {
         (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
         (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
-    int N = int(ceil(log2((filterSize - 5) / 4.f)));
+    int N = int(ceil(log2((filterSize - 5) / 4.f))) + 1;
 
     cudaMemcpy(dev_denoised_image1, dev_image, cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
     
@@ -465,10 +465,16 @@ void denoise(float sigma_c, float sigma_n, float sigma_x, int filterSize) {
     }
 }
 
-void update() {
+void update(bool d) {
     const Camera& cam = hst_scene->state.camera;
-    cudaMemcpy(hst_scene->state.image.data(), dev_denoised_image1,
-        cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+    if (d) {
+        cudaMemcpy(hst_scene->state.image.data(), dev_denoised_image1,
+            cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+    }
+    else {
+        cudaMemcpy(hst_scene->state.image.data(), dev_image,
+            cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+    }
 }
 
 // CHECKITOUT: this kernel "post-processes" the gbuffer/gbuffers into something that you can visualize for debugging.
