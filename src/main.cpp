@@ -188,6 +188,10 @@ void runCuda() {
     if (ui_showGbuffer) {
         showGBuffer(pbo_dptr);
     }
+    else if (ui_denoise) {
+        denoise(scene, ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_filterSize);
+        showDenoiseImage(pbo_dptr, iteration);
+    }
     else {
         showImage(pbo_dptr, iteration);
     }

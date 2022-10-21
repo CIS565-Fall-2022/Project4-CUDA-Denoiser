@@ -262,5 +262,7 @@ struct LinearBVHNode{
 // CHECKITOUT - a simple struct for storing scene geometry information per-pixel.
 // What information might be helpful for guiding a denoising filter?
 struct GBufferPixel {
+    glm::vec3 pos;
+    glm::vec3 nor;
     float t;
 };
