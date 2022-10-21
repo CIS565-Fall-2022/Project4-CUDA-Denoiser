@@ -9,18 +9,12 @@
 
 #define IMGUI_IMPL_OPENGL_LOADER_GLEW
 
-#include "ImGui/imgui.h"
-#include "ImGui/imgui_impl_glfw.h"
-#include "ImGui/imgui_impl_opengl3.h"
 GLuint positionLocation = 0;
 GLuint texcoordsLocation = 1;
 GLuint pbo;
 GLuint displayImage;
 
 GLFWwindow* window;
-GuiDataContainer* imguiData = NULL;
-ImGuiIO* io = nullptr;
-bool mouseOverImGuiWinow = false;
 
 std::string currentTimeString() {
 	time_t now;
@@ -167,14 +161,6 @@ bool init() {
 		return false;
 	}
 	printf("Opengl Version:%s\n", glGetString(GL_VERSION));
-	//Set up ImGui
-
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	io = &ImGui::GetIO(); (void)io;
-	ImGui::StyleColorsLight();
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init("#version 120");
 
 	// Initialize other stuff
 	initVAO();

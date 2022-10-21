@@ -50,7 +50,6 @@ glm::vec3 cameraPosition;
 glm::vec3 ogLookAt; // for recentering the camera
 
 Scene* scene;
-GuiDataContainer* guiData;
 RenderState* renderState;
 int iteration;
 
@@ -96,7 +95,6 @@ int main(int argc, char** argv) {
 	}
 
 	//Create Instance for ImGUIData
-	guiData = new GuiDataContainer();
 
 	// Set up camera stuff from loaded path tracer settings
 	iteration = 0;
@@ -133,14 +131,11 @@ int main(int argc, char** argv) {
 	init();
 
 	// Initialize ImGui Data
-	InitImguiData(guiData);
-	InitDataContainer(guiData);
 
 	// GLFW main loop
 	auto end = chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 	std::cout << duration.count() << std::endl;
-	system("pause");
 	mainLoop();
 
 	return 0;
@@ -219,53 +214,40 @@ void runCuda() {
 		saveState();
 		saveCheckpoint = false;
 	}
-
-	if (iteration < renderState->iterations) {
-		uchar4* pbo_dptr = NULL;
+	uchar4* pbo_dptr = NULL;
+	cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
+	if (iteration < ui_iterations) {
 		iteration++;
-		cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
-    uchar4 *pbo_dptr = NULL;
-    cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
-
-    if (iteration < ui_iterations) {
-        iteration++;
-
-        // execute the kernel
-        int frame = 0;
-        pathtrace(frame, iteration);
-    }
-    if (iteration == ui_iterations && ui_denoise && !ran_denoiser)
-    {
-        runDenoiser(ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
-        ran_denoiser = true;
-    }
-    if (ui_showGbuffer) {
-      showGBuffer(pbo_dptr);
-    } 
-    else if (ui_denoise && iteration == ui_iterations)
-    {
-       showDenoisedImage(pbo_dptr, iteration);
-    }
-    else
-    {
-      showImage(pbo_dptr, iteration);
-    }
+			
 		// execute the kernel
 		int frame = 0;
 		pathtrace(pbo_dptr, frame, iteration);
-
-		// unmap buffer object
-		cudaGLUnmapBufferObject(pbo);
 	}
-	else {
+	if (iteration == ui_iterations && ui_denoise && !ran_denoiser)
+	{
+		runDenoiser(ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+		ran_denoiser = true;
+	}
+	if (ui_showGbuffer) {
+		showGBuffer(pbo_dptr);
+	} 
+	else if (ui_denoise && iteration == ui_iterations)
+	{
+		showDenoisedImage(pbo_dptr, iteration);
+	}
+	else
+	{
+		showImage(pbo_dptr, iteration);
+	}
+	// unmap buffer object
+	cudaGLUnmapBufferObject(pbo);
+
+
+	if (ui_saveAndExit) {
 		saveImage();
 		pathtraceFree();
 		cudaDeviceReset();
 		exit(EXIT_SUCCESS);
-	}
-	if (iteration == 4999)
-	{
-		system("pause");
 	}
 }
 
@@ -335,15 +317,8 @@ void loadState(string checkpoint_folder)
 	camera_file >> dof >> lens_radius >> focal_length;
 	scene->state.camera = { resolution, position, lookAt, view, up, right, fov, pixelLength, dof, lens_radius, focal_length};
 	std::cout << "Loading Checkpoint Complete" << std::endl;
-    // unmap buffer object
-    cudaGLUnmapBufferObject(pbo);
 
-    if (ui_saveAndExit) {
-        saveImage();
-        pathtraceFree();
-        cudaDeviceReset();
-        exit(EXIT_SUCCESS);
-    }
+
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
