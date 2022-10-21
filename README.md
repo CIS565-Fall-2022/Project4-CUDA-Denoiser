@@ -87,6 +87,10 @@ In practice, the filter size is 5X5, $\sigma_Z$ is 1, $\sigma_N$ is 64, and $\si
 
 To stabilize the preview, the GUI will blend the last result and the current result.
 
+## Comapre to Gaussian Filter
+
+
+
 ## Performance Analysis
 
 As shown in the demonstration video, it took 64 iterations for generating a plausible result for an inner scene.
