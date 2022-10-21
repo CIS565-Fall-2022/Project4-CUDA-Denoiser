@@ -22,10 +22,41 @@ Denoiser Off | Denoiser On
 # <a name="features"> Features</a>
 ### Core features
 * G-Buffer Visualization
+
+We use normal/position/and time to intersect data (per pixel) as weight to avoid edges when applying blurs.   
+These data can be visualized by clicking `Show GBuffer` on the GUI. And the user can switch between different data type by pressing 0 for time to intersect, 1 for position, and 2 for normal. 
+
+|Normal | Position | Time to Intersect |
+|:-----: | :-----: |:-----: |
+|![](img/Denoiser/g-buffer-nor.png) | ![](img/Denoiser/g-buffer-pos.png) | ![](img/Denoiser/g-buffer-t.png) |
+
 * A-Trous Filtering
+
+A-Trous Filtering is the key to our high-performance denoiser. Instead of sampling all the neighboring pixels in the radius like Gaussian blur, A-Trous Filtering iteratively applying sparse blurs of increasing size. By doing so, it can achieve a comparable result to a big filter with a small filter. 
+
+|No Filter | Filter Size = 16 | Filter Size = 64 |
+|:-----: | :-----: |:-----: |
+|![](img/Denoiser/Non-ATroused.png) | ![](img/Denoiser/ATroused-16.png) | ![](img/Denoiser/ATroused-64.png) |
+
 * Edge-Avoiding Filtering
+
+Although A-Trous Filtering clears the noise effectively, the details and focus of the image are also blurred. We want the image to be able to preserve key details. With the information from the G-buffer, we can do this by avoiding blurring the edges. When there is a sharp change in position/normal/depth, there is usually a change in edge. By decreasing the blurring weight on the edges, the denoiser satisfy its purpose effectively. 
+
+|No Filter | A-Trous (64) | A-Trous with Edge-Avoiding (64) |
+|:-----: | :-----: |:-----: |
+|![](img/Denoiser/Non-ATroused.png) | ![](img/Denoiser/ATroused-64.png) | ![](img/Denoiser/ATroused-Edge-avoiding.png) |
+
 ### Additional features
 * Gaussian Filtering
+
+As mentioned above, Gaussian Filter blurs an image by sampling all the neighboring pixels of each pixel, and compute its new color by taking the weighted average of them, with the closer pixels having a higher weight.    
+According to my own result, Gaussian Filter seems to produce a blurrier image with edge-avoiding turned off, and it produce a slightly noisy image with edge-avoiding turned on.
+
+|No Filter | A-Trous (64)  | Gaussian (64) |
+|:-------: | :-----------: |:------------: |
+|![](img/Denoiser/Non-ATroused.png) | ![](img/Denoiser/ATroused-64.png) | ![](img/Denoiser/Gaussian-64.png) |
+| Edge-Avoiding | ![](img/Denoiser/ATroused-Edge-avoiding.png) | ![](img/Denoiser/Gaussian-Edge-avoiding.png) |
+
 
 
 # <a name="performance">Performance Analysis</a>
