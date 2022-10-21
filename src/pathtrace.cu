@@ -343,8 +343,9 @@ __global__ void finalGather(int nPaths, glm::vec3 * image, PathSegment * iterati
 		image[iterationPath.pixelIndex] += iterationPath.color;
 	}
 }
-__global__ void denoise(Camera cam, int nPaths, glm::vec3* image, PathSegment* iterationPaths, float* dumb_kernel, glm::vec3* image_denoise, int level)
+__global__ void denoise(GBufferPixel* gBuffer, Camera cam, glm::vec3* image, float* dumb_kernel, glm::vec3* image_denoise, int level, float colorWeight, float normalWeight, float positionWeight)
 {
+    //TODO: Test fastest way
     float kernel_25[25] = { 1.0f / 256.0f ,  1.0f / 64.0f , 3.0f / 128.0f , 1.0f / 64.0f , 1.0f / 256.0f,
     1.0f / 64.0f , 1.0f / 16.0f , 3.0f / 32.0f , 1.0f / 16.0f , 1.0f / 64.0f,
     3.0f / 128.0f , 3.0f / 32.0f , 9.0f / 64.0f , 3.0f / 32.0f , 3.0f / 128.0f,
@@ -358,8 +359,10 @@ __global__ void denoise(Camera cam, int nPaths, glm::vec3* image, PathSegment* i
     glm::vec3 sum;
     if (x_o < cam.resolution.x && y_o < cam.resolution.y)
     {
+#pragma unroll
         for (int j = 0; j < 5; j++)
         {
+#pragma unroll
             for (int i = 0; i < 5; i++)
             {
                 int x = x_o + (i - 2) * (1 << level);
@@ -368,10 +371,19 @@ __global__ void denoise(Camera cam, int nPaths, glm::vec3* image, PathSegment* i
                 // y = glm::clamp(y, 0, cam.resolution.y - 1);
                 if (x < cam.resolution.x && y < cam.resolution.y && (x >= 0) && (y) >= 0)
                 {
+                    //Cap weights at 1.0 per paper
                     int index = (x + (y * cam.resolution.x));
                     float kernel_weight = kernel[i] * kernel[j];
-                    sum += (kernel_weight * image_denoise[index]);
-                    cum_weight += kernel_weight;
+                    glm::vec3 t = image[origin_index] - image_denoise[index];
+                    float c_w = glm::min(glm::exp(-glm::dot(t, t) / (colorWeight)),1.0f);
+                    t = gBuffer[origin_index].normal - gBuffer[index].normal;
+                    //Need to update based on step size?
+                    float n_w = glm::min(glm::exp(-glm::dot(t, t) / (normalWeight )), 1.0f);
+                    t = gBuffer[origin_index].position - gBuffer[index].position;
+                    float p_w = glm::min(glm::exp(-glm::dot(t, t) / (positionWeight)), 1.0f);
+                    float weight = c_w * n_w * p_w;
+                    sum += (kernel_weight * image_denoise[index] * weight);
+                    cum_weight += kernel_weight * weight;
                 }
             }
 
@@ -511,7 +523,8 @@ void runDenoiser(int filterSize, float colorWeight, float normalWeight, float po
     const dim3 blocksPerGrid2d(
         (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
         (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
-    int denoise_interations = log2((filterSize / 5.0f));
+    //Avoid negative values
+    int denoise_interations = filterSize < 5 ? 0 : log2((filterSize / 5.0f));
     std::cout << denoise_interations << std::endl;;
     cudaMemcpy(dev_image_denoise, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
     cudaMemcpy(dev_image_denoise_ping_pong, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
@@ -519,8 +532,7 @@ void runDenoiser(int filterSize, float colorWeight, float normalWeight, float po
     for (int sweep = 0; sweep < denoise_interations; sweep++)
     {
         std::swap(dev_image_denoise, dev_image_denoise_ping_pong);
-        //cudaMemcpy(dev_image_denoise, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
-        denoise << < blocksPerGrid2d, blockSize2d >> > (cam, num_paths, dev_image_denoise, dev_paths, dev_kernel, dev_image_denoise_ping_pong, sweep);
+        denoise << < blocksPerGrid2d, blockSize2d >> > (dev_gBuffer, cam, dev_image_denoise, dev_kernel, dev_image_denoise_ping_pong, sweep, colorWeight * colorWeight, normalWeight * normalWeight, positionWeight * positionWeight);
         cudaDeviceSynchronize();
     }
     checkCUDAError("denoise");
