@@ -55,6 +55,9 @@ cornell box render, without the edge detection described in the next section:
 | ----------- | ----------- |  ----------- |  ----------- |
 | ![](img/results/plain_blur_i1.PNG)      |   ![](img/results/plain_blur_i3.PNG)     | ![](img/results/plain_blur_i5.PNG) | ![](img/results/plain_blur_i7.PNG) |
 
+As can be seen, this looks very similar to the pure gaussian blur from the previous section.
+It just blurs the entire screen, and it would be rare to describe it as "denoising".
+
 Specifically, the offset between pixels for each iteration ```i``` of the kernel is ```2^i```,
 and the maximum number of iterations to reach a final kernel-width will be .
 
