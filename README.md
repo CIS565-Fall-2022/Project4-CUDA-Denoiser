@@ -16,8 +16,17 @@ This allows for segmented denoising that preserves object boundaries.**
 
 ## RESULTS
 
-*DO NOT* leave the README to the last minute! It is a crucial part of the
-project, and we will not be able to grade you without a good README.
+
+| Denoised 1 SPP   | Denoised 100 SPP | Denoised 1000 SPP |
+| ----------- | ----------- |  ----------- |
+| ![](img/results/render_denoised_1.PNG)      |   ![](img/results/render_denoised_100.PNG)     | ![](img/results/render_denoised_1000.PNG) |
+
+| original 1 SPP   | Original 100 SPP | Original 1000 SPP |
+| ----------- | ----------- |  ----------- |
+| ![](img/results/render_1.PNG)      |   ![](img/results/render_100.PNG)     | ![](img/results/render_1000.PNG) |
+
+Adding denoising to these renders only incurred an additional constant 27ms of runtime, no
+matter how many path tracing iterations were used!
 
 
 ## IMPLEMENTATION
@@ -51,7 +60,7 @@ required. An illustration of this is shown in the below figure:
 Below is also a demonstration of the À-Trous Wavelet Transform applied to a noisy path-traced
 cornell box render, without the edge detection described in the next section:
 
-| Max Kernel Size 1 (1 iter)    | Max Kernel Size 4 (3 iter) | Max Kernel size 16 (5 iter) | Max Kernel size 64 (7 iter) |
+| Kernel Size 1 (1 iter)    | Kernel Size 4 (3 iter) | Kernel Size 16 (5 iter) | Kernel Size 64 (7 iter) |
 | ----------- | ----------- |  ----------- |  ----------- |
 | ![](img/results/no_edge_detection_filter1.PNG)      |   ![](img/results/no_edge_detection_filter3.PNG)     | ![](img/results/no_edge_detection_filter5.PNG) | ![](img/results/no_edge_detection_filter7.PNG) |
 
@@ -138,3 +147,7 @@ Below shows renders of different samples-per-pixel before and after denoising:
 | ![](img/results/iteration_1000.PNG)      |   ![](img/results/iteration_5000.PNG)     |
 | Denoised     | Denoised  |
 | ![](img/results/iteration_1000_denoised.PNG)      |   ![](img/results/iteration_5000_denoised.PNG)     |
+
+### Varying Filter Size
+
+![](img/figures/denoise_runtime_vs_pt_iter.png)
