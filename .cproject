@@ -181,7 +181,7 @@
 		</cconfiguration>
 	</storageModule>
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-		<project id="Project4-CUDA-Denoiser.null.511728241" name="Project4-CUDA-Denoiser"/>
+		<project id="Project3-CUDA-Path-Tracer.null.511728241" name="Project3-CUDA-Path-Tracer"/>
 	</storageModule>
 	<storageModule moduleId="scannerConfiguration">
 		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
@@ -189,10 +189,10 @@
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="Default">
-			<resource resourceType="PROJECT" workspacePath="/Project4-CUDA-Denoiser"/>
+			<resource resourceType="PROJECT" workspacePath="/Project3-CUDA-Path-Tracer"/>
 		</configuration>
 		<configuration configurationName="Debug">
-			<resource resourceType="PROJECT" workspacePath="/Project4-CUDA-Denoiser"/>
+			<resource resourceType="PROJECT" workspacePath="/Project3-CUDA-Path-Tracer"/>
 		</configuration>
 	</storageModule>
 </cproject>
