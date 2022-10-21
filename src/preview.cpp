@@ -481,6 +481,7 @@ void drawGui(int windowWidth, int windowHeight) {
     ImGui::SliderInt("Iterations", &ui_iterations, 1, startupIterations);
 
     ImGui::Checkbox("Denoise", &ui_denoise);
+    ImGui::Checkbox("Gaussian", &ui_showGaussian);
 
     ImGui::SliderInt("Filter Size", &ui_filterSize, 0, 100);
     ImGui::SliderFloat("Color Weight", &ui_colorWeight, 0.0f, 10.0f);
@@ -489,7 +490,7 @@ void drawGui(int windowWidth, int windowHeight) {
 
     ImGui::Separator();
 
-    ImGui::Checkbox("Show GBuffer", &ui_showGbuffer);
+    ImGui::Checkbox("Show GBuffer", &ui_showGbuffer); 
 
     ImGui::Separator();
 

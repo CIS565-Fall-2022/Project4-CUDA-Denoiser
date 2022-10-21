@@ -391,7 +391,15 @@ __global__ void ATrousFilter(
         return;
     }
 
-    glm::vec3 kernelArr = glm::vec3(1 / 16.f, 1 / 4.f, 3 / 8.f);
+    //glm::vec3 kernelArr = glm::vec3(1 / 16.f, 1 / 4.f, 3 / 8.f);
+    //glm::vec3 kernelArr = glm::vec3(3 / 8.f, 1 / 4.f, 1 / 16.f);
+    
+    float kernelArr[5][5] = {
+        0.00390625, 0.015625, 0.0234375, 0.015625, 0.00390625,
+        0.015625, 0.0625, 0.09375, 0.0625, 0.015625,
+        0.0234375, 0.09375, 0.140625, 0.09375, 0.0234375,
+        0.015625, 0.0625, 0.09375, 0.0625, 0.015625,
+        0.00390625, 0.015625, 0.0234375, 0.015625, 0.00390625 };
 
     glm::vec3 cval = in_img[idx];
     glm::vec3 pval = gbuffer[idx].pos;
@@ -404,7 +412,8 @@ __global__ void ATrousFilter(
     {
         for (int j = -2; j <= 2; ++j)
         {         
-            float kernel = kernelArr[glm::max(glm::abs(i), glm::abs(j))];
+            //float kernel = kernelArr[glm::max(glm::abs(i), glm::abs(j))];
+            float kernel = kernelArr[i + 2][j + 2];
 
             glm::ivec2 uv = glm::ivec2(idx_x + j * stepwidth, idx_y + i * stepwidth);
             uv = glm::clamp(uv, glm::ivec2(0, 0), resolution);
@@ -458,6 +467,71 @@ void denoise(Scene* scene, float c_phi, float n_phi, float p_phi, float filterSi
             (cam.resolution, c_phi, n_phi, p_phi, 1 << i, dev_gBuffer, dev_denoise_img1, dev_denoise_img2);
         cudaDeviceSynchronize();
         checkCUDAError("ATrous Filter");
+
+        // Ping Pong buffer
+        glm::vec3* tmp = dev_denoise_img1;
+        dev_denoise_img1 = dev_denoise_img2;
+        dev_denoise_img2 = tmp;
+    }
+
+    cudaMemcpy(hst_scene->state.image.data(), dev_denoise_img2, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+}
+
+__global__ void GaussianFilter(
+    glm::ivec2 resolution, glm::vec3* in_img, glm::vec3* out_img)
+{
+    int idx_x = (blockDim.x * blockIdx.x) + threadIdx.x;
+    int idx_y = (blockDim.y * blockIdx.y) + threadIdx.y;
+    int idx = idx_y * resolution.x + idx_x; 
+
+    if (idx_x >= resolution.x || idx_y >= resolution.y)
+    {
+        return;
+    }
+
+    float kernelArr[5][5] = {0.00296902,    0.0133062,    0.0219382,    0.0133062,    0.00296902,
+        0.0133062,    0.0596343,    0.0983203,    0.0596343,    0.0133062,
+        0.0219382,    0.0983203,    0.162103,    0.0983203,    0.0219382,
+        0.0133062,    0.0596343,    0.0983203,    0.0596343,    0.0133062,
+        0.00296902,    0.0133062,    0.0219382,    0.0133062,    0.00296902 };
+
+    glm::vec3 sum = glm::vec3(0.f);
+    for (int i = -2; i <= 2; ++i)
+    {
+        for (int j = -2; j <= 2; ++j)
+        {
+            float kernel = kernelArr[i + 2][j + 2];
+
+            glm::ivec2 uv = glm::ivec2(idx_x + j, idx_y + i);
+            uv = glm::clamp(uv, glm::ivec2(0, 0), resolution);
+            int id = uv.y * resolution.x + uv.x;
+
+            glm::vec3 col = in_img[id];
+
+            sum += col * kernel;
+        }
+    }
+
+    out_img[idx] = sum;
+}
+void gaussianBlur(float filterSize)
+{
+    const Camera& cam = hst_scene->state.camera;
+    const dim3 blockSize2d(8, 8);
+    const dim3 blocksPerGrid2d(
+        (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+        (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+    const int pixelcount = cam.resolution.x * cam.resolution.y;
+
+    cudaMemcpy(dev_denoise_img1, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
+
+    int iter = glm::floor(log2((filterSize - 5) / 4.f)) + 1;
+    for (int i = 0; i < iter; ++i)
+    {
+        GaussianFilter << <blocksPerGrid2d, blockSize2d >> >
+            (cam.resolution, dev_denoise_img1, dev_denoise_img2);
+        cudaDeviceSynchronize();
+        checkCUDAError("Gaussian Filter");
 
         // Ping Pong buffer
         glm::vec3* tmp = dev_denoise_img1;

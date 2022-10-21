@@ -24,6 +24,7 @@ int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
+bool ui_showGaussian = false;
 int ui_filterSize = 80;
 float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
@@ -188,8 +189,16 @@ void runCuda() {
     if (ui_showGbuffer) {
         showGBuffer(pbo_dptr);
     }
-    else if (ui_denoise) {
-        denoise(scene, ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_filterSize);
+    else if (ui_denoise) 
+    {
+        if (ui_showGaussian)
+        {
+            gaussianBlur(ui_filterSize);
+        }
+        else
+        {
+            denoise(scene, ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_filterSize);
+        }
         showDenoiseImage(pbo_dptr, iteration);
     }
     else {

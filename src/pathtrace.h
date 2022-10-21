@@ -26,3 +26,5 @@ void FreeSkyboxTexure();
 // Denoiser
 void denoise(Scene* scene, float c_phi, float n_phi, float p_phi, float filterSize);
 void showDenoiseImage(uchar4* pbo, int iter);
+
+void gaussianBlur(float filterSize);
