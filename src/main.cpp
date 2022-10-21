@@ -9,6 +9,11 @@
 //#define TINYGLTF_NO_INCLUDE_STB_IMAGE
 //#define TINYGLTF_NO_INCLUDE_STB_IMAGE_WRITE
 #include "tiny_gltf.h"
+
+#include "../imgui/imgui.h"
+#include "../imgui/imgui_impl_glfw.h"
+#include "../imgui/imgui_impl_opengl3.h"
+
 static std::string startTimeString;
 
 // For camera controls
@@ -19,6 +24,22 @@ static bool hasCheckpoint = false;
 static bool saveCheckpoint = false;
 static double lastX;
 static double lastY;
+
+// CHECKITOUT: simple UI parameters.
+// Search for any of these across the whole project to see how these are used,
+// or look at the diff for commit 1178307347e32da064dce1ef4c217ce0ca6153a8.
+// For all the gory GUI details, look at commit 5feb60366e03687bfc245579523402221950c9c5.
+int ui_iterations = 0;
+int startupIterations = 0;
+int lastLoopIterations = 0;
+bool ui_showGbuffer = false;
+bool ui_denoise = false;
+int ui_filterSize = 80;
+float ui_colorWeight = 0.45f;
+float ui_normalWeight = 0.35f;
+float ui_positionWeight = 0.2f;
+bool ui_saveAndExit = false;
+bool ran_denoiser = false;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -89,10 +110,13 @@ int main(int argc, char** argv) {
 	width = cam.resolution.x;
 	height = cam.resolution.y;
 
-	glm::vec3 view = cam.view;
-	glm::vec3 up = cam.up;
-	glm::vec3 right = glm::cross(view, up);
-	up = glm::cross(right, view);
+    ui_iterations = renderState->iterations;
+    startupIterations = ui_iterations;
+
+    glm::vec3 view = cam.view;
+    glm::vec3 up = cam.up;
+    glm::vec3 right = glm::cross(view, up);
+    up = glm::cross(right, view);
 
 	cameraPosition = cam.position;
 
@@ -146,6 +170,12 @@ void saveImage() {
 }
 
 void runCuda() {
+    if (lastLoopIterations != ui_iterations) {
+      lastLoopIterations = ui_iterations;
+      camchanged = true;
+    }
+
+
 	if (camchanged && !hasCheckpoint) {
 		if (!hasCheckpoint)
 		{
@@ -163,11 +193,12 @@ void runCuda() {
 		cam.up = glm::cross(r, v);
 		cam.right = r;
 
-		cam.position = cameraPosition;
-		cameraPosition += cam.lookAt;
-		cam.position = cameraPosition;
-		camchanged = false;
-	}
+        cam.position = cameraPosition;
+        cameraPosition += cam.lookAt;
+        cam.position = cameraPosition;
+        camchanged = false;
+        ran_denoiser = false;
+      }
 
 	// Map OpenGL buffer object for writing from CUDA on a single GPU
 	// No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
@@ -193,7 +224,32 @@ void runCuda() {
 		uchar4* pbo_dptr = NULL;
 		iteration++;
 		cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
+    uchar4 *pbo_dptr = NULL;
+    cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
 
+    if (iteration < ui_iterations) {
+        iteration++;
+
+        // execute the kernel
+        int frame = 0;
+        pathtrace(frame, iteration);
+    }
+    if (iteration == ui_iterations && ui_denoise && !ran_denoiser)
+    {
+        runDenoiser(ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+        ran_denoiser = true;
+    }
+    if (ui_showGbuffer) {
+      showGBuffer(pbo_dptr);
+    } 
+    else if (ui_denoise && iteration == ui_iterations)
+    {
+       showDenoisedImage(pbo_dptr, iteration);
+    }
+    else
+    {
+      showImage(pbo_dptr, iteration);
+    }
 		// execute the kernel
 		int frame = 0;
 		pathtrace(pbo_dptr, frame, iteration);
@@ -279,6 +335,15 @@ void loadState(string checkpoint_folder)
 	camera_file >> dof >> lens_radius >> focal_length;
 	scene->state.camera = { resolution, position, lookAt, view, up, right, fov, pixelLength, dof, lens_radius, focal_length};
 	std::cout << "Loading Checkpoint Complete" << std::endl;
+    // unmap buffer object
+    cudaGLUnmapBufferObject(pbo);
+
+    if (ui_saveAndExit) {
+        saveImage();
+        pathtraceFree();
+        cudaDeviceReset();
+        exit(EXIT_SUCCESS);
+    }
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -305,13 +370,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-	if (MouseOverImGuiWindow())
-	{
-		return;
-	}
-	leftMousePressed = (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS);
-	rightMousePressed = (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS);
-	middleMousePressed = (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS);
+  if (ImGui::GetIO().WantCaptureMouse) return;
+  leftMousePressed = (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS);
+  rightMousePressed = (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS);
+  middleMousePressed = (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS);
 }
 
 void mousePositionCallback(GLFWwindow* window, double xpos, double ypos) {
