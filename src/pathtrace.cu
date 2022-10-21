@@ -16,6 +16,8 @@
 
 #define ERRORCHECK 1
 
+#define GAUSSIAN 1
+
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
 void checkCUDAErrorFn(const char *msg, const char *file, int line) {
@@ -435,7 +437,10 @@ __global__ void ATrousFilter(
 
         for (int i = -2; i <= 2; i++) {
             for (int j = -2; j <= 2; j++) {
-                int neighbor = glm::clamp(x + i * stride, 0, resolution.x - 1) + glm::clamp(y + j * stride, 0, resolution.y - 1) * resolution.x;
+                if ((x + i > resolution.x - 1) || (x + i < 0) || (y + j > resolution.y - 1) || (y + j < 0)) {
+                    continue;
+                }
+                int neighbor = x + i * stride + (y + j * stride) * resolution.x;
                 float wrt = exp(-glm::length(in[index] - in[neighbor]) / sigma_c / sigma_c);
                 float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n / sigma_n);
                 float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x / sigma_x);
@@ -452,6 +457,37 @@ __global__ void ATrousFilter(
     }
 }
 
+__global__ void GaussianFilter(
+    int filterSize, float sigma_c, float sigma_n, float sigma_x, glm::ivec2 resolution, GBufferPixel* gBuffer, glm::vec3* in, glm::vec3* out) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    if ((x < resolution.x) && (y < resolution.y)) {
+        int index = x + (y * resolution.x);
+        float k = 0;
+        glm::vec3 sum = glm::vec3(0.f, 0.f, 0.f);
+
+        for (int i = -filterSize; i <= filterSize; i++) {
+            for (int j = -filterSize; j <= filterSize; j++) {
+                if ((x + i > resolution.x - 1) || (x + i < 0) || (y + j > resolution.y - 1) || (y + j < 0)) {
+                    continue;
+                }
+                int neighbor = x + i  + (y + j) * resolution.x;
+                float wrt = exp(-glm::length(in[index] - in[neighbor]) / sigma_c / sigma_c);
+                float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n / sigma_n);
+                float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x / sigma_x);
+
+                //float wrt = exp(-glm::length(in[index] - in[neighbor]) / sigma_c);
+                //float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n );
+                //float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x );
+                float h = exp(-(i * i + j * j) / (2.f * 30 * 30));
+
+                sum += in[neighbor] * h * wrt * wn * wx;
+                k += h * wrt * wn * wx;
+            }
+        }
+        out[index] = sum / k;
+    }
+}
 
 void denoise(float sigma_c, float sigma_n, float sigma_x, int filterSize) {
     const Camera& cam = hst_scene->state.camera;
@@ -460,14 +496,17 @@ void denoise(float sigma_c, float sigma_n, float sigma_x, int filterSize) {
         (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
         (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
-    int N = int(ceil(log2((filterSize - 5) / 4.f))) + 1;
-
     cudaMemcpy(dev_denoised_image1, dev_image, cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
-    
+
+#if GAUSSIAN
+    GaussianFilter <<<blocksPerGrid2d, blockSize2d >>> (filterSize / 2, sigma_c, sigma_n, sigma_x, cam.resolution, dev_gBuffer, dev_denoised_image1, dev_denoised_image2);
+#else
     for (int i = 0; i < N; i++) {
-        ATrousFilter <<<blocksPerGrid2d, blockSize2d >>> (1 << i, sigma_c / (1 << i), sigma_n, sigma_x, cam.resolution, dev_gBuffer, dev_denoised_image1, dev_denoised_image2);
-        std::swap(dev_denoised_image1, dev_denoised_image2);
+        int N = int(ceil(log2((filterSize - 5) / 4.f))) + 1;
+        ATrousFilter << <blocksPerGrid2d, blockSize2d >> > (1 << i, sigma_c / (1 << i), sigma_n, sigma_x, cam.resolution, dev_gBuffer, dev_denoised_image1, dev_denoised_image2);
     }
+#endif
+    std::swap(dev_denoised_image1, dev_denoised_image2);
 }
 
 void update(bool d) {
