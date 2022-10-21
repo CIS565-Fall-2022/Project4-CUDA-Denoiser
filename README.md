@@ -51,15 +51,9 @@ required. An illustration of this is shown in the below figure:
 Below is also a demonstration of the À-Trous Wavelet Transform applied to a noisy path-traced
 cornell box render, without the edge detection described in the next section:
 
-| Max Kernel Size      | Blurred Image |
-| ----------- | ----------- |
-| 1      | ![](img/results/plain_blur_i1.PNG)       |
-| 2   | ![](img/results/plain_blur_i2.PNG)        |
-| 4   | ![](img/results/plain_blur_i3.PNG)        |
-| 8   | ![](img/results/plain_blur_i4.PNG)        |
-| 16   | ![](img/results/plain_blur_i5.PNG)        |
-| 32   | ![](img/results/plain_blur_i6.PNG)        |
-| 64   | ![](img/results/plain_blur_i7.PNG)        |
+| Max Kernel Size 1     | Max Kernel Size 4 | Max Kernel size 16 | Max Kernel size 64 |
+| ----------- | ----------- |  ----------- |  ----------- |
+| ![](img/results/plain_blur_i1.PNG)      |   ![](img/results/plain_blur_i3.PNG)     | ![](img/results/plain_blur_i5.PNG) | ![](img/results/plain_blur_i7.PNG) |
 
 Specifically, the offset between pixels for each iteration ```i``` of the kernel is ```2^i```,
 and the maximum number of iterations to reach a final kernel-width will be .
