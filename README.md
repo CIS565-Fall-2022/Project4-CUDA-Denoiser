@@ -21,7 +21,7 @@ This allows for segmented denoising that preserves object boundaries.**
 | ----------- | ----------- |  ----------- |
 | ![](img/results/render_denoised_1.PNG)      |   ![](img/results/render_denoised_100.PNG)     | ![](img/results/render_denoised_1000.PNG) |
 
-| original 1 SPP   | Original 100 SPP | Original 1000 SPP |
+| Original 1 SPP   | Original 100 SPP | Original 1000 SPP |
 | ----------- | ----------- |  ----------- |
 | ![](img/results/render_1.PNG)      |   ![](img/results/render_100.PNG)     | ![](img/results/render_1000.PNG) |
 
@@ -151,3 +151,7 @@ Below shows renders of different samples-per-pixel before and after denoising:
 ### Varying Filter Size
 
 ![](img/figures/denoise_runtime_vs_pt_iter.png)
+
+### Render Resolution
+
+![](img/figures/resolution.png)
