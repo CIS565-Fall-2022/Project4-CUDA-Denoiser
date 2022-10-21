@@ -30,6 +30,10 @@
 #define DIRECT_LIGHTING 0
 #define PERF_ANALYSIS 0
 
+// For AI Denoiser, one of the following should be turned on 
+#define NORMAL_BUFFER 0
+#define POSITION_BUFFER 1
+
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
 
@@ -94,14 +98,115 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
 
 	if (x < resolution.x && y < resolution.y) {
 		int index = x + (y * resolution.x);
-		//float timeToIntersect = gBuffer[index].t * 256.0;
-		glm::vec3 gNormal = gBuffer[index].normal;
-		// printf("norm: x: %f, y: %f, z: %f \n", gNormal.x, gNormal.y, gNormal.z);
+		float timeToIntersect = gBuffer[index].t * 256.0;
+		glm::vec3 gNormal = glm::abs(gBuffer[index].normal);
+		glm::vec3 gPosition = gBuffer[index].position;
 
 		pbo[index].w = 0;
+#if NORMAL_BUFFER
 		pbo[index].x = glm::clamp(gNormal.x * 255.f, 0.f, 255.f);
 		pbo[index].y = glm::clamp(gNormal.y * 255.f, 0.f, 255.f);
 		pbo[index].z = glm::clamp(gNormal.z * 255.f, 0.f, 255.f);
+#elif POSITION_BUFFER
+		pbo[index].x = glm::clamp(glm::abs(gPosition.x * 40.f), 0.f, 255.f);
+		pbo[index].y = glm::clamp(glm::abs(gPosition.y * 40.f), 0.f, 255.f);
+		pbo[index].z = glm::clamp(glm::abs(gPosition.z * 40.f), 0.f, 255.f);
+#else
+		pbo[index].x = timeToIntersect;
+		pbo[index].y = timeToIntersect;
+		pbo[index].z = timeToIntersect;
+#endif
+	}
+}
+
+#define KERNEL_SIZE 25
+#define KERNEL_SIDE 5
+
+//static float kernel[KERNEL_SIZE] = {1/16, 1/16, 1/16, 1/16, 1/16,
+//						1/16, 1/4, 1/4, 1/4, 1/16,
+//						1/16, 1/4, 3/8, 1/4, 1/16,
+//						1/16, 1/4, 1/4, 1/4, 1/16,
+//						1/16, 1/16, 1/16, 1/16, 1/16};
+static glm::vec2 offset[KERNEL_SIZE];
+
+__global__ void denoiseImage(uchar4* pbo, glm::ivec2 resolution, int iter, GBufferPixel* gBuffer, glm::vec3* image) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+	if (x < resolution.x && y < resolution.y) {
+		int index = x + (y * resolution.x);
+		glm::vec3 pix = image[index];
+		glm::vec3 pos = gBuffer[index].position;
+		glm::vec3 nor = gBuffer[index].normal;
+
+		float step = 1.f / resolution.x;
+		int stepWidth = 1;
+
+		float kernel[25] = { 1.f / 16.f, 1.f / 16.f, 1.f / 16.f, 1.f / 16.f, 1.f / 16.f,
+						1.f / 16.f, 1.f / 4.f, 1.f / 4.f, 1.f / 4.f, 1.f / 16.f,
+						1.f / 16.f, 1.f / 4.f, 3.f / 8.f, 1.f / 4.f, 1.f / 16.f,
+						1.f / 16.f, 1.f / 4.f, 1.f / 4.f, 1.f / 4.f, 1.f / 16.f,
+						1.f / 16.f, 1.f / 16.f, 1.f / 16.f, 1.f / 16.f, 1.f / 16.f };
+		// printf("kernel val: %f \n", kernel[0]);
+		// run pix through denoise algorithm.
+		// For each pixel, iterate and space out the pixels to get the final color. 
+		// This part can be asynchronous because you're only writing to the final colorand reading from the input image.
+		glm::vec3 sumColor = glm::vec3(0);
+		float c_phi = 4.0f;
+		float n_phi = 4.0f;
+		float p_phi = 4.0f;
+
+		// int i = -KERNEL_SIDE / 2 - stepWidth;
+		float cumu_weight = 0.0;
+		for (stepWidth; stepWidth < 16; stepWidth *= 2) {
+			int kernelIdx = 0;
+			for (int i = -KERNEL_SIDE / 2 - stepWidth; i < KERNEL_SIDE / 2 + stepWidth; i += stepWidth) {
+				for (int j = -KERNEL_SIDE / 2 - stepWidth; j < KERNEL_SIDE / 2 + stepWidth; j += stepWidth) {
+					int ixn = glm::clamp(x + i * 1.f, 0.f, (float) resolution.x);
+					int iyn = glm::clamp(y + j * 1.f, 0.f, (float) resolution.y);
+					//if (ixn > 0 && iyn > 0 && ixn < resolution.x && iyn < resolution.y) {
+						int indexn = ixn + (iyn * resolution.x);
+
+						glm::vec3 pixn = image[indexn];
+						glm::vec3 posn = gBuffer[indexn].position;
+						glm::vec3 norn = gBuffer[indexn].normal;
+
+						//glm::vec3 colDiff = pixn - pix;
+						//float dist2 = dot(colDiff, colDiff);
+						//float c_w = min(exp(-(dist2) / c_phi), 1.0f);
+
+						//glm::vec3 norDiff = norn - nor;
+						//float dist3 = max(dot(norDiff, norDiff) / (stepWidth * stepWidth), 0.f);
+						//float n_w = min(exp(-(dist3) / n_phi), 1.0f);
+
+						//glm::vec3 pDiff = posn - pos;
+						//float dist4 = dot(pDiff, pDiff);
+						//float p_w = min(exp(-(dist4) / p_phi), 1.0f);
+
+						//float weight = c_w * n_w * p_w;
+						//printf("kernel val: %f \n", kernel[kernelIdx]);
+						sumColor += pixn * kernel[kernelIdx];
+						//printf("pixn x: %f, y: %f, z: %f \n", pixn[0], pixn[0], pixn[]0);
+						// printf("sumColor x: %f, y: %f, z: %f \n", sumColor.r, sumColor.g, sumColor.b);
+						//sumColor += pixn * weight * kernel[indexn];
+						//cumu_weight += weight * kernel[indexn];
+					//}
+						kernelIdx++;
+				}
+			}
+		}
+		glm::vec3 avgColor = sumColor;// / ((float)KERNEL_SIZE);//sumColor / cumu_weight;
+
+		glm::ivec3 color;
+		color.x = glm::clamp((int)(avgColor.x / iter * 255.0), 0, 255);
+		color.y = glm::clamp((int)(avgColor.y / iter * 255.0), 0, 255);
+		color.z = glm::clamp((int)(avgColor.z / iter * 255.0), 0, 255);
+
+		// Each thread writes one pixel location in the texture (textel)
+		pbo[index].w = 0;
+		pbo[index].x = color.x;
+		pbo[index].y = color.y;
+		pbo[index].z = color.z;
 	}
 }
 
@@ -115,6 +220,7 @@ static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
 
 static GBufferPixel* dev_gBuffer = NULL;
+static glm::vec3* dev_denoisedImage = NULL;
 
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
@@ -195,6 +301,11 @@ void pathtraceInit(Scene* scene) {
 	cudaMalloc(&dev_image, pixelcount * sizeof(glm::vec3));
 	checkCUDAError("cudaMalloc dev_image failed");
 	cudaMemset(dev_image, 0, pixelcount * sizeof(glm::vec3));
+	checkCUDAError("cudaMemsetd dev_image failed");
+
+	cudaMalloc(&dev_denoisedImage, pixelcount * sizeof(glm::vec3));
+	checkCUDAError("cudaMalloc dev_image failed");
+	cudaMemset(dev_denoisedImage, 0, pixelcount * sizeof(glm::vec3));
 	checkCUDAError("cudaMemsetd dev_image failed");
 
 	cudaMalloc(&dev_paths, pixelcount * sizeof(PathSegment));
@@ -327,8 +438,12 @@ __global__ void generateGBuffer(
 	if (idx < num_paths)
 	{
 		gBuffer[idx].t = shadeableIntersections[idx].t;
-		glm::vec3 absNorm = glm::abs(shadeableIntersections[idx].surfaceNormal);
-		gBuffer[idx].normal = absNorm;
+
+		//glm::vec3 absNorm = glm::abs(shadeableIntersections[idx].surfaceNormal);
+		gBuffer[idx].normal = shadeableIntersections[idx].surfaceNormal; // absNorm;
+
+		glm::vec3 pos = getPointOnRay(pathSegments[idx].ray, shadeableIntersections[idx].t);
+		gBuffer[idx].position = pos;
 	}
 }
 
@@ -1176,6 +1291,8 @@ void pathtrace(int frame, int iter) {
 
 	checkCUDAError("pathtrace");
 }
+#endif
+
 
 void showGBuffer(uchar4* pbo) {
 	const Camera& cam = hst_scene->state.camera;
@@ -1198,4 +1315,12 @@ void showImage(uchar4* pbo, int iter) {
 	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
 }
 
-#endif
+void showDenoised(uchar4* pbo, int iter) {
+	const Camera& cam = hst_scene->state.camera;
+	const dim3 blockSize2d(8, 8);
+	const dim3 blocksPerGrid2d(
+		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+	denoiseImage << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_gBuffer, dev_image);
+	//sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
+}
