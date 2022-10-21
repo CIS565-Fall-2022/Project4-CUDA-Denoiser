@@ -109,7 +109,20 @@ Filter Size = 0 | Filter Size = 20 | Filter Size = 40 | Filter Size = 60 | Filte
 ![](img/Denoiser/filter-0.png) | ![](img/Denoiser/filter-20.png) | ![](img/Denoiser/filter-40.png) | ![](img/Denoiser/filter-60.png) | ![](img/Denoiser/filter-80.png) | ![](img/Denoiser/filter-100.png) |  
 
 * **How effective/ineffective is this method with different material types**
-* **how do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?**
+
+Diffuse | Specular | Refraction
+:----------:|:-----------:|:-----------:
+![](img/Denoiser/diffuse.png) | ![](img/Denoiser/specular.png)  | ![](img/Denoiser/refract.png) 
+
+
+* **How do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?**
+
+Bright Scene | Dark Scene 
+:----------:|:-----------:
+![](img/Denoiser/big-light.png) | ![](img/Denoiser/small-light.png) 
+![](img/Denoiser/big-light-cow.png) | ![](img/Denoiser/small-light-cow.png) 
+
+
 * **A-Trous vs. Gaussian Filtering**
 
 
