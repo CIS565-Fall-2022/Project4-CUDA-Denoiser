@@ -63,3 +63,49 @@ Also, here is the scene at 200 iterations while denoised, and 2000 iterations no
 
 <br />
 The scenes are pretty indistinguishible. It may be safe to say that the denoiser, when paramaters are adjusted properly, can reduce the number of required iterations for an image to converge by a factor of 10 to 20. However, this statement is completely subjective.
+
+<br />
+<br />
+
+Clearly, adding more work will increase the runtime of the Denoiser. Here is a comparison of using and not using the denoiser of different resolution images.
+
+![](img/c1.png) 
+
+If the denoiser took a similar amount of time to run regardless of the resolution, we would expect the ratio of denoised and non-denoised times to be similar. However, at low resolution the denoiser added almost no time at all. Whereas it almost doubled the required time in the high resolution scene. This indicates that the size of the buffers has an effect on performance. My best guess is that there is some sort of memory coalescence problem, with larger resolutions the distance between accessed indices for individual threads is much higher, and is this unoptimal.
+<br />
+<br />
+Here is a comparison of using and not using the denoiser with varying frame size.
+
+![](img/c2.png) 
+
+Increasing filter size may seem to perform better than expected, but the number of times the atrous kernel is run is logarithmic with respect to the filter size. Though one may initially expect that increasing filter size will always increase the quality of the image, there does appear to be some sort of cut off where additional improvements are minimal or the quality even degrades. Take these images for example: They had filter sizes of 1, 4, 16 and 64 respectively.
+
+![](img/1f.PNG) 
+
+![](img/4f.PNG) 
+
+![](img/16f.PNG) 
+
+![](img/64f.PNG) 
+
+<br />
+From size 1 to 16, the quality does appear to increase, but at size 64. We can see more blurring at the corners of the room. Thus, there does seem to be some cut off at when it is no longer beneficial to increase the filter size, especially considering larger filter sizes take more time.
+<br />
+<br />
+The denoiser also seems to struggle a bit with specular materials. Take this scene for example, where the right wall has been made specular. 
+
+![](img/specTest.PNG) 
+
+<br />
+The specular material is blurry even though we would expect it to be a perfect reflection. Denoising specular materials is probably a bit unecessary, as the ray bounces are always along the normal, so the material has an easier time converging. By applying the denoiser we seem to obscure this reflective quality a bit.
+<br />
+<br />
+Lastly, scenes with more light seem to perform better than scenes with less light. This is most likely because having more light allows the scene to converge easiers: more rays have a chance of bouncing into it and returning a color, rather than returning nothing. In short, more light means less graininess in the image we are trying to denoise. Take these two scenes both at 200 iterations. The lower image has less light, and is splotchier
+
+![](img/200d.PNG) 
+
+![](img/200c.PNG) 
+<br />
+### References
+* [Edge-Avoiding A-Trous Wavelet Transform for fast Global Illumination Filtering](https://jo.dreggn.org/home/2010_atrous.pdf)
+
