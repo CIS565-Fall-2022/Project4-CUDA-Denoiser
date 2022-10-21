@@ -17,9 +17,9 @@
 #include "interactions.h"
 
 #define ERRORCHECK 1
-#define SORTMATERIALS 1
+#define SORTMATERIALS 0
 #define CACHE 0
-#define ANTIALIAS 1
+#define ANTIALIAS 0
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -328,7 +328,7 @@ __global__ void shadeFakeMaterial(
 	{
 		
 		ShadeableIntersection intersection = shadeableIntersections[idx];
-		if (intersection.t > 0.0f) { // if the intersection exists...
+		if (intersection.t > 0.0f ) { // if the intersection exists...
 		  // Set up the RNG
 		  // LOOK: this is how you use thrust's RNG! Please look at
 		  // makeSeededRandomEngine as well.
@@ -437,6 +437,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 	bool iterationComplete = false;
 	int running_paths = num_paths;
 	while (!iterationComplete) {
+		//std::cout << running_paths << std::endl;
 		// clean shading chunks
 		cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
@@ -526,6 +527,8 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
 	checkCUDAError("pathtrace");
+	//std::cout << "Running Complete: " << running_paths << std::endl;
+	//system("pause");
 }
 struct is_not_terminated
 {

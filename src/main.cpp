@@ -2,6 +2,7 @@
 #include "preview.h"
 #include <cstring>
 #include "glm/gtx/string_cast.hpp"
+#include <chrono>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -41,6 +42,7 @@ int height;
 
 int main(int argc, char** argv) {
 	startTimeString = currentTimeString();
+	auto start = chrono::high_resolution_clock::now();
 
 	if (argc < 2) {
 		printf("Usage: %s SCENEFILE.txt\n", argv[0]);
@@ -111,6 +113,10 @@ int main(int argc, char** argv) {
 	InitDataContainer(guiData);
 
 	// GLFW main loop
+	auto end = chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	std::cout << duration.count() << std::endl;
+	system("pause");
 	mainLoop();
 
 	return 0;
@@ -200,6 +206,10 @@ void runCuda() {
 		pathtraceFree();
 		cudaDeviceReset();
 		exit(EXIT_SUCCESS);
+	}
+	if (iteration == 4999)
+	{
+		system("pause");
 	}
 }
 
