@@ -244,4 +244,23 @@ void scatterRay(
     pathSegment.ray.direction = nextRayDir;
 }
 
+__device__
+void scatterRaySimple(
+    PathSegment& pathSegment,
+    glm::vec3 intersect,
+    glm::vec3 normal,
+    const Material& m,
+    thrust::default_random_engine& rng) {
+    glm::vec3 newDirection;
+    if (m.hasReflective) {
+        newDirection = glm::reflect(pathSegment.ray.direction, normal);
+    }
+    else {
+        newDirection = calculateRandomDirectionInHemisphere(normal, rng);
+    }
+
+    pathSegment.ray.direction = newDirection;
+    pathSegment.ray.origin = intersect + (newDirection * 0.0001f);
+}
+
 

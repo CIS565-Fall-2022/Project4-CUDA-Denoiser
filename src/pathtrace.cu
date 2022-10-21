@@ -27,7 +27,10 @@
 
 #define ENABLE_RAY_SORTING 1
 
-#define USE_GBUFFER_METHOD 1 
+#define USE_GBUFFER_METHOD 1
+
+#define USE_DEPTH_RECONSTRUCT 0
+#define NOT_USE_DEPTH_RECONSTRUCT 1
 
 
 //Add timer to do data analysis
@@ -84,7 +87,7 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 }
 
 __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, 
-	GBufferPixel* gBuffer,GBufferMode mode,Camera cam) 
+	GBufferPixel* gBuffer,GBufferMode mode,const Camera cam) 
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -117,7 +120,7 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution,
 		    break;
 			case Depth:
 				float z = gBuffer[index].depth;
-				z = pow(z, 30.f);
+				z = pow(z, 14.f);
 				z*= 255.0f;
 
 				pbo[index].w = 0.0;
@@ -434,25 +437,32 @@ __global__ void generateGBuffer(
 	}
 }
 
+__device__ glm::vec4 depthReconstructPos(float depth, glm::vec2 screenPos,const Camera cam)
+{
+	glm::vec4 ndc = glm::vec4(screenPos.x , screenPos.y , depth * 2 - 1, 1);
+	glm::mat4 cameraMatrix = cam.projMat * cam.viewMat;
+	// ndc -> world
+	glm::vec4 worldPos = glm::inverse(cameraMatrix) * ndc;
+	worldPos /= worldPos.w;
+	return worldPos;
+}
+
 //Calculate the weight for gBuffer Data
 __device__ float computeGBufferWeight(glm::vec3&p, glm::vec3& q,float phi)
 {
 	glm::vec3 disc_vec = p - q;
 	float distance = glm::dot(disc_vec, disc_vec);
-	//phi could be zero, need to check
-	if (phi == 0.f)
-	{
-		phi += 0.0001f;
-	}
-	float factor1 = exp((-distance) / phi);
+
+	float factor1 = exp((-distance) / phi+0.0001f);
 	return min(factor1, 1.f);
 }
 
 __device__ float gaussianWeight(int x,int y,float s)
 {
-	float factor1 = 1.0f / (2 * PI * s * s);
+	/*float factor1 = 1.0f / (2 * PI * s * s);
 	float factor2 = exp(-(x * x + y * y) / (2 * s * s));
-	return factor1 * factor2;
+	return */
+	return (1.0f / (2 * PI * s * s)) * exp(-(x * x + y * y) / (2 * s * s));
 }
 
 __global__ void normalizeImage(int img_width,int img_height,glm::vec3* imageData,int iter)
@@ -475,46 +485,69 @@ __global__ void normalizeImage(int img_width,int img_height,glm::vec3* imageData
 
 __global__ void kernDenoise(int img_width,int img_height,glm::vec3* imageData,int filterSize,
 	GBufferPixel* gBuffer,int stepWidth,float colorWeight,
-	float normalWeight,float positionWeight)
+	float normalWeight,float positionWeight,Camera cam)
 {
 	// 5x5 B3-spline fliter
 	// Filter h is based on a B3 spline interpolation
 	float kernel[5][5] = {
-     0.00390625, 0.015625, 0.0234375, 0.015625, 0.00390625,
-     0.015625, 0.0625, 0.09375, 0.0625, 0.015625,
-     0.0234375, 0.09375, 0.140625, 0.09375, 0.0234375,
-     0.015625, 0.0625, 0.09375, 0.0625, 0.015625,
-     0.00390625, 0.015625, 0.0234375, 0.015625, 0.00390625 };
+	  0.00390625, 0.015625, 0.0234375, 0.015625, 0.00390625,
+	  0.015625, 0.0625, 0.09375, 0.0625, 0.015625,
+	  0.0234375, 0.09375, 0.140625, 0.09375, 0.0234375,
+	  0.015625, 0.0625, 0.09375, 0.0625, 0.015625,
+	  0.00390625, 0.015625, 0.0234375, 0.015625, 0.00390625 };
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-
+	
 	int index = x + (y * img_width);
 
 	if (index < img_width * img_height)
 	{
-		glm::vec3 c0 = imageData[index];
+
 		glm::vec3 c1 = glm::vec3(0.f);
-		glm::vec3 dSum = glm::vec3(0.f);
 
 		float k = 0.f;
 		for (int i = -2; i <= 2; i++)
 		{
 			for (int j = -2; j <= 2; j++)
 			{
+				
 				int x0 = x + i * stepWidth;
-				int y0 = y + i * stepWidth;
+				int y0 = y + j * stepWidth;
 				//check if x and y is within Bound
 				if (x0 >= 0 && x0 < img_width && y0 >= 0 && y0 < img_height)
 				{
 					int idx = x0 + y0 * img_width;
 					float weight = 1.f;
+
 #if USE_GBUFFER_METHOD
 					float c_w = computeGBufferWeight(imageData[index], imageData[idx], colorWeight);
-					float n_w = computeGBufferWeight(gBuffer[index].normal,gBuffer[idx].normal,normalWeight);
+					float n_w = computeGBufferWeight(gBuffer[index].normal, gBuffer[idx].normal, normalWeight);
+#if USE_DEPTH_RECONSTRUCT
+					glm::vec2 pixelCoord_0 = glm::vec2(x, y);
+					glm::vec2 pixelCoord_1 = glm::vec2(x0, y0);
+
+					float screenPos_0_x = (x / img_width) * 2 - 1;
+					float screenPos_0_y = 1 - (y / img_height) * 2;
+
+					float screenPos_1_x = (x0 / img_width) * 2 - 1;
+					float screenPos_1_y = 1 - (y0 / img_height) * 2;
+
+					glm::vec2 screenPos_0 = glm::vec2(screenPos_0_x, screenPos_0_y);
+					glm::vec2 screenPos_1 = glm::vec2(screenPos_1_x, screenPos_1_y);
+
+					glm::vec3 position_0 = glm::vec3(depthReconstructPos(gBuffer[index].depth, screenPos_0, cam));
+					glm::vec3 position_1 = glm::vec3(depthReconstructPos(gBuffer[idx].depth, screenPos_1, cam));
+
+					float p_w = computeGBufferWeight(position_0, position_1, positionWeight);
+
+#endif
+#if NOT_USE_DEPTH_RECONSTRUCT
 					float p_w = computeGBufferWeight(gBuffer[index].position, gBuffer[idx].position, positionWeight);
+#endif
 					weight = c_w * n_w * p_w;
 #endif
+					
 					float ker = kernel[i + 2][j + 2];
 					c1 += weight * ker * imageData[idx];
 					k += weight * ker;
@@ -524,9 +557,8 @@ __global__ void kernDenoise(int img_width,int img_height,glm::vec3* imageData,in
 		imageData[index] = c1 / k;
 
 	}
-
-
 }
+
 // TODO:
 // computeIntersections handles generating ray intersections ONLY.
 // Generating new rays is handled in your shader(s).
@@ -683,6 +715,8 @@ __global__ void shadeFakeMaterial(
 	}
 }
 
+
+
 __global__ void BSDFShading(
 	int iter
 	, int num_paths
@@ -743,15 +777,6 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
 	}
 }
 
-void showNormalBuffer(uchar4* pbo)
-{
-	const Camera& cam = hst_scene->state.camera;
-	const dim3 blockSize2d(8, 8);
-	const dim3 blocksPerGrid2d(
-		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
-		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
-}
-
 void showGBuffer(uchar4* pbo) {
 	const Camera& cam = hst_scene->state.camera;
 	const dim3 blockSize2d(8, 8);
@@ -759,7 +784,7 @@ void showGBuffer(uchar4* pbo) {
 		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
 		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
-	GBufferMode mode = GBufferMode::Depth;
+	GBufferMode mode = GBufferMode::Position;
 
 	// CHECKITOUT: process the gbuffer results and send them to OpenGL buffer for visualization
 	gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer,mode,cam);
@@ -855,9 +880,9 @@ void pathtrace(uchar4* pbo, int frame, int iter,bool sortMaterial,bool denoise,
 
 	PathSegment* dev_path_end = dev_paths + pixelcount;
 	int num_paths = pixelcount;
-	int triangleSize = hst_scene->mesh_triangles.size();
 
 	cudaMemset(dev_intersections, 0, num_paths * sizeof(ShadeableIntersection));
+	cudaMemset(dev_gBuffer, 0, num_paths * sizeof(GBufferPixel));
 	// --- PathSegment Tracing Stage ---
 	// Shoot ray into scene, bounce between objects, push shading chunks
 	bool iterationComplete = false;
@@ -983,11 +1008,14 @@ void pathtrace(uchar4* pbo, int frame, int iter,bool sortMaterial,bool denoise,
 		for (int i = 0; i < filterPasses; i++)
 		{
 			int stepWidth = 1;
-			while (4*stepWidth<=filterSize)
+			while (4*stepWidth <= filterSize)
 			{
-				kernDenoise << <blocksPerGrid2d, blockSize2d >> > (cam.resolution.x,
-					cam.resolution.y,dev_denoised_img,filterSize,dev_gBuffer,stepWidth,
-					colorWeight,normalWeight,positionWeight);
+				kernDenoise << <blocksPerGrid2d, blockSize2d >> > 
+					(cam.resolution.x,
+					 cam.resolution.y,
+					 dev_denoised_img,filterSize,
+					 dev_gBuffer,stepWidth,
+					 colorWeight,normalWeight,positionWeight,cam);
 				stepWidth <<= 1;
 			}
 		}
@@ -1003,7 +1031,5 @@ void pathtrace(uchar4* pbo, int frame, int iter,bool sortMaterial,bool denoise,
 
 	// Send results to OpenGL buffer for rendering
 	//sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
-
-	// Retrieve image from GPU
 
 }
