@@ -10,17 +10,21 @@ CUDA Denoiser For CUDA Path Tracer
 # Overview
 This project is a CUDA-based pathtracing denoiser that uses geometry buffers (G-buffers) to guide a smoothing filter. It is based on the paper "Edge-Avoiding A-Trous Wavelet Transform for fast Global Illumination Filtering" and it helps produce a smoother appearance in a pathtraced image with fewer samples-per-pixel. 
 
+Denoiser Off | Denoiser On
+:----------:|:-----------:
+![](img/Denoiser/denoise-off.png) | ![](img/Denoiser/denoise-on.png) 
+
 # Table of Contents  
-[Features](#features)   
-[Performance Analysis](#performance)   
-[Reference](#reference)
+* [Features](#features)   
+* [Performance Analysis](#performance)   
+* [Reference](#reference)
 
 # <a name="features"> Features</a>
-* Core features
+### Core features
 * G-Buffer Visualization
 * A-Trous Filtering
 * Edge-Avoiding Filtering
-## Additional features
+### Additional features
 * Gaussian Filtering
 
 

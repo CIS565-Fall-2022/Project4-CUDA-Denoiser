@@ -29,6 +29,7 @@ float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
+int mode = 0;	// g-buffer showing t by default
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -174,7 +175,7 @@ void runCuda() {
 	}
 
 	if (ui_showGbuffer) {
-		showGBuffer(pbo_dptr);
+		showGBuffer(pbo_dptr, mode);
 	}
 	else if (ui_denoise)
 	{
@@ -218,6 +219,15 @@ void runCuda() {
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
 		switch (key) {
+		case GLFW_KEY_0:
+			mode = 0;
+			break;
+		case GLFW_KEY_1:
+			mode = 1;
+			break;
+		case GLFW_KEY_2:
+			mode = 2;
+			break;
 		case GLFW_KEY_ESCAPE:
 			saveImage();
 			glfwSetWindowShouldClose(window, GL_TRUE);
@@ -231,6 +241,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 			Camera& cam = renderState->camera;
 			cam.lookAt = ogLookAt;
 			break;
+
 		}
 	}
 }

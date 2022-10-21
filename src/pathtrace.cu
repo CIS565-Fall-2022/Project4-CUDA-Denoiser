@@ -43,8 +43,6 @@
 
 #define DIRECT_LIGHTING 0
 
-#define GBUFFER_VIS_MODE 0
-
 #define EDGE_AVOID 1
 
 #define GAUSSIAN_BLUR 0
@@ -107,7 +105,7 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 	}
 }
 
-__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer) {
+__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer, int mode) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
@@ -115,14 +113,14 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
 		int index = x + (y * resolution.x);
 		float timeToIntersect = gBuffer[index].t * 256.0;
 
-		if (GBUFFER_VIS_MODE ==  GBUFFER_VIS::ISECT)
+		if (mode ==  GBUFFER_VIS::ISECT)
 		{
 			pbo[index].w = 0;
 			pbo[index].x = timeToIntersect;
 			pbo[index].y = timeToIntersect;
 			pbo[index].z = timeToIntersect;
 		}
-		else if (GBUFFER_VIS_MODE == GBUFFER_VIS::POS)
+		else if (mode == GBUFFER_VIS::POS)
 		{
 			glm::vec3 pos =  0.1f * gBuffer[index].pos * 255.0f;
 			pbo[index].w = 0;
@@ -130,7 +128,7 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
 			pbo[index].y = abs(pos.y);
 			pbo[index].z = abs(pos.z);
 		}
-		else if (GBUFFER_VIS_MODE == GBUFFER_VIS::NOR)
+		else if (mode == GBUFFER_VIS::NOR)
 		{
 			glm::vec3 nor = gBuffer[index].nor * 255.0f;
 			pbo[index].w = 0;
@@ -1071,7 +1069,7 @@ void denoise(float c_phi, float n_phi, float p_phi, float filterSize)
 }
 
 // CHECKITOUT: this kernel "post-processes" the gbuffer/gbuffers into something that you can visualize for debugging.
-void showGBuffer(uchar4* pbo) {
+void showGBuffer(uchar4* pbo, int mode) {
 	const Camera& cam = hst_scene->state.camera;
 	const dim3 blockSize2d(8, 8);
 	const dim3 blocksPerGrid2d(
@@ -1079,7 +1077,7 @@ void showGBuffer(uchar4* pbo) {
 		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
 	// CHECKITOUT: process the gbuffer results and send them to OpenGL buffer for visualization
-	gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer);
+	gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer, mode);
 }
 
 void showImage(uchar4* pbo, int iter) {
