@@ -81,3 +81,14 @@ The denoising performance also greatly depend on scene. The result of denoising 
 |![](img/denoise.png)
 
 The denoiser is effective on difussive materials, and less effective on reflective materials, especially on reflective sphere. On difussive materials, the color is likely to be uniform, so the denoiser can work well. But on reflective materials, the color likely vary a lot among pixels. Also, the surface normal changes a lot among the pixels on sphere, so the weight on neighboring pixels will be low, thus the denoising will be less effective.
+
+### Compare with Gaussian Filter
+
+The generating kernel is used to approximate gaussian filters. By comparing the A-Trous filter and gaussian filter, we can know whether the approximation is successful.
+
+| A-Trous Filter | Gaussian Filter |
+|---|---|
+|![](img/denoise.png)|![](img/gaussian.png)
+| SSIM = 0.9704 | SSIM = 0.9559 |
+
+However, the gaussian filter have a worse performance with the same filter size as the A-Trous filter. Gaussian filter blurred the reflective sphere. A possible reason is the A-Trous filter have several iterations, and it uses the edge-stopping function at each iteration, so the edge-stopping function actually works for multiple times, and thus the weighted average is more accurate. Another hypothesis is there are still better parameters for Gaussian filter. I choose variance = 30, sigma_c = 5.41, sigma_n = 0.30, sigma_x = 4.94. By tuning variance and weights, we may achieve a better result. However, the runtime of Gaussian filter is not acceptable. With filtersize = 65, the runtime of Gaussian filter is 6027.12ms, while the runtime of A-Trous filter is only 186ms. This is because the A-Trous filter's time complexity is O(nlog(k)), while the Gaussian filter's time complexity is O(nk^2), where n is the pixel count and k is the filter size. 
