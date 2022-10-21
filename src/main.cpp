@@ -157,6 +157,7 @@ void runCuda() {
     uchar4 *pbo_dptr = NULL;
     cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
 
+    ui_iterations = 200;
     if (iteration < ui_iterations) {
         iteration++;
 
