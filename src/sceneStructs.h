@@ -72,11 +72,13 @@ struct PathSegment {
 struct ShadeableIntersection {
   float t;
   glm::vec3 surfaceNormal;
+  glm::vec3 intersect_point;
   int materialId;
 };
 
 // CHECKITOUT - a simple struct for storing scene geometry information per-pixel.
 // What information might be helpful for guiding a denoising filter?
 struct GBufferPixel {
-  float t;
+  glm::vec3 normal;
+  glm::vec3 position;
 };
