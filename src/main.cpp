@@ -29,6 +29,7 @@ float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
+bool ran_denoiser = false;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -164,10 +165,20 @@ void runCuda() {
         int frame = 0;
         pathtrace(frame, iteration);
     }
-
+    if (iteration == ui_iterations && ui_denoise && !ran_denoiser)
+    {
+        runDenoiser(ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+        ran_denoiser = true;
+    }
     if (ui_showGbuffer) {
       showGBuffer(pbo_dptr);
-    } else {
+    } 
+    else if (ui_denoise && iteration == ui_iterations)
+    {
+       showDenoisedImage(pbo_dptr, iteration);
+    }
+    else
+    {
       showImage(pbo_dptr, iteration);
     }
 
