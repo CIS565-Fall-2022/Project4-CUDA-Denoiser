@@ -75,9 +75,9 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
         int index = x + (y * resolution.x);
 
         pbo[index].w = 0;
-        pbo[index].x = (gBuffer[index].n.x / 2.f + 0.5f) * 255.f;
-        pbo[index].y = (gBuffer[index].n.y / 2.f + 0.5f) * 255.f;
-        pbo[index].z = (gBuffer[index].n.z / 2.f + 0.5f) * 255.f;
+        pbo[index].x = (gBuffer[index].x.x / 15.f) * 255.f;
+        pbo[index].y = (gBuffer[index].x.y / 15.f) * 255.f;
+        pbo[index].z = (gBuffer[index].x.z / 15.f) * 255.f;
     }
 }
 
@@ -290,7 +290,12 @@ __global__ void generateGBuffer (
   if (idx < num_paths)
   {
     gBuffer[idx].n = shadeableIntersections[idx].surfaceNormal;
-    gBuffer[idx].x = pathSegments[idx].ray.origin + shadeableIntersections[idx].t * glm::normalize(pathSegments[idx].ray.direction);
+    if (shadeableIntersections[idx].t > 0.0f) {
+        gBuffer[idx].x = pathSegments[idx].ray.origin + shadeableIntersections[idx].t * glm::normalize(pathSegments[idx].ray.direction);
+    }
+    else {
+        gBuffer[idx].x = glm::vec3(0.f, 0.f, 0.f);
+    }
   }
 }
 
