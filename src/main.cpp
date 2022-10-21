@@ -24,11 +24,12 @@ int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
-int ui_filterSize = 80;
+int ui_filterSize = 100;
 float ui_colorWeight = 0.45f;
-float ui_normalWeight = 0.35f;
+float ui_normalWeight = 0.001f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
+bool denoised = false;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -99,6 +100,14 @@ int main(int argc, char** argv) {
 
 void saveImage() {
     float samples = iteration;
+    if (ui_denoise)
+    {
+        samples = 1;
+    }
+    else
+    {
+        copyDevImage();
+    }
     // output image file
     image img(width, height);
 
@@ -144,6 +153,7 @@ void runCuda() {
         cameraPosition += cam.lookAt;
         cam.position = cameraPosition;
         camchanged = false;
+        denoised = false;
       }
 
     // Map OpenGL buffer object for writing from CUDA on a single GPU
@@ -163,12 +173,27 @@ void runCuda() {
         // execute the kernel
         int frame = 0;
         pathtrace(frame, iteration);
+        denoised = false;
     }
 
-    if (ui_showGbuffer) {
-      showGBuffer(pbo_dptr);
-    } else {
-      showImage(pbo_dptr, iteration);
+    if (ui_denoise)
+    {
+        if (!denoised)
+        {
+            denoised = true;
+            denoise(ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_filterSize, iteration);
+        }
+        showDenoiseBuffer(pbo_dptr);
+    }
+    else
+    {
+        denoised = false;
+        if (ui_showGbuffer) {
+            showGBuffer(pbo_dptr);
+        }
+        else {
+            showImage(pbo_dptr, iteration);
+        }
     }
 
     // unmap buffer object
