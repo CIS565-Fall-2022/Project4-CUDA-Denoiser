@@ -152,7 +152,7 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
     }
 }
 
-__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer) {
+__global__ void gbufferToPBO(uchar4* pbo, int ui_currentBuffer, glm::ivec2 resolution, GBufferPixel* gBuffer) {
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
@@ -162,20 +162,24 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
         glm::vec3 position = 0.1f * abs(gBuffer[index].position);
         glm::vec3 normal = 0.5f * (gBuffer[index].normal + glm::vec3(1.f, 1.f, 1.f));
 
-        pbo[index].w = 0;
-        pbo[index].x = timeToIntersect;
-        pbo[index].y = timeToIntersect;
-        pbo[index].z = timeToIntersect;
-
-        /*pbo[index].w = 0;
-        pbo[index].x = normal.x * 255.0;
-        pbo[index].y = normal.y * 255.0;
-        pbo[index].z = normal.z * 255.0;*/
-
-        //pbo[index].w = 0;
-        //pbo[index].x = position.x * 256.0;
-        //pbo[index].y = position.y * 256.0;
-        //pbo[index].z = position.z * 256.0;
+        if (ui_currentBuffer == 0) {
+            pbo[index].w = 0;
+            pbo[index].x = timeToIntersect;
+            pbo[index].y = timeToIntersect;
+            pbo[index].z = timeToIntersect;
+        }
+        else if (ui_currentBuffer == 1) {
+            pbo[index].w = 0;
+            pbo[index].x = normal.x * 255.0;
+            pbo[index].y = normal.y * 255.0;
+            pbo[index].z = normal.z * 255.0;
+        }
+        else {
+            pbo[index].w = 0;
+            pbo[index].x = position.x * 256.0;
+            pbo[index].y = position.y * 256.0;
+            pbo[index].z = position.z * 256.0;
+        }
     }
 }
 
@@ -548,7 +552,7 @@ void pathtrace(int frame, int iter) {
 }
 
 // CHECKITOUT: this kernel "post-processes" the gbuffer/gbuffers into something that you can visualize for debugging.
-void showGBuffer(uchar4* pbo) {
+void showGBuffer(uchar4* pbo, int ui_currentBuffer) {
     const Camera &cam = hst_scene->state.camera;
     const dim3 blockSize2d(8, 8);
     const dim3 blocksPerGrid2d(
@@ -556,7 +560,7 @@ void showGBuffer(uchar4* pbo) {
             (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
     // CHECKITOUT: process the gbuffer results and send them to OpenGL buffer for visualization
-    gbufferToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_gBuffer);
+    gbufferToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, ui_currentBuffer, cam.resolution, dev_gBuffer);
 }
 
 void denoise(uchar4* pbo, int iter, float sigma_col, float sigma_norm, float sigma_pos) {
@@ -570,7 +574,7 @@ void denoise(uchar4* pbo, int iter, float sigma_col, float sigma_norm, float sig
     int pixelcount = cam.resolution.x * cam.resolution.y;
     cudaMemcpy(dev_denoised_image_in, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
-    std::cout << "in denoise" << std::endl;
+    //std::cout << "in denoise" << std::endl;
 
     // Denoise image
     int stepsize = 1;

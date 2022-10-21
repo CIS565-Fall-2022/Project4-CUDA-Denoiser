@@ -222,6 +222,7 @@ void drawGui(int windowWidth, int windowHeight) {
     ImGui::Separator();
 
     ImGui::Checkbox("Show GBuffer", &ui_showGbuffer);
+    ImGui::Combo("Buffer", &ui_currentBuffer, "Depth\0Normal\0Position\0");
 
     ImGui::Separator();
 
