@@ -75,6 +75,11 @@ It just blurs the entire screen, and it would be rare to describe it as "denoisi
 
 Specifically, the offset between pixels for each iteration ```i``` of the kernel is ```2^i```.
 
+In order to implement this blurring operation, I needed the blur filter, which was 5x5,
+a filter offset array, which was also 5x5, and two buffers of vec3s that stored the color
+information between blur processes and were eventually written to the openGL PBO to be rendered.
+I needed to buffers because I needed to ping-pong between them between iterations of the
+denoising kernel.
 
 ### Edge Detection
 
@@ -258,3 +263,5 @@ Paper: https://jo.dreggn.org/home/2010_atrous.pdf
 Presentation: https://www.highperformancegraphics.org/previous/www_2010/media/RayTracing_I/HPG2010_RayTracing_I_Dammertz.pdf
 
 Wikipedia Gaussian Blur: https://en.wikipedia.org/wiki/Gaussian_blur
+
+Filter used in the paper: https://www.eso.org/sci/software/esomidas/doc/user/18NOV/volb/node317.html
