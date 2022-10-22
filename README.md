@@ -3,7 +3,7 @@
 
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
 
-![](img/cover_denoise.gif)
+![](img/cover_denoise.gif)  
 An implementation of a pathtracing denoiser that uses geometry buffers (G-buffers) to guide a smoothing filter, based on   "Edge-Avoiding A-Trous Wavelet Transform for fast Global Illumination Filtering," by Dammertz, Sewtz, Hanika, and Lensch. https://jo.dreggn.org/home/2010_atrous.pdf.  
 Normal and position information is stored in a gBuffer generated on the first bounce of a raytrace, this information is then used detect edges and apply a B3 smoothing with weights to denoise an image.
 * Tom Donnelly
