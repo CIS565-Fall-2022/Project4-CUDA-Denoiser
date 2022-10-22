@@ -191,6 +191,9 @@ void InitImguiData(GuiDataContainer* guiData)
 static ImGuiWindowFlags windowFlags = ImGuiWindowFlags_None | ImGuiWindowFlags_NoMove;
 static bool ui_hide = false;
 
+static const char* gBufferDisp[]{"Distance", "Position", "Normal", "Color"};
+static int gBufferDispSelection = 0;
+
 // LOOK: Un-Comment to check ImGui Usage
 void RenderImGui(int windowWidth, int windowHeight)
 {
@@ -223,7 +226,8 @@ void RenderImGui(int windowWidth, int windowHeight)
 	ImGui::Separator();
 
 	ImGui::Checkbox("Show GBuffer", &ui_showGbuffer);
-
+	ImGui::Combo("GBuffer Display", (int*)&ui_buffermode, gBufferDisp, IM_ARRAYSIZE(gBufferDisp));
+	
 	// Pathtracer Data
 	ImGui::Text("Traced Depth %d", imguiData->TracedDepth);
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);

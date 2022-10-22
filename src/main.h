@@ -32,6 +32,10 @@ extern int iteration;
 extern int width;
 extern int height;
 
+enum class GBufferMode{
+	DISTANCE, POSITION, NORMAL, COLOR
+};
+
 // UI Variables 
 extern int ui_iterations;
 extern int startupIterations;
@@ -42,6 +46,8 @@ extern float ui_colorWeight;
 extern float ui_normalWeight;
 extern float ui_positionWeight;
 extern bool ui_saveAndExit;
+extern GBufferMode ui_buffermode;
+
 
 void runCuda();
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);

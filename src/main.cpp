@@ -11,11 +11,12 @@ int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
-int ui_filterSize = 80;
+int ui_filterSize = 3;
 float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
+GBufferMode ui_buffermode = GBufferMode::DISTANCE;
 
 // For camera controls
 static bool leftMousePressed = false;
