@@ -557,8 +557,8 @@ void denoiseAndShowImage(uchar4* pbo, int iter, DenoiseParams denoise_params) {
             (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
             (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
-        PerformanceTimer perf_timer;
-        perf_timer.startGpuTimer();
+        
+        
         cudaMemcpy(dev_image_denoised_a, dev_image, cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
         
         int iter_offset = 1;
@@ -577,8 +577,7 @@ void denoiseAndShowImage(uchar4* pbo, int iter, DenoiseParams denoise_params) {
 
         // Send results to OpenGL buffer for rendering
         sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image_denoised_b);
-        perf_timer.endGpuTimer();
-        std::cout << perf_timer.getGpuElapsedTimeForPreviousOperation() << std::endl;
+        
     }
     
 }

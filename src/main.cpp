@@ -50,6 +50,8 @@ int width;
 int height;
 
 bool denoise = true;
+float time_taken_pathtrace = 0.0f;
+float time_taken_denoise = 0.0f;
 
 //-------------------------------
 //-------------MAIN--------------
@@ -168,6 +170,7 @@ void runCuda() {
         cam.position = cameraPosition;
         camchanged = false;
         denoise = true;
+        time_taken_pathtrace = 0.0f;
       }
 
     // Map OpenGL buffer object for writing from CUDA on a single GPU
@@ -178,6 +181,7 @@ void runCuda() {
         pathtraceInit(scene);
     }
 
+    
     uchar4 *pbo_dptr = NULL;
     cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
 
@@ -186,15 +190,30 @@ void runCuda() {
 
         // execute the kernel
         int frame = 0;
+        PerformanceTimer perf_timer;
+        perf_timer.startGpuTimer();
         pathtrace(frame, iteration);
+        perf_timer.endGpuTimer();
+        time_taken_pathtrace += perf_timer.getGpuElapsedTimeForPreviousOperation();
+
     }
 
     if (ui_showGbuffer) {
       showGBuffer(pbo_dptr);
     }
     else if (iteration == ui_iterations) {
+        
+        PerformanceTimer perf_timer;
+        perf_timer.startGpuTimer();
         DenoiseParams denoise_params{ denoise, ui_positionWeight, ui_normalWeight, ui_colorWeight, ui_filterIterations };
         denoiseAndShowImage(pbo_dptr, iteration, denoise_params);
+        perf_timer.endGpuTimer();
+        if (denoise == true) {
+            std::cout << time_taken_pathtrace << std::endl;
+            time_taken_denoise = perf_timer.getGpuElapsedTimeForPreviousOperation();
+            std::cout <<  time_taken_denoise << std::endl;
+        }
+        
         //showImage(pbo_dptr, iteration);
         denoise = false;
         //iteration++;

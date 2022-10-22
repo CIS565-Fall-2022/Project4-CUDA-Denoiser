@@ -45,6 +45,12 @@ Below is an example of a kernel generated with the gaussian function:
 
 Applying the kernel to every pixel in an image will result in blur like the image below:
 
+| Original   | Blurred |
+| ----------- | ----------- |  ----------- |
+| ![](img/results/iteration_1.PNG)      |   ![](img/figures/gaussian_blur.png)     |
+
+
+
 ### À-Trous Wavelet Transform
 
 The À-Trous Wavelet Transform described in the paper is a filter similar to the gaussian kernel, 
@@ -151,6 +157,10 @@ Below shows renders of different samples-per-pixel before and after denoising:
 ### Varying Filter Size
 
 ![](img/figures/denoise_runtime_vs_pt_iter.png)
+
+### Path Tracing vs Denoising
+
+![](img/figures/pathtracing_v_denoising.png)
 
 ### Render Resolution
 
