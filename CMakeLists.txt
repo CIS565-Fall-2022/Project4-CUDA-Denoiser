@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 
-project(cis565_denoiser)
+project(cis565_path_tracer)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -72,7 +72,7 @@ set(headers
     src/scene.h
     src/sceneStructs.h
     src/preview.h
-    src/utilities.h
+    src/utilities.h	
     )
 
 set(sources
@@ -109,11 +109,16 @@ list(SORT imgui)
 source_group(Headers FILES ${headers})
 source_group(Sources FILES ${sources})
 source_group(imgui FILES ${imgui})
+set(TINYGLTF_HEADER_ONLY ON CACHE INTERNAL "" FORCE)
+set(TINYGLTF_INSTALL OFF CACHE INTERNAL "" FORCE)
+add_subdirectory(external/include/tinygltf)
 
+#add_subdirectory(src/ImGui)
 #add_subdirectory(stream_compaction)  # TODO: uncomment if using your stream compaction
 
 cuda_add_executable(${CMAKE_PROJECT_NAME} ${sources} ${headers} ${imgui})
 target_link_libraries(${CMAKE_PROJECT_NAME}
     ${LIBRARIES}
+	tinygltf
     #stream_compaction  # TODO: uncomment if using your stream compaction
     )

@@ -41,22 +41,88 @@ glm::vec3 calculateRandomDirectionInHemisphere(
 }
 
 /**
- * Simple ray scattering with diffuse and perfect specular support.
+ * Scatter a ray with some probabilities according to the material properties.
+ * For example, a diffuse surface scatters in a cosine-weighted hemisphere.
+ * A perfect specular surface scatters in the reflected ray direction.
+ * In order to apply multiple effects to one surface, probabilistically choose
+ * between them.
+ *
+ * The visual effect you want is to straight-up add the diffuse and specular
+ * components. You can do this in a few ways. This logic also applies to
+ * combining other types of materias (such as refractive).
+ *
+ * - Always take an even (50/50) split between a each effect (a diffuse bounce
+ *   and a specular bounce), but divide the resulting color of either branch
+ *   by its probability (0.5), to counteract the chance (0.5) of the branch
+ *   being taken.
+ *   - This way is inefficient, but serves as a good starting point - it
+ *     converges slowly, especially for pure-diffuse or pure-specular.
+ * - Pick the split based on the intensity of each material color, and divide
+ *   branch result by that branch's probability (whatever probability you use).
+ *
+ * This method applies its changes to the Ray parameter `ray` in place.
+ * It also modifies the color `color` of the ray in place.
+ *
+ * You may need to change the parameter list for your purposes!
  */
 __host__ __device__
 void scatterRay(
-		PathSegment & pathSegment,
+        PathSegment & pathSegment,
         glm::vec3 intersect,
         glm::vec3 normal,
         const Material &m,
-        thrust::default_random_engine &rng) {
-    glm::vec3 newDirection;
-    if (m.hasReflective) {
-        newDirection = glm::reflect(pathSegment.ray.direction, normal);
-    } else {
-        newDirection = calculateRandomDirectionInHemisphere(normal, rng);
-    }
+        thrust::default_random_engine &rng, bool outside) {
+    // TODO: implement this.
+    // A basic implementation of pure-diffuse shading will just call the
+    // calculateRandomDirectionInHemisphere defined above.
+    thrust::uniform_real_distribution<float> u01(0, 1);
+    auto rand = u01(rng);
+    if (m.hasReflective > rand)
+    {
+        pathSegment.ray.direction = glm::reflect(pathSegment.ray.direction, normal);
+        pathSegment.ray.origin = intersect;
+        pathSegment.color *= (m.specular.color); //* glm::dot(normal, pathSegment.ray.direction);
 
-    pathSegment.ray.direction = newDirection;
-    pathSegment.ray.origin = intersect + (newDirection * 0.0001f);
+    }
+    //Adopted from PBRT and How to raytrace in a weekend
+    else if (m.hasRefractive)
+    {
+        //FRESNEL
+        float cosTheta = (glm::dot(-pathSegment.ray.direction, normal));
+        float r_zero = ((1.0f - m.indexOfRefraction) / (1.0f + m.indexOfRefraction)) * ((1.0f - m.indexOfRefraction) / (1.0f + m.indexOfRefraction));
+        float r_theta = r_zero + (1.0f - r_zero) * glm::pow((1.0f - cosTheta), 5.0f);
+        float sinTheta = sqrt(1 - cosTheta * cosTheta);
+        bool interal_reflection = false;
+        float rior = (outside ? 1.0f / m.indexOfRefraction : m.indexOfRefraction);
+        if (sinTheta * rior > 1.0f)
+        {
+            interal_reflection = true;
+        }
+        if (rand > r_theta && !interal_reflection)
+        {
+            //refract
+            pathSegment.color *= (m.color);
+            pathSegment.ray.origin = intersect + (0.001f * pathSegment.ray.direction);
+            pathSegment.ray.direction = glm::refract(pathSegment.ray.direction, normal, rior);
+        }
+        else
+        {
+            //reflect
+            pathSegment.ray.direction = glm::reflect(pathSegment.ray.direction, normal);
+            pathSegment.ray.origin = intersect;
+            pathSegment.color *= (m.specular.color); 
+
+        }
+        
+    }
+    else
+    { 
+        auto random = calculateRandomDirectionInHemisphere(normal, rng);
+
+        pathSegment.ray.direction = random;
+        pathSegment.ray.origin = intersect;
+        pathSegment.color *= (m.color);
+
+    }
+    pathSegment.remainingBounces--;
 }

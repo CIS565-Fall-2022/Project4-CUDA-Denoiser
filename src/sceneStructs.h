@@ -10,6 +10,7 @@
 enum GeomType {
     SPHERE,
     CUBE,
+    MESH
 };
 
 struct Ray {
@@ -49,6 +50,9 @@ struct Camera {
     glm::vec3 right;
     glm::vec2 fov;
     glm::vec2 pixelLength;
+    bool dof;
+    float lens_radius;
+    float focal_length;
 };
 
 struct RenderState {
@@ -56,14 +60,15 @@ struct RenderState {
     unsigned int iterations;
     int traceDepth;
     std::vector<glm::vec3> image;
+    std::vector<glm::vec3> denoise_image;
     std::string imageName;
 };
 
 struct PathSegment {
-	Ray ray;
-	glm::vec3 color;
-	int pixelIndex;
-	int remainingBounces;
+    Ray ray;
+    glm::vec3 color;
+    int pixelIndex;
+    int remainingBounces;
 };
 
 // Use with a corresponding PathSegment to do:
@@ -73,10 +78,13 @@ struct ShadeableIntersection {
   float t;
   glm::vec3 surfaceNormal;
   int materialId;
+  bool outside;
 };
 
 // CHECKITOUT - a simple struct for storing scene geometry information per-pixel.
 // What information might be helpful for guiding a denoising filter?
 struct GBufferPixel {
   float t;
+  glm::vec3 normal;
+  glm::vec3 position;
 };
