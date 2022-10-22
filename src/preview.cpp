@@ -212,7 +212,11 @@ void drawGui(int windowWidth, int windowHeight) {
 
     ImGui::SliderInt("Iterations", &ui_iterations, 1, startupIterations);
 
-    ImGui::Checkbox("Denoise", &ui_denoise);
+    ImGui::RadioButton("No denoise", &ui_denoise, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("Naive denoise", &ui_denoise, 1);
+    ImGui::SameLine();
+    ImGui::RadioButton("Edge Avoiding denoise", &ui_denoise, 2);
 
     ImGui::SliderInt("Filter Size", &ui_filterSize, 0, 100);
     ImGui::SliderFloat("Color Weight", &ui_colorWeight, 0.0f, 10.0f);
@@ -225,10 +229,12 @@ void drawGui(int windowWidth, int windowHeight) {
 
     ImGui::Separator();
 
-    if (ImGui::Button("Save image and exit")) {
+    if (ImGui::Button("Save image")) {
         ui_saveAndExit = true;
     }
-
+    if (ImGui::Button("Regenerate")) {
+        ui_regenerate = true;
+    }
     ImGui::End();
 
     ImGui::Render();

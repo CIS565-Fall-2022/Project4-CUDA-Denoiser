@@ -38,6 +38,7 @@ struct Material {
     float hasRefractive;
     float indexOfRefraction;
     float emittance;
+    glm::vec3 refractionColor;
 };
 
 struct Camera {
@@ -70,6 +71,10 @@ struct PathSegment {
 // 1) color contribution computation
 // 2) BSDF evaluation: generate a new ray
 struct ShadeableIntersection {
+    __host__ __device__ bool operator<(const ShadeableIntersection& s) const {
+        return materialId < s.materialId;
+    }
+
   float t;
   glm::vec3 surfaceNormal;
   int materialId;
@@ -79,4 +84,15 @@ struct ShadeableIntersection {
 // What information might be helpful for guiding a denoising filter?
 struct GBufferPixel {
   float t;
+  glm::vec3 normal;
+  glm::vec3 position;
+  glm::vec3 color;
+};
+
+struct DenoiseParm {
+    int denoise;
+    int filterSize;
+    float colorWeight;
+    float normalWeight;
+    float positionWeight;
 };

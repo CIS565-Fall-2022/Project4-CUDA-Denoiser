@@ -5,6 +5,6 @@
 
 void pathtraceInit(Scene *scene);
 void pathtraceFree();
-void pathtrace(int frame, int iteration);
+void pathtrace(int frame, int iteration, DenoiseParm dParm);
 void showGBuffer(uchar4 *pbo);
 void showImage(uchar4 *pbo, int iter);
