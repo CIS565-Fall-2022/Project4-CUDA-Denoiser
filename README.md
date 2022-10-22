@@ -12,8 +12,6 @@ CUDA Denoiser
 
 ## Core Features
 
-## Additional Features
-
 ## Performance Analysis
 
 ## Bloopers! :)
