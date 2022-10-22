@@ -167,7 +167,13 @@ void runCuda() {
 
     if (ui_showGbuffer) {
       showGBuffer(pbo_dptr);
-    } else {
+    } 
+    else if (ui_denoise) {
+        denoiseImage(
+            ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight,
+            pbo_dptr, iteration);
+    }
+    else {
       showImage(pbo_dptr, iteration);
     }
 
