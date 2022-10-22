@@ -35,7 +35,7 @@
 
 //Add timer to do data analysis
 
-#define Timer 0
+#define Timer 1
 
 void checkCUDAErrorFn(const char* msg, const char* file, int line) {
 #if ERRORCHECK
@@ -459,10 +459,8 @@ __device__ float computeGBufferWeight(glm::vec3&p, glm::vec3& q,float phi)
 
 __device__ float gaussianWeight(int x,int y,float s)
 {
-	/*float factor1 = 1.0f / (2 * PI * s * s);
+	float factor1 = 1.0f / (2 * PI * s * s);
 	float factor2 = exp(-(x * x + y * y) / (2 * s * s));
-	return */
-	return (1.0f / (2 * PI * s * s)) * exp(-(x * x + y * y) / (2 * s * s));
 }
 
 __global__ void normalizeImage(int img_width,int img_height,glm::vec3* imageData,int iter)
@@ -784,7 +782,7 @@ void showGBuffer(uchar4* pbo) {
 		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
 		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
-	GBufferMode mode = GBufferMode::Position;
+	GBufferMode mode = GBufferMode::Depth;
 
 	// CHECKITOUT: process the gbuffer results and send them to OpenGL buffer for visualization
 	gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer,mode,cam);
@@ -968,18 +966,7 @@ void pathtrace(uchar4* pbo, int frame, int iter,bool sortMaterial,bool denoise,
 		iterationComplete = (num_paths == 0);
 		intersections=NULL;
 
-#if Timer
-		cudaEventRecord(endEvent);
-		cudaEventSynchronize(endEvent);
-		float ms;
-		cudaEventElapsedTime(&ms, startEvent, endEvent);
-		if (depth == 8) {
-			std::cout << iter;
-			std::cout << " " << depth;
-			std::cout << " " << ms;
-			std::cout << " " << num_paths << endl;
-		}
-#endif
+
 	
 		if (guiData != NULL)
 		{
@@ -1027,6 +1014,19 @@ void pathtrace(uchar4* pbo, int frame, int iter,bool sortMaterial,bool denoise,
 		cudaMemcpy(hst_scene->state.image.data(), dev_image,
 			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 	}
+
+#if Timer
+	cudaEventRecord(endEvent);
+	cudaEventSynchronize(endEvent);
+	float ms;
+	cudaEventElapsedTime(&ms, startEvent, endEvent);
+	if (depth == 8) {
+		std::cout << iter;
+		std::cout << " " << depth;
+		std::cout << " " << ms;
+		std::cout << " " << num_paths << endl;
+	}
+#endif
 	checkCUDAError("pathtrace");
 
 	// Send results to OpenGL buffer for rendering

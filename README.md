@@ -1,100 +1,124 @@
-CUDA Path Tracer
-================
+CUDA Denoiser For CUDA Path Tracer
+==================================
 
-**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
+**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
 
 * Hanlin Sun
-* Tested on: Windows 10, i7-8750H @ 2.96GHz 1024GB, NVIDIA Quadro P3200
+   * [LinkedIn](https://www.linkedin.com/in/hanlin-sun-7162941a5/)
+* Tested on: Windows 10, i7-8750H @ 2.82GHz 32GB, NVIDIA Quadro P3200 
 
 ## Background
 
-This is a GPU Path Tracer implemented in C++/CUDA, based on fundamental PBR raytracing knowledge.
-It allows loading GLTF files for meshes.
+This project implements a **CUDA denoiser** based on the following paper: ["Edge-Avoiding A-Trous Wavelet Transform for fast Global Illumination Filtering,"](https://jo.dreggn.org/home/2010_atrous.pdf).
 
-## Screen Shots
+## Result
 
-![Render Img](img/Final.JPG)
+### Simple Blur
 
-## Basic Features
+The A-Trous Wavelet filter is first implemented without any data weighting to achieve a simple blur effect. The result is compared to a Gaussian blur filter.
+There are some artifacts in this implementation most noticeable around the edges of the image. However, for the most part the blur effect is achieved properly and indicates that the wavelet kernel is working well.
 
-### Basic Shading
+Original                   |  Gaussian                 |  Photoshop              |
+:-------------------------:|:-------------------------:|:-----------------------:|
+![](img/unDenoise.JPG)     |  ![](img/simpleBlur.JPG)  | ![](img/simpleBlur.JPG) |
 
-First we need to convert the naive path tracing shading technique from CPU version to GPU version.This allows for global illumination
-effect to be achieved. (But very slow)
+### G-Buffer
 
-Two basic shadings were implemented first: diffuse and perfect specular. The diffuse component is shaded by generating new ray using cosine weighted random direction in a hemisphere, and the perfect specular uses glm::reflect to generate a perfectly reflected ray.
+For edge-avoiding weights, the normal, depth and position data per-pixel are stored in the G-buffer.
 
-Diffuse | Specular
-:--------------------------:|:------------------------:
-![Render Img](img/Diffuse.JPG) | ![Render Img](img/specular.JPG)
+Position                   |  Normal                   |     Depth          |
+:-------------------------:|:-------------------------:|:------------------:|
+![](img/Position.JPG)     |  ![](img/NormalBuffer.JPG)      |![](img/Depth.JPG)
 
-### Refraction
+### Blur with Edge-Avoiding (A-trous method)
 
-To implement refraction, we need to use snell's law and fresnel law to compute material's eta, then use fresnel formula to compute final ray color.
+Denoising is achieved by adding the effect of weights in the convolution.
+The parameters are tuned to produce a desirably smooth output. 
 
-Pure Specular | Specular with Refraction
-:--------------------------:|:-------------------------:
-![Render Img](img/specular.JPG) | ![Render Img](img/refraction.JPG)
+Original            |  Simple Blur                     | Blur with Edge-Avoiding (Final Result)
+:-------------------------:|:-------------------------:|:-----------:
+![](img/unDenoise.JPG)   |  ![](img/simpleBlur.JPG)      |  ![](img/denoise.JPG)
 
-### SSAA & Depth of Field
+### Depth Reconstruct World Space Position
 
-Aliasing is the problem of artifacts on images as a result of discretization of pixels. This can be mitigated by taking more than one sample per pixel from regions around the center of the pixel. By performing stochastic sampled anti-aliasing, we are using a higher number of iterations to produce a sharper image. Stochastic sampled anti-aliasing definitely benefits from being implemented on the GPU because the rays generated for each pixel are always independent. This might be further optimized by launching more threads to per pixel. The exact effect cannot be known unless it is tried out. 
+To achieve this, I first convert the ray intersection point(in world space) to the NDC space, and then remap the Z from [-1,1] to [0,1].
+Then based on the depth buffer and corresponding ray intersection pixel position, successfully recompute the position value.
 
-Below is the comparison.
+Without Depth Reconstruction   | With Depth Reconstruction  | 
+:-------------------------:|:-------------------------:|
+![](img/NoGBufferConstruct.JPG)     |  ![](img/WithDepth.JPG)  |
 
-SSAA not Enabled | SSAA Enabled
-:-------------------------:|:-------------------------:
-![Render Img](img/gltfAA1.JPG) | ![Render Img](img/gltfAA2.JPG)
 
-Depth of field creates the thin lens effect of a real life camera as opposed to a pinhole camera. Objects in focus will be sharp while objects out of focus will be blurry. Depth of field significantly increases the number of iterations required to render an image since we need to shoot rays from not just a pinhole but rather the whole area of the circular lens. Depth of field definitely benefits from being implemented on the GPU because the rays generated are always independent. 
+## Visual Analysis
+### How visual results vary with filter size -- does the visual quality scale uniformly with filter size ?
 
-DoF not Enabled | DoF Enabled
-:-------------------------:|:-------------------------:
-![Render Img](img/gltf.JPG) | ![Render Img](img/gltfDoF.JPG)
+From the images below, we can find out that the visual quality improves with increasing filter size.
+However, they do not scale uniformly. There is a noticeable difference from 5x5 to 30x30. However, the difference is less significant from 30x30 to 60x60, and barely noticeable from 60x60 to 90x90, so it's not a linear improvement. 
+Render iterations: 10
 
-### String Compaction
+5x5    |30x30                      |  60x60                    | 90x90
+:-----:|:-------------------------:|:-------------------------:|:-----------:
+![](img/5x5.JPG)|![](img/30x30.JPG)|  ![](img/60x60.JPG)       | ![](img/90x90.JPG)
 
-Since we are using naive path tracing method, many rays may reflect out of the scene and become useless computation.
-To optimize it, we need to remove these useless ray from path tracer.
+### How effective/ineffective is this method with different material types ?
 
-In this project I use the `thrust::stable_partition` kernal to partition these paths based on completion.
+The method is effective for diffuse materials and less effective for reflective materials. As shown below, the denoised result for the diffuse scene is representable of the actual outcome. However, in the specular scene, there will have noticeable blurs in the reflected surface, and if the position weight is increased, this blur will become larger.
 
-This method is really useful for unclosed scene and bring performance improvement to the MCPT since the GPU will compute less rays after each bounce.
+Material Type | Original           |  Denoised  (Low Weight)   |  Denoised (High Weight)              
+:------------:|:------------------:|:-------------------------:|:----------------------:|
+Diffuse       |![](img/diffuse_origin.JPG)    |  ![](img/diffuse_denoise_low.JPG)   | ![](img/diffuse_denoise_high.JPG)
+Specular      |![](img/specular_origin.JPG)   |  ![](img/specular_denoised_low.JPG) | ![](img/specular_denoised_high.JPG)
 
-![Render Img](img/String%20Compaction.png)
 
-![Render Img](img/string%20compact%202.png)
+### How do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results ? Why or why not ?
 
-### Ray Sorting
+In general, the denoised result is dependent on how noisy the input image is. 
+For the default Cornell scene with smaller light area, the path traced result at 10 iterations is still very noisy. As such, denoising does not output good results.
+However, for the Cornell scene with ceiling light, the path tracer converges faster with larger light area and thus produce significantly less noisy image. Accordingly, the output of the denoiser is much better.
 
-An attempt was made to optimize by sorting the intersection and ray paths based on materials for memory coalescing. For this, the kernel thrust::sort_by_key is used to do key-value sorting. 
 
-![Render Img](img/raySorting.png)
+Scene  | Original (10 Iterations)                          |  Denoised                
+:-----:|:------------------:|:-------------------------:|
+Cornell                     |![](img/diffuse_origin.JPG)   |  ![](img/diffuse_denoise.JPG)                         
+Cornell Ceiling Light       |![](img/specular_noise.JPG)   |  ![](img/specular_denoise.JPG)     
 
-However, it seems that ray sorting does not affect too much on GPU performance, and it even slower since every depth need to do the sort process.
+## Performance Analysis
 
-No performance gain indicates that there may be little divergences and most materials are processed in similar execution fashion. Perhaps introducing very distinctively different materials would make a bigger difference.
+### How much time denoising adds to your renders ?
 
-### First bounce Caching
+Since the denoising kernel is executed once during the last iteration of path tracing, the additional time from denoising is independent of the number of iterations that is run. 
 
-Another optimization that's made is caching the intersection data for the first bounce (i.e. depth = 1). Since each ray starts at the same spot for each pixel, the first bounce result will always be the same for all iterations. Although not significant, first bounce caching does make things slightly faster on average, maybe it will bring more performance improvement when having complicated scene.
+![](img/denoiseTimeChart.JPG)  
 
-![Render Img](img/first%20bounce%20cache.png)
+### How denoising influences the number of iterations needed to get an "acceptably smooth" result ?
 
-### GLTF Mesh Loading
+The purpose of denoising is to achieve the same smoothness/visual quality in image with less render iterations. Using a rendered image at 2000 iterations as the ground truth, we can see that the original input at 10 iterations is very noisy, But after applying denoising at 10 iterations render result, we immediately remove most of the noise. There are noticeable differences around the edge and shadow areas of the scene, which is a known limitation in the original reference paper. For the purpose of this project, we only look at smooth areas such as the walls and the floor for quality comparison. After 450 iterations of the path tracer, we roughly see the same amount of noise on the floor compared to the denoised version. Because of this, we consider 450 iterations as the acceptably smooth result, and thus the denoising reduces the required iterations for this specific example by **97.7%**!
 
-In order to render more complex scenes, we needs to support loading arbitrary mesh robustly. As long as the system is sufficiently robust (e.g. able to handle multiple hierarchies), the complexity can be defined by the file format itself thus making the scene more visually interesting. GLTF was chosen as the scene description format as it is much more powerful than OBJ and is a more modern 3D model file. I have never worked with GLTF before so I thought it would be a good opportunity to understand the specification through this project.
+Type    |Reference (2000 Iterations)     |  10 Iterations (Input)    |  Denoised (Output)   | 450 Iterations (Acceptably Smooth)          
+:------:|:------------------:|:-------------------------:|:------------------:|:-------------------:
+Image   |![](img/groundTruth.JPG)  |  ![](img/diffuse_origin.JPG)    | ![](img/diffuse_denoise_high.JPG) | ![](img/diffuse_450.JPG)
 
-GLTF is different because the gltf file was constructed by nodes and only give you bufferView and bufferOffset, to fetch the vertex and texture information we have to check the bin and read them from buffer.
+### How denoising at different resolutions impacts runtime ?
 
-To support GLTF mesh loading, I used tinygltf to load in the GLTF file and parsed the data into custom struct data I defined in sceneStruct.cpp. This step is necessary because the tinygltf classes are not GPU-compatible. Additionally, in order to not have to deal with passing nested Struct Arrays to the GPU, each mesh vertex data is flattened into its own giant buffer containing the data for all meshes. The actual Mesh struct would only store the index offset for each data. This is similar to how GLTF/OpenGL defines VBOs.
+The denoising time increases proportionally with increasing image resolution. 
+From 800x800 to 1200x1200, there are 2.25x more pixels mapping to 88.5% increase in time.
+From 1200x1200 to 1600x1600, there are 1.78x more pixels mapping to 75.7% increase in time.
+From 1600x1600 to 2000x2000, there are 1.57x more pixels mapping to 49.16% increase in time.
 
-I have tried my best to implement GLTF texture binding but I must say GLTF texture loading is far more difficult than Obj file, I know gltf file contain texture, but my implements still have some bugs but I have no time to fix them.
+Render iterations: 20
 
-![Render Img](img/gltf.JPG)
+![](img/resolution.JPG)  
 
-## Reference
+### How varying filter sizes affect performance ?
+The denoising time increases with increasing filter size. With increasing filter size, more passes/iterations are required to expand the 5x5 B3-spline kernel to cover the filter/blur size.
 
-PBRT: https://pbr-book.org/3ed-2018/contents
+Render iterations: 20
 
-NVIDIA CUDA Document: https://docs.nvidia.com/cuda/cuda-c-programming-guide/
+![](img/fliterSizeChart.JPG)
+
+### How Depth Reconstruct affect performance ?
+Using Depth to recompute world space position bring a lot of performance increase. Since it's no longer need to read from another buffer and compute its value instead, save the time from reading position buffer and also the space for saving position buffer.
+
+Render iterations: 20
+
+![](img/DepthOptimize.JPG)

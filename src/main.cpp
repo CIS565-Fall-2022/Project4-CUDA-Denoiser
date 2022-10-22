@@ -5,8 +5,8 @@
 static std::string startTimeString;
 
 //UI Panal
-int ui_iterations = 10;
-int startupIterations = 10;
+int ui_iterations = 20;
+int startupIterations = 20;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
@@ -14,9 +14,9 @@ bool ui_denoise = false;
 int ui_filterSize = 80;
 int ui_filterPasses = 1;
 
-float ui_colorWeight = 6.7f;
-float ui_normalWeight = 1.4f;
-float ui_positionWeight = 4.0f;
+float ui_colorWeight = 0.27f;
+float ui_normalWeight = 0.3f;
+float ui_positionWeight = 0.25f;
 bool ui_saveAndExit = false;
 
 
