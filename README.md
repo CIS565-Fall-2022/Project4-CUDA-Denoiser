@@ -39,7 +39,7 @@ So, for example, if you have a 5x5
 kernel ```k``` and are at pixel ```p``` then the middle element ```k[2][2]``` will be multiplied
 by the value at pixel p, and the result accumulated for each of the 25 pixels around ```p```.
 
-Below is an example of a kernel generated with the gaussian function:
+Below is an example of a kernel generated with the gaussian function (from Wikipedia):
 
 ![](img/figures/gaussiankernel.PNG)
 
@@ -47,7 +47,7 @@ Applying the kernel to every pixel in an image will result in blur like the imag
 
 | Original   | Blurred |
 | ----------- | ----------- |
-| ![](img/results/iteration_1.PNG)      |   ![](img/figures/gaussian_blur.png)     |
+| ![](img/results/iteration_1.PNG)      |   ![](img/figures/gaussian_blur.PNG)     |
 
 
 
@@ -99,7 +99,21 @@ At a certain pixel ```p```, the squared distance between ```p's``` position, nor
 color information and one of ```p's``` neighbors (what index into the filter the process is in)
 is calculated. Then weighting terms for these three components (color, position, and normal)
 are calculated using an exponential function. The three weights are multiplied together
-to get a combined weight for this pixel comparison. 
+to get a combined weight for this pixel comparison. The combined weight is then
+multiplied by the filter value and the offset pixel value to get the contribution at that offset.
+The weight is also accumulated by multiplying it by the filter value and adding it to a
+variable keeping track of the sum of weights. At the end, the accumulated color is divided by
+the accumulated weights to yield the final pixel color at ```p```, now denoised.
+
+While solving for the weight values for position, normal, and color, bias values are also included
+that are parameterizable by the user. This allow the artist to increase and decrease the scale of
+these individual components. Increasing the color bias value causes a greater amount of blur.
+Increasing the normal bias causes more smoothing along object boundaries where the per-pixel
+normal values have large change. Increasing the position bias causes more smoothing along
+object boundaries where one object is in front of another. Increasing the normal and position
+biases, along with the color bias, will cause the edge detection to fail (at least for the
+test scene), as the normal and position values have almost no impact now on the amount of blurring
+going on between objects.
 
 ## Visual Analysis
 
@@ -108,17 +122,26 @@ to get a combined weight for this pixel comparison.
 Below is a visual comparison of different filter sizes with edge detection. The number of
 sample-per-pixel is only 20, with a very high color weight.
 
-| Max Kernel Size 1     | Max Kernel Size 2 | Max Kernel size 4 |
+| Kernel Offset = 1     | Kernel Offset = 2 | Kernel Offset = 4 |
 | ----------- | ----------- |  ----------- |
 | ![](img/results/kernel_size_1_iter_1.PNG)      |   ![](img/results/kernel_size_2_iter_1.PNG)     | ![](img/results/kernel_size_3_iter_1.PNG) |
 
-| Max Kernel Size 8     | Max Kernel Size 16 | Max Kernel size 32 |
+| Kernel Offset = 8     | Kernel Offset = 16 | Kernel Offset = 32 |
 | ----------- | ----------- |  ----------- |
 | ![](img/results/kernel_size_4_iter_1.PNG)      |   ![](img/results/kernel_size_5_iter_1.PNG)     | ![](img/results/kernel_size_6_iter_1.PNG) |
 
-| Max Kernel Size 64     | Max Kernel Size 128 | Max Kernel size 256 |
+| Kernel Offset = 64     | Kernel Offset = 128 | Kernel Offset = 256 |
 | ----------- | ----------- |  ----------- |
 | ![](img/results/kernel_size_7_iter_1.PNG)      |   ![](img/results/kernel_size_8_iter_1.PNG)     | ![](img/results/kernel_size_9_iter_1.PNG) |
+
+I would not say that the visual quality scales uniformly with scale. At around kernel offset
+of 16 is about where the visable changes slow down significantly, so much so that I cannot
+really make it out with my eyes. Additionally, changing the kernel offset from 1 to 2 does not
+really make a large visual impact, but offsets 4, 8, and 16 have large changes. This is due to a mixture of
+the large magnitude of the noise in the source image, our eyes perception of that noise and
+the change in it from iteration to iteration, and also because the color weight of the denoising
+algorithm is cut in half for each denoising kernel call, which the authors used to help keep small
+scale detail. 
 
 ### Different Material Types
 
@@ -234,3 +257,4 @@ Paper: https://jo.dreggn.org/home/2010_atrous.pdf
 
 Presentation: https://www.highperformancegraphics.org/previous/www_2010/media/RayTracing_I/HPG2010_RayTracing_I_Dammertz.pdf
 
+Wikipedia Gaussian Blur: https://en.wikipedia.org/wiki/Gaussian_blur
