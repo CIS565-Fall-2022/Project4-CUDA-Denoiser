@@ -46,7 +46,7 @@ Below is an example of a kernel generated with the gaussian function:
 Applying the kernel to every pixel in an image will result in blur like the image below:
 
 | Original   | Blurred |
-| ----------- | ----------- |  ----------- |
+| ----------- | ----------- |
 | ![](img/results/iteration_1.PNG)      |   ![](img/figures/gaussian_blur.png)     |
 
 
