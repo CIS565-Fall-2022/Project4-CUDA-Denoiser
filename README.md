@@ -1,7 +1,7 @@
 CUDA Denoiser
 ================
 
-**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
+**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
 
 * Di Lu
   * [LinkedIn](https://www.linkedin.com/in/di-lu-0503251a2/)
