@@ -30,6 +30,7 @@ float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
 
+
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
 static glm::vec3 cammove;
@@ -70,6 +71,7 @@ int main(int argc, char** argv) {
     height = cam.resolution.y;
 
     ui_iterations = renderState->iterations;
+    ui_iterations = 5000;
     startupIterations = ui_iterations;
 
     glm::vec3 view = cam.view;
@@ -165,7 +167,11 @@ void runCuda() {
         pathtrace(frame, iteration);
     }
 
-    if (ui_showGbuffer) {
+    if (ui_denoise) {
+        Denoise_Image(ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_filterSize);
+        showDenoisedImage(pbo_dptr, iteration);
+    }
+    else if (ui_showGbuffer) {
       showGBuffer(pbo_dptr);
     } else {
       showImage(pbo_dptr, iteration);
