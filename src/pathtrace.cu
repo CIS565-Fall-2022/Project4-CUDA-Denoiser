@@ -114,6 +114,8 @@ static GBufferPixel* dev_gBuffer = NULL;
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
 
+// values from
+// https://www.eso.org/sci/software/esomidas/doc/user/18NOV/volb/node317.html
 
 const float h_kernel[25] = {    1.0f / 256.0f, 1.0f / 64.0f, 3.0f / 128.0f, 1.0f / 64.0f, 1.0f / 256.0f,
                                 1.0 / 64.0f, 1.0f / 16.0f, 3.0 / 32.0f, 1.0f / 16.0f, 1.0f / 64.0f,
