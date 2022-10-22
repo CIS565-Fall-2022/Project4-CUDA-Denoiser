@@ -33,7 +33,7 @@ Only Colors
 
 Only Positions
 
-![](img/PosWeightsOnly.png)
+![](img/PosWeightOnly.png)
 
 Individually, each component does not seem to guide the denoising process very strongly.
 
