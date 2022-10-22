@@ -119,17 +119,9 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
 	}
 }
 
-#define KERNEL_SIZE 25
-#define KERNEL_SIDE 5
+__global__ void denoiseImage(uchar4* pbo, glm::ivec2 resolution, int iter, GBufferPixel* gBuffer, glm::vec3* image, glm::vec3* denoisedImage, int stepWidth,
+	float colorWeight, float normalWeight, float positionWeight) {
 
-//static float kernel[KERNEL_SIZE] = {1/16, 1/16, 1/16, 1/16, 1/16,
-//						1/16, 1/4, 1/4, 1/4, 1/16,
-//						1/16, 1/4, 3/8, 1/4, 1/16,
-//						1/16, 1/4, 1/4, 1/4, 1/16,
-//						1/16, 1/16, 1/16, 1/16, 1/16};
-static glm::vec2 offset[KERNEL_SIZE];
-
-__global__ void denoiseImage(uchar4* pbo, glm::ivec2 resolution, int iter, GBufferPixel* gBuffer, glm::vec3* image) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
@@ -139,74 +131,62 @@ __global__ void denoiseImage(uchar4* pbo, glm::ivec2 resolution, int iter, GBuff
 		glm::vec3 pos = gBuffer[index].position;
 		glm::vec3 nor = gBuffer[index].normal;
 
-		float step = 1.f / resolution.x;
-		int stepWidth = 1;
-
 		float kernel[25] = { 1.f / 16.f, 1.f / 16.f, 1.f / 16.f, 1.f / 16.f, 1.f / 16.f,
 						1.f / 16.f, 1.f / 4.f, 1.f / 4.f, 1.f / 4.f, 1.f / 16.f,
 						1.f / 16.f, 1.f / 4.f, 3.f / 8.f, 1.f / 4.f, 1.f / 16.f,
 						1.f / 16.f, 1.f / 4.f, 1.f / 4.f, 1.f / 4.f, 1.f / 16.f,
 						1.f / 16.f, 1.f / 16.f, 1.f / 16.f, 1.f / 16.f, 1.f / 16.f };
+		
+
 		// printf("kernel val: %f \n", kernel[0]);
 		// run pix through denoise algorithm.
 		// For each pixel, iterate and space out the pixels to get the final color. 
 		// This part can be asynchronous because you're only writing to the final colorand reading from the input image.
 		glm::vec3 sumColor = glm::vec3(0);
-		float c_phi = 4.0f;
-		float n_phi = 4.0f;
-		float p_phi = 4.0f;
 
-		// int i = -KERNEL_SIDE / 2 - stepWidth;
+		// need to pass in 
+		float c_phi = colorWeight;
+		float n_phi = normalWeight;
+		float p_phi = positionWeight;
+
+		float weight = 1.0f;
+
 		float cumu_weight = 0.0;
-		for (stepWidth; stepWidth < 16; stepWidth *= 2) {
-			int kernelIdx = 0;
-			for (int i = -KERNEL_SIDE / 2 - stepWidth; i < KERNEL_SIDE / 2 + stepWidth; i += stepWidth) {
-				for (int j = -KERNEL_SIDE / 2 - stepWidth; j < KERNEL_SIDE / 2 + stepWidth; j += stepWidth) {
-					int ixn = glm::clamp(x + i * 1.f, 0.f, (float) resolution.x);
-					int iyn = glm::clamp(y + j * 1.f, 0.f, (float) resolution.y);
-					//if (ixn > 0 && iyn > 0 && ixn < resolution.x && iyn < resolution.y) {
-						int indexn = ixn + (iyn * resolution.x);
+		int kernelIdx = 0;
+		for (int i = -2; i < 2; i++) {
+			for (int j = -2; j < 2; j++) {
+				int ixn = glm::clamp(x + i * stepWidth * 1.f, 0.f, (float) resolution.x);
+				int iyn = glm::clamp(y + j * stepWidth * 1.f, 0.f, (float) resolution.y);
+				int indexn = ixn + (iyn * resolution.x);
 
-						glm::vec3 pixn = image[indexn];
-						glm::vec3 posn = gBuffer[indexn].position;
-						glm::vec3 norn = gBuffer[indexn].normal;
+				glm::vec3 pixn = image[indexn];
+				glm::vec3 posn = gBuffer[indexn].position;
+				glm::vec3 norn = gBuffer[indexn].normal;
 
-						//glm::vec3 colDiff = pixn - pix;
-						//float dist2 = dot(colDiff, colDiff);
-						//float c_w = min(exp(-(dist2) / c_phi), 1.0f);
+				glm::vec3 colDiff = pixn - pix;
+				float dist2 = dot(colDiff, colDiff);
+				float c_w = min(exp(-(dist2) / c_phi), 1.0f);
 
-						//glm::vec3 norDiff = norn - nor;
-						//float dist3 = max(dot(norDiff, norDiff) / (stepWidth * stepWidth), 0.f);
-						//float n_w = min(exp(-(dist3) / n_phi), 1.0f);
+				glm::vec3 norDiff = norn - nor;
+				float dist3 = max(dot(norDiff, norDiff) / (stepWidth * stepWidth), 0.f);
+				float n_w = min(exp(-(dist3) / n_phi), 1.0f);
 
-						//glm::vec3 pDiff = posn - pos;
-						//float dist4 = dot(pDiff, pDiff);
-						//float p_w = min(exp(-(dist4) / p_phi), 1.0f);
+				glm::vec3 pDiff = posn - pos;
+				float dist4 = dot(pDiff, pDiff);
+				float p_w = min(exp(-(dist4) / p_phi), 1.0f);
 
-						//float weight = c_w * n_w * p_w;
-						//printf("kernel val: %f \n", kernel[kernelIdx]);
-						sumColor += pixn * kernel[kernelIdx];
-						//printf("pixn x: %f, y: %f, z: %f \n", pixn[0], pixn[0], pixn[]0);
-						// printf("sumColor x: %f, y: %f, z: %f \n", sumColor.r, sumColor.g, sumColor.b);
-						//sumColor += pixn * weight * kernel[indexn];
-						//cumu_weight += weight * kernel[indexn];
-					//}
-						kernelIdx++;
-				}
+				weight = c_w * n_w * p_w;
+				float kernelVal = kernel[kernelIdx];
+
+				sumColor += pixn * weight * kernelVal;
+				cumu_weight += weight * kernelVal;
+				kernelIdx++;
+
 			}
 		}
-		glm::vec3 avgColor = sumColor;// / ((float)KERNEL_SIZE);//sumColor / cumu_weight;
+		glm::vec3 avgColor = sumColor / cumu_weight;
 
-		glm::ivec3 color;
-		color.x = glm::clamp((int)(avgColor.x / iter * 255.0), 0, 255);
-		color.y = glm::clamp((int)(avgColor.y / iter * 255.0), 0, 255);
-		color.z = glm::clamp((int)(avgColor.z / iter * 255.0), 0, 255);
-
-		// Each thread writes one pixel location in the texture (textel)
-		pbo[index].w = 0;
-		pbo[index].x = color.x;
-		pbo[index].y = color.y;
-		pbo[index].z = color.z;
+		denoisedImage[index] = avgColor;
 	}
 }
 
@@ -221,6 +201,7 @@ static ShadeableIntersection* dev_intersections = NULL;
 
 static GBufferPixel* dev_gBuffer = NULL;
 static glm::vec3* dev_denoisedImage = NULL;
+static glm::vec3* dev_denoisedImagePong = NULL;
 
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
@@ -307,6 +288,9 @@ void pathtraceInit(Scene* scene) {
 	checkCUDAError("cudaMalloc dev_image failed");
 	cudaMemset(dev_denoisedImage, 0, pixelcount * sizeof(glm::vec3));
 	checkCUDAError("cudaMemsetd dev_image failed");
+
+	cudaMalloc(&dev_denoisedImagePong, pixelcount * sizeof(glm::vec3));
+	cudaMemset(dev_denoisedImagePong, 0, pixelcount * sizeof(glm::vec3));
 
 	cudaMalloc(&dev_paths, pixelcount * sizeof(PathSegment));
 	checkCUDAError("cudaMalloc dev_paths failed");
@@ -1315,12 +1299,23 @@ void showImage(uchar4* pbo, int iter) {
 	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
 }
 
-void showDenoised(uchar4* pbo, int iter) {
+void showDenoised(uchar4* pbo, int iter, int filterSize, float colorWeight, float normalWeight, float positionWeight) {
 	const Camera& cam = hst_scene->state.camera;
 	const dim3 blockSize2d(8, 8);
 	const dim3 blocksPerGrid2d(
 		(cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
 		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
-	denoiseImage << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_gBuffer, dev_image);
-	//sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
+
+	int pixelcount = cam.resolution.x * cam.resolution.y;
+
+	cudaMemcpy(dev_denoisedImagePong, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
+	
+	for (int stepWidth = 1; stepWidth < filterSize / 4; stepWidth *= 2) {
+		denoiseImage << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_gBuffer, dev_denoisedImagePong, dev_denoisedImage, stepWidth, colorWeight, normalWeight, positionWeight);
+
+		cudaDeviceSynchronize();
+
+		dev_denoisedImagePong = dev_denoisedImage;
+	}
+	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_denoisedImage);
 }

@@ -27,9 +27,9 @@ int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
 int ui_filterSize = 80;
-float ui_colorWeight = 0.45f;
+float ui_colorWeight = 1.45f;
 float ui_normalWeight = 0.35f;
-float ui_positionWeight = 0.2f;
+float ui_positionWeight = 6.2f;
 bool ui_saveAndExit = false;
 
 static bool camchanged = true;
@@ -172,11 +172,10 @@ void runCuda() {
     }
     else {
 #if ATROUS_DENOISE
-        showDenoised(pbo_dptr, iteration);
+        showDenoised(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
 #else
         showImage(pbo_dptr, iteration);
 #endif
-        //denoise
     }
 
     // unmap buffer object
