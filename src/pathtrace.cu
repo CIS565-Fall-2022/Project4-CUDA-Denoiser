@@ -13,8 +13,14 @@
 #include "pathtrace.h"
 #include "intersections.h"
 #include "interactions.h"
+#include "timer.h"
 
 #define ERRORCHECK 1
+
+PerformanceTimer& timer() {
+    static PerformanceTimer timer;
+    return timer;
+}
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -374,6 +380,8 @@ void pathtrace(int frame, int iter) {
 	// 1D block for path tracing
 	const int blockSize1d = 128;
 
+    timer().startGpuTimer();
+
 	generateRayFromCamera <<<blocksPerGrid2d, blockSize2d >>>(cam, iter, traceDepth, dev_paths);
 	checkCUDAError("generate camera ray");
 
@@ -435,6 +443,9 @@ void pathtrace(int frame, int iter) {
             pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
     checkCUDAError("pathtrace");
+
+    timer().endGpuTimer();
+    printElapsedTime(timer().getGpuElapsedTimeForPreviousOperation(), "(Frame Render Duration)");
 }
 
 
@@ -446,6 +457,8 @@ void denoise(float filterSize, float c_phi, float n_phi, float p_phi, uchar4* pb
         (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
     int pixelCount = cam.resolution.x * cam.resolution.y;
+    timer().startGpuTimer(); 
+
     cudaMemcpy(dev_denoised_img, dev_image, pixelCount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
     for (int step_width = 1; step_width <= filterSize; step_width *= 2) {
@@ -453,6 +466,9 @@ void denoise(float filterSize, float c_phi, float n_phi, float p_phi, uchar4* pb
 
         std::swap(dev_denoised_img, dev_denoised_img_out);
     }
+
+    timer().endGpuTimer(); 
+    printElapsedTime(timer().getGpuElapsedTimeForPreviousOperation(), "(Denoise Duration)");
 
     sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_denoised_img);
     cudaMemcpy(hst_scene->state.image.data(), dev_denoised_img_out, pixelCount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
