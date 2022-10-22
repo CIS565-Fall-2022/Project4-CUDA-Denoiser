@@ -49,6 +49,8 @@ int iteration;
 int width;
 int height;
 
+int num_pic = 0;
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -116,7 +118,7 @@ void saveImage() {
 
     std::string filename = renderState->imageName;
     std::ostringstream ss;
-    ss << filename << "." << startTimeString << "." << samples << "samp";
+    ss << filename << "." << startTimeString << "." << samples << num_pic++ << "samp";
     filename = ss.str();
 
     // CHECKITOUT
@@ -166,11 +168,11 @@ void runCuda() {
 
         // execute the kernel
         int frame = 0;
-        pathtrace(frame, iteration);
+        pathtrace(frame, iteration, ui_iterations == iteration);
     }
 
     if (ui_showGbuffer) {
-      showGBuffer(pbo_dptr, ui_typeGbuffer);
+      showGBuffer(pbo_dptr, iteration, ui_typeGbuffer);
     } 
     else if (ui_denoise) {
       showImageDenoise(pbo_dptr, iteration);

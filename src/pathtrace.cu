@@ -69,7 +69,7 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
   }
 }
 
-__global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer, int type) {
+__global__ void gbufferToPBO(uchar4* pbo, glm::vec3* image, glm::ivec2 resolution, GBufferPixel* gBuffer, int type) {
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
@@ -94,6 +94,10 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
     pbo[index].x = output.x;
     pbo[index].y = output.y;
     pbo[index].z = output.z;
+
+    image[index].x = output.x;
+    image[index].y = output.y;
+    image[index].z = output.z;
   }
 }
 
@@ -109,6 +113,7 @@ static GBufferPixel* dev_gBuffer = NULL;
 
 glm::vec3* dev_image_denoise = NULL;
 glm::vec3* dev_image_denoise_tmp = NULL;
+glm::vec3* dev_image_gBuffer = NULL;
 
 void pathtraceInit(Scene* scene) {
   hst_scene = scene;
@@ -138,6 +143,10 @@ void pathtraceInit(Scene* scene) {
 
   cudaMalloc(&dev_image_denoise_tmp, pixelcount * sizeof(glm::vec3));
   cudaMemset(dev_image_denoise_tmp, 0, pixelcount * sizeof(glm::vec3));
+
+  cudaMalloc(&dev_image_gBuffer, pixelcount * sizeof(glm::vec3));
+  cudaMemset(dev_image_gBuffer, 0, pixelcount * sizeof(glm::vec3));
+
   checkCUDAError("pathtraceInit");
 }
 
@@ -152,6 +161,7 @@ void pathtraceFree() {
 
   cudaFree(dev_image_denoise);
   cudaFree(dev_image_denoise_tmp);
+  cudaFree(dev_image_gBuffer);
 
   checkCUDAError("pathtraceFree");
 }
@@ -399,7 +409,7 @@ __global__ void diffuseImage(int nPaths, int iter, glm::vec3* image) {
  * Wrapper for the __global__ call that sets up the kernel calls and does a ton
  * of memory management
  */
-void pathtrace(int frame, int iter) {
+void pathtrace(int frame, int iter, bool isLast) {
   const int traceDepth = hst_scene->state.traceDepth;
   const Camera& cam = hst_scene->state.camera;
   const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -499,18 +509,20 @@ void pathtrace(int frame, int iter) {
   ///////////////////////////////////////////////////////////////////////////
 
 #if DENOISE
-  cudaMemcpy(dev_image_denoise_tmp, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
-  diffuseImage << <numBlocksPixels, blockSize1d >> > (pixelcount, iter, dev_image_denoise_tmp);
+  if (isLast) {
+    cudaMemcpy(dev_image_denoise_tmp, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
-  for (int stepWidth = 1; stepWidth * 4 <= ui_filterSize; stepWidth <<= 1) {
-    denoiseATour << <blocksPerGrid2d, blockSize2d >> > (cam, stepWidth, ui_colorWeight, ui_positionWeight, ui_normalWeight,
-      dev_image_denoise_tmp, dev_image_denoise, dev_gBuffer);
+    diffuseImage << <numBlocksPixels, blockSize1d >> > (pixelcount, iter, dev_image_denoise_tmp);
 
+    for (int stepWidth = 1; stepWidth * 4 <= ui_filterSize; stepWidth <<= 1) {
+      denoiseATour << <blocksPerGrid2d, blockSize2d >> > (cam, stepWidth, ui_colorWeight, ui_positionWeight, ui_normalWeight,
+        dev_image_denoise_tmp, dev_image_denoise, dev_gBuffer);
+
+      std::swap(dev_image_denoise_tmp, dev_image_denoise);
+    }
     std::swap(dev_image_denoise_tmp, dev_image_denoise);
   }
-  std::swap(dev_image_denoise_tmp, dev_image_denoise);
-
 #endif
 
   // CHECKITOUT: use dev_image as reference if you want to implement saving denoised images.
@@ -523,7 +535,7 @@ void pathtrace(int frame, int iter) {
 }
 
 // CHECKITOUT: this kernel "post-processes" the gbuffer/gbuffers into something that you can visualize for debugging.
-void showGBuffer(uchar4* pbo, int type) {
+void showGBuffer(uchar4* pbo, int iter, int type) {
   const Camera& cam = hst_scene->state.camera;
   const dim3 blockSize2d(8, 8);
   const dim3 blocksPerGrid2d(
@@ -531,7 +543,17 @@ void showGBuffer(uchar4* pbo, int type) {
     (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
   // CHECKITOUT: process the gbuffer results and send them to OpenGL buffer for visualization
-  gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, dev_gBuffer, type);
+  gbufferToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, dev_image_gBuffer, cam.resolution, dev_gBuffer, type);
+
+  cudaMemcpy(hst_scene->state.image.data(), dev_image_gBuffer,
+    cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+
+  for (int x = 0; x < cam.resolution.x; x++) {
+    for (int y = 0; y < cam.resolution.y; y++) {
+      int index = x + (y * cam.resolution.x);
+      hst_scene->state.image[index] *= iter;
+    }
+  }
 }
 
 void showImage(uchar4* pbo, int iter) {
@@ -554,4 +576,14 @@ void showImageDenoise(uchar4* pbo, int iter) {
 
   // Send results to OpenGL buffer for rendering
   sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, 1, dev_image_denoise);
+
+  cudaMemcpy(hst_scene->state.image.data(), dev_image_denoise,
+    cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+
+  for (int x = 0; x < cam.resolution.x; x++) {
+    for (int y = 0; y < cam.resolution.y; y++) {
+      int index = x + (y * cam.resolution.x);
+      hst_scene->state.image[index] *= iter;
+    }
+  }
 }
