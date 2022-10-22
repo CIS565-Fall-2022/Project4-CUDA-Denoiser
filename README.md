@@ -52,15 +52,14 @@ With filter size and kernel size remained the same and resolution of the image i
 With kernel size remained the same, as the chart shows, denoiser took more time to create a smooth result. This make sense because when filter size increase, the iteration of the A-Trous increase, it will take more times for more iterations.
 
 ## Filter size and denoise visual result
-how visual results vary with filter size -- does the visual quality scale uniformly with filter size?
+Because of the calculation of the iteration base on the filtersize, the visual quality does not scale uniformly with filter size. Below is the filter size I have been testing with. Some of the filter size actually have the same iteration, so there are no obvious different between them.
 
 
 ## Denoiser and materials
 In my custom scene, the deer is glass which is refractive and the back wall is mirror which is reflective, others are all diffuse material. And we can tell from it that denoiser works well with diffuse material because the surface is mostly one color. However, denoised result looks not good for reflective and refreactive material, since they all looks blurry after denoise. These two materials create reflection and refraction of the surrounding scene, the edge of the reflected/refracted object need to be clear to make the material credible. 
 
 ## Denoiser and lighting conditions
-how do results compare across different scenes - for example, between cornell.txt and cornell_ceiling_light.txt. Does one scene produce better denoised results? Why or why not?
-
+With the same kernel size and filter size, the cornell.txt scene needed about 100 iterations to create a smooth result while the cornell_ceiling_light.txt only needed 10 iterations. cornell_ceiling_light.txt produce better denoised result. I think the reason is this secene has a bigger ligth, so more rays will end with the light and contribute to the final result, so the image will convert faster. When the origin image quality is better, I think the denoised result will be better.
 
 
 
