@@ -73,8 +73,7 @@ cornell box render, without the edge detection described in the next section:
 As can be seen, this looks very similar to the pure gaussian blur from the previous section.
 It just blurs the entire screen, and it would be rare to describe it as "denoising".
 
-Specifically, the offset between pixels for each iteration ```i``` of the kernel is ```2^i```,
-and the maximum number of iterations to reach a final kernel-width will be .
+Specifically, the offset between pixels for each iteration ```i``` of the kernel is ```2^i```.
 
 
 ### Edge Detection
@@ -94,7 +93,13 @@ Below you can see a visualization of the data collected in this G-Buffer for a s
 
 #### Edge Detecting with Weights
 
-
+Edge detection is perfomed by using the source path-traced image (i.e. per-pixel color information),
+per-pixel intersection world space positions, and per-pixel intersection world space normals.
+At a certain pixel ```p```, the squared distance between ```p's``` position, normals, and 
+color information and one of ```p's``` neighbors (what index into the filter the process is in)
+is calculated. Then weighting terms for these three components (color, position, and normal)
+are calculated using an exponential function. The three weights are multiplied together
+to get a combined weight for this pixel comparison. 
 
 ## Visual Analysis
 
@@ -154,14 +159,50 @@ Below shows renders of different samples-per-pixel before and after denoising:
 | Denoised     | Denoised  |
 | ![](img/results/iteration_1000_denoised.PNG)      |   ![](img/results/iteration_5000_denoised.PNG)     |
 
+
+I would say that, for denoising, iteration 500 is about where I would say the results are "acceptably smooth".
+And what I mean by that, is that by iteration 500 the image not only looks like the background colors
+have smooth outed to a near converged look, but also that the specular sphere no longer looks smudged.
+In comparison, I think that between 1000-5000 iterations is where the none denoised render
+looks "acceptably smooth". Anything before that has the apparant path-tracing noise pattern.
+Here are the diff images for 500 iterations with and without denoising in comparison to
+the 5000 iteration result (with no denoising):
+
+| | Original     | Denoised  |
+| ----------- | ----------- | ----------- |
+| Render | ![](img/results/iteration_500.PNG)      |   ![](img/results/iteration_500_denoised.PNG)     |
+| Diff from 5000 iter | ![](img/results/diff_500.PNG)      |   ![](img/results/diff_500_denoised.PNG)     |
+
 ### Varying Filter Size
 
 ![](img/figures/denoise_runtime_vs_pt_iter.png)
+
+As can be seen from the graph above, the amount of time taken for the denoising algorithm
+with varying number of path tracing iterations is the same; this is because the denoising
+algorithm is only influenced by the resolution of the image to denoise and the size of the 
+convolution filter. In addition, each increase in filter size only results in a constant amount
+of additional runtime, about equal to the size of filter size 1. This is because the number of
+pixels we are sampling for each additional iteration of the denoising kernel is the same,
+as a result of the A Trous Wavelet. This means that this algorithm scales very well regardless
+of number of samples taken.
 
 ### Path Tracing vs Denoising
 
 ![](img/figures/pathtracing_v_denoising.png)
 
+As can be seen from the figure above, and having shown already that the denoising algorithm
+runtime is independent of the number of path tracing iterations and indeed constant at a
+certain filter size, the percentage of time taken to do the denoising operation vs. the actual
+path tracing decreases exponentially, and the dropoff is fast. This is because each path tracing
+iteration takes about 7 seconds to run, about the same time as the denoising algorithm. So, each
+additional iteration of path tracing cuts the percentage of time taken to do the denoising
+be around ```1 / iter + 1```.
+
 ### Render Resolution
 
 ![](img/figures/resolution.png)
+
+As can be seen from the figure above, the runtime of the denoising algorithm increases about
+quadratically with increased resolution (where width and height are the same). This is what we
+expect. Although the kernel size is constant for all of these data points, the number of pixels
+the GPU needs to run the code on increases quadratically as well.
