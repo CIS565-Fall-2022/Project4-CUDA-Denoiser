@@ -15,9 +15,9 @@
 #include "interactions.h"
 
 #define ERRORCHECK 1
-#define SORT_BY_MATERIAL 0
+#define SORT_BY_MATERIAL 1
 #define CACHE_FIRST_BOUNCE 1
-#define ANTI_ALIASING 0
+#define ANTI_ALIASING 1
 
 #define DOF 0
 #define LENS_RADIUS 0.4
@@ -99,7 +99,8 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
 
 		if (GBUFFER_VIS_TYPE == VIS_TYPE::POS) {
 			glm::vec3 pos = gBuffer[index].pos;
-			pos = glm::clamp(abs(pos * 20.f), 0.f, 255.f);
+			float posScaler = 0.1f;
+			pos = glm::clamp(abs(pos * 255.f * posScaler), 0.f, 255.f);
 			pbo[index].w = 0;
 			pbo[index].x = pos.x;
 			pbo[index].y = pos.y;
