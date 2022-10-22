@@ -79,4 +79,6 @@ struct ShadeableIntersection {
 // What information might be helpful for guiding a denoising filter?
 struct GBufferPixel {
   float t;
+  glm::vec3 pos; // save per-pixel position info
+  glm::vec3 nor; // save per-pixel normal info
 };
