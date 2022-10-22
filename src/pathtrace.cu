@@ -39,6 +39,18 @@ void checkCUDAErrorFn(const char *msg, const char *file, int line) {
 #endif
 }
 
+PerformanceTimer& timer()
+{
+    static PerformanceTimer timer;
+    return timer;
+}
+
+template<typename T>
+void printElapsedTime(T time, std::string note = "")
+{
+    std::cout << "   elapsed time: " << time << "ms    " << note << std::endl;
+}
+
 __host__ __device__
 thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int depth) {
     int h = utilhash((1 << 31) | (depth << 22) | iter) ^ utilhash(index);
@@ -563,27 +575,31 @@ void showGBuffer(uchar4* pbo, int ui_currentBuffer) {
     gbufferToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, ui_currentBuffer, cam.resolution, dev_gBuffer);
 }
 
-void denoise(uchar4* pbo, int iter, float sigma_col, float sigma_norm, float sigma_pos) {
+void denoise(uchar4* pbo, int iter, int filterSize, float sigma_col, float sigma_norm, float sigma_pos, int call_count) {
     const Camera& cam = hst_scene->state.camera;
     const dim3 blockSize2d(8, 8);
     const dim3 blocksPerGrid2d(
         (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
         (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
+    timer().startGpuTimer();
     // Copy initial image input data
     int pixelcount = cam.resolution.x * cam.resolution.y;
     cudaMemcpy(dev_denoised_image_in, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
-    //std::cout << "in denoise" << std::endl;
+    // Calculate iterations based on filter size
+    int num_iterations = glm::floor(glm::log2(filterSize / 5.f));
 
     // Denoise image
     int stepsize = 1;
     float sigma_col_div = sigma_col;
-    for (int i = 0; i < DENOISE_ITERATIONS; ++i) {
+    for (int i = 0; i < num_iterations; ++i) {
         denoiseWeighted << <blocksPerGrid2d, blockSize2d >> > (dev_denoised_image_out, cam.resolution, iter, stepsize,
             sigma_col_div, sigma_norm, sigma_pos,
             dev_denoised_image_in, dev_gBuffer, dev_kernel, dev_offsets);
-        if (i != DENOISE_ITERATIONS - 1) {
+
+        // Do not swap on last iterations
+        if (i != num_iterations - 1) {
             std::swap(dev_denoised_image_in, dev_denoised_image_out);
         }
         stepsize *= 2;
@@ -592,6 +608,11 @@ void denoise(uchar4* pbo, int iter, float sigma_col, float sigma_norm, float sig
 
     // Send results to OpenGL buffer for rendering
     sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_denoised_image_out);
+    timer().endGpuTimer();
+
+    if (call_count < 10) {
+        std::cout << timer().getGpuElapsedTimeForPreviousOperation() << std::endl;
+    }
 }
 
 void showImage(uchar4* pbo, int iter) {
