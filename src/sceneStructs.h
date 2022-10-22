@@ -141,8 +141,11 @@ struct ShadeableIntersection {
   float t;
   glm::vec3 surfaceNormal;
   int materialId;
+  glm::vec3 position;
 };
 
 struct GBufferPixel {
     float t;
+    glm::vec3 normal;
+    glm::vec3 position;
 };

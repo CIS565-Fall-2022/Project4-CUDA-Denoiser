@@ -169,14 +169,18 @@ void runCuda() {
 		// execute the kernel
 		int frame = 0;
 		pathtrace(frame, iteration);
+		if (ui_denoise) {
+			denoise(ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_filterSize, iteration, ui_iterations);
+		}
 	}
 
 	if (ui_showGbuffer) {
 		showGBuffer(pbo_dptr);
 	}
 	else {
-		showImage(pbo_dptr, iteration);
+		showImage(pbo_dptr, iteration, ui_denoise);
 	}
+	
 
 	// unmap buffer object
 	cudaGLUnmapBufferObject(pbo);
