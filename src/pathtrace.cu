@@ -111,9 +111,12 @@ static GBufferPixel* dev_gBuffer = NULL;
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
 
-glm::vec3* dev_image_denoise = NULL;
-glm::vec3* dev_image_denoise_tmp = NULL;
-glm::vec3* dev_image_gBuffer = NULL;
+static glm::vec3* dev_image_denoise = NULL;
+static glm::vec3* dev_image_denoise_tmp = NULL;
+static glm::vec3* dev_image_gBuffer = NULL;
+
+static cudaEvent_t startEvent = NULL;
+static cudaEvent_t endEvent = NULL;
 
 void pathtraceInit(Scene* scene) {
   hst_scene = scene;
@@ -147,6 +150,9 @@ void pathtraceInit(Scene* scene) {
   cudaMalloc(&dev_image_gBuffer, pixelcount * sizeof(glm::vec3));
   cudaMemset(dev_image_gBuffer, 0, pixelcount * sizeof(glm::vec3));
 
+  cudaEventCreate(&startEvent);
+  cudaEventCreate(&endEvent);
+
   checkCUDAError("pathtraceInit");
 }
 
@@ -162,6 +168,11 @@ void pathtraceFree() {
   cudaFree(dev_image_denoise);
   cudaFree(dev_image_denoise_tmp);
   cudaFree(dev_image_gBuffer);
+
+  if (startEvent != NULL)
+    cudaEventDestroy(startEvent);
+  if (endEvent != NULL)
+    cudaEventDestroy(endEvent);
 
   checkCUDAError("pathtraceFree");
 }
@@ -358,8 +369,11 @@ __global__ void denoiseATour(const Camera cam, const int stepWidth, const float 
     for (int j = -2; j <= 2; j++) {
       for (int i = -2; i <= 2; i++) {
 
-        int uvX = min(max(int(x + i * stepWidth), 0), cam.resolution.x - 1);
-        int uvY = min(max(int(y + j * stepWidth), 0), cam.resolution.y - 1);
+        int uvX = int(x + i * stepWidth);
+        int uvY = int(y + j * stepWidth);
+
+        //uvX = min(max(uvX, 0), cam.resolution.x - 1);
+        //uvY = min(max(uvY, 0), cam.resolution.y - 1);
 
         if (uvX < 0 || uvX >= cam.resolution.x) continue;
         if (uvY < 0 || uvY >= cam.resolution.y) continue;
@@ -453,6 +467,8 @@ void pathtrace(int frame, int iter, bool isLast) {
   // * Finally:
   //     * if not denoising, add this iteration's results to the image
   //     * TODO: if denoising, run kernels that take both the raw pathtraced result and the gbuffer, and put the result in the "pbo" from opengl
+  if (isLast)
+    cudaEventRecord(startEvent);
 
   generateRayFromCamera << <blocksPerGrid2d, blockSize2d >> > (cam, iter, traceDepth, dev_paths);
   checkCUDAError("generate camera ray");
@@ -502,6 +518,18 @@ void pathtrace(int frame, int iter, bool isLast) {
     iterationComplete = depth == traceDepth;
   }
 
+  if (isLast) {
+    cudaEventRecord(endEvent);
+    cudaEventSynchronize(endEvent);
+    float ms;
+    cudaEventElapsedTime(&ms, startEvent, endEvent);
+
+    std::cout << "========================" << endl;
+    std::cout << "| Time Spent Iteration: " << ms << " ms |" << endl;
+    std::cout << "========================" << endl;
+  }
+
+
   // Assemble this iteration and apply it to the image
   dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
   finalGather << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths);
@@ -511,6 +539,8 @@ void pathtrace(int frame, int iter, bool isLast) {
 #if DENOISE
 
   if (isLast) {
+    cudaEventRecord(startEvent);
+
     cudaMemcpy(dev_image_denoise_tmp, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
     diffuseImage << <numBlocksPixels, blockSize1d >> > (pixelcount, iter, dev_image_denoise_tmp);
@@ -522,7 +552,17 @@ void pathtrace(int frame, int iter, bool isLast) {
       std::swap(dev_image_denoise_tmp, dev_image_denoise);
     }
     std::swap(dev_image_denoise_tmp, dev_image_denoise);
+
+    cudaEventRecord(endEvent);
+    cudaEventSynchronize(endEvent);
+    float ms;
+    cudaEventElapsedTime(&ms, startEvent, endEvent);
+
+    std::cout << "========================" << endl;
+    std::cout << "| Time Spent: " << ms << " ms |" << endl;
+    std::cout << "========================" << endl;
   }
+
 #endif
 
   // CHECKITOUT: use dev_image as reference if you want to implement saving denoised images.

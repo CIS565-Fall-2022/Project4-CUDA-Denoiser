@@ -118,7 +118,7 @@ void saveImage() {
 
     std::string filename = renderState->imageName;
     std::ostringstream ss;
-    ss << filename << "." << startTimeString << "." << samples << num_pic++ << "samp";
+    ss << filename << "." << startTimeString << "." << samples << "." << num_pic++ << "samp";
     filename = ss.str();
 
     // CHECKITOUT
@@ -183,6 +183,10 @@ void runCuda() {
 
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
+
+    if (iteration != 0 && iteration % 1000 == 0 && iteration != ui_iterations) {
+      saveImage();
+    }
 
     if (ui_saveAndExit) {
         saveImage();
