@@ -1,3 +1,116 @@
+CUDA Denoiser For CUDA Path Tracer
+==================================
+
+**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
+
+Jiajun Li
+
+Linkedin: [link](https://www.linkedin.com/in/jiajun-li-5063a4217/)
+
+Tested on: Windows 10, i7-12700 @ 2.10GHz, 32GB, RTX3080 12GB
+
+CUDA Compute Capability: 8.6
+
+## **Overview**
+This project implements a CUDA denoiser using ATrous filter. 
+
+ATrous denoising is a denoise method that takes edge information and 
+
+The implementation is based on [this paper](https://jo.dreggn.org/home/2010_atrous.pdf).
+
+## **Result**
+
+Overall, ATrous filter produces a noticeably less noisy iamge than the raw path tracer output. I also included a basic Gaussian filter that runs the same iteration times as the ATrous filter for comparison purpose.
+
+### **Basic Diffuse Scene**
+
+| Original Image | Gaussian Blur | Denoised Image |     
+| ---------------------------------| ----------------------------------| ----------------------------------
+| ![](img/denoise/baseImg2.png)   | ![](img/denoise/gaussian2.png)| ![](img/denoise/denoisedImg2.png)  |
+
+### **Basic Specular Scene**
+
+| Original Image | Gaussian Blur | Denoised Image |     
+| ---------------------------------| ----------------------------------| ----------------------------------
+| ![](img/denoise/baseImg.png)   | ![](img/denoise/gaussian.png)| ![](img/denoise/denoisedImg.png)  |
+
+### **Basic Refraction Scene**
+
+| Original Image | Gaussian Blur | Denoised Image |     
+| ---------------------------------| ----------------------------------| ----------------------------------
+| ![](img/denoise/baseImg3.png)   | ![](img/denoise/gaussian3.png)| ![](img/denoise/denoisedImg3.png)  |
+
+### **GBuffer of Base Specular Scene**
+
+| GBuffer t | Normal | Position(scale down to 0.05) |     
+| ---------------------------------| ----------------------------------| ----------------------------------
+| ![](img/denoise/gbuffer.png)   | ![](img/denoise/gbuffernor.png)| ![](img/denoise/gbufferpos.png)  |
+
+
+## **Visual Analysis**
+
+### **How filter size influences the result**
+
+| Raw Image | Size 5 | Size 9 | Size 17 | Size 33 | Size 65 | Size 129 |     
+| -- | -- | -- | -- | -- | -- | -- |
+| ![](img/denoise/denoiseIter0.png)   | ![](img/denoise/denoiseIter1.png) | ![](img/denoise/denoiseIter2.png) | ![](img/denoise/denoiseIter3.png) | ![](img/denoise/denoiseIter4.png) | ![](img/denoise/denoiseIter5.png) | ![](img/denoise/denoiseIter6.png) |
+
+We can see that image looks more smooth with the increase of filter size. However, when filter size reaches certain degree, the image starts to look like oil painting and lost the sense of reality. This shows that we should carefully tunning the filter size for a best result rather than simply increasing the filter size to maximum. 
+
+### **How denoising influences the number of iterations needed to get an "acceptably smooth" result**
+
+| Path trace 16 iterations | After 5 denoise iteration | Path trace 1000 iterations |     
+| ---------------------------------| ----------------------------------| ----------------------------------
+| ![](img/denoise/visual1.png)   | ![](img/denoise/visual2.png)| ![](img/denoise/visual3.png)  |
+
+From the above chart we can see that even if we just apply 5 times of denoise for a 16 path trace result, the result image can be as acceptably smooth as path trace of 1000 iterations.
+
+### **How denosing works with different material types**
+
+- <b>For diffuse:</b> As we can see from the basic diffuse scene, denoiser can remove noise from a diffuse surface efficiently.
+
+- <b>For perfect specular:</b> Since perfect specular preserve 100% of the surrounding information, denoising the specular surface will produce good result as denosing the surrounding.
+
+- <b>For refraction:</b> After denosing, some of the detail (such as the bright part of the yellow bar in the Basic Refraction Scene) is missing.
+
+### **How denosing works in different scenes**
+
+![](img/denoise/1.gif)
+
+While we can see that the denoiser works well in <I>cornell_ceiling_light</I> previously, there are situations that the denoiser will cause detail loss. For instance, in the gif above, we can see that some of the darker part (less light energy) will lose detail after denosing. This shows the denoiser might not work well for the secne of many detail and the lights are not bright enough.
+
+## **Performance Analysis**
+
+In this project, the relation of ATours filter iteration and filter size have the following relationship:
+
+    iter = floor((filterSize - 1) * 0.5f)
+
+This means iteration dose not scale with filter size uniformly. For simplisity, the follwing chart shows the filter size and the coresponding iteration which will be used in the analysis later.
+
+|filterSize | iteration|
+|--|--|
+| 0 - 4  |   0|
+| 5 - 8  |   1|
+| 9 - 16 |   2|
+| 17 - 32|   3|
+| 33 - 64|   4|
+| 65 - 128|  5|
+| 129 - 256|  6|
+
+Belows are the denoiser time consuming result for the basic diffuse scene in different resoltions: 
+
+![](img/denoise/denoiseTimeChart.png)
+
+![](img/denoise/denoiseTimeChart2.png)
+
+- <b>Time added:</b> For 800x800 resolution, the average time for 10 path trace iterations is 127 ms; for 1920x1080 resolution, the average time is 352 ms. So we can see that in both situations, the time added to denoise is approximately 1/3 to 1/2 of the time of 10 path trace iterations, and the denoiser can produce a much more smooth image. This shows denoising is a powerful tool to increase path tracer image quality at an acceptable low cost.
+
+- <b>Impact of different filter sizes:</b> In both resolution situations, we can see that time increase in a relatively constant speed with the increase of filter iterations. For 800x800 resolution, the time added for increasing a iteration is around 3.2 ms; for 1920x1080 resolution, the time added is 
+
+- <b>Impact of different resolutions:</b> We can see from the 2 graphs that the time to denoise will increase relatively proportional with the increase of resolution. This adheres to our intuitions since denoiser will process more pixels with higher resolutions.
+
+---
+
 CUDA Path Tracer
 ================
 
