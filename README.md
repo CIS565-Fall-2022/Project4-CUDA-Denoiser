@@ -14,7 +14,7 @@ CUDA Compute Capability: 8.6
 ## **Overview**
 This project implements a CUDA denoiser using ATrous filter. 
 
-ATrous denoising is a denoise method that takes edge information and 
+ATrous denoising is a denoise method that can identify edge by pixel colors, normals and positions.
 
 The implementation is based on [this paper](https://jo.dreggn.org/home/2010_atrous.pdf).
 
