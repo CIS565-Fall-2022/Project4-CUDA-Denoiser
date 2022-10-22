@@ -16,7 +16,9 @@
 
 #define ERRORCHECK 1
 
-#define GAUSSIAN 1
+#define GAUSSIAN 0
+
+#define SHARE 0
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -75,11 +77,14 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
 
     if (x < resolution.x && y < resolution.y) {
         int index = x + (y * resolution.x);
-
+#if OPTIMAL_X
+        return;
+#else
         pbo[index].w = 0;
         pbo[index].x = (gBuffer[index].x.x / 15.f) * 255.f;
         pbo[index].y = (gBuffer[index].x.y / 15.f) * 255.f;
         pbo[index].z = (gBuffer[index].x.z / 15.f) * 255.f;
+#endif
     }
 }
 
@@ -283,35 +288,88 @@ __global__ void shadeSimpleMaterials (
   }
 }
 
-__global__ void generateGBuffer (
-  int num_paths,
-  ShadeableIntersection* shadeableIntersections,
-	PathSegment* pathSegments,
-  GBufferPixel* gBuffer) {
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < num_paths)
-  {
-    gBuffer[idx].n = shadeableIntersections[idx].surfaceNormal;
-    if (shadeableIntersections[idx].t > 0.0f) {
-        gBuffer[idx].x = pathSegments[idx].ray.origin + shadeableIntersections[idx].t * glm::normalize(pathSegments[idx].ray.direction);
+__host__ __device__
+glm::vec2 signNotZero(glm::vec2 v) {
+    return glm::vec2((v.x >= 0.f) ? 1.f : -1.f, (v.y >= 0.f) ? 1.f : -1.f);
+}
+
+__host__ __device__
+glm::vec2 f2o(glm::vec3 v) {
+    glm::vec2 p = glm::vec2(v.x, v.y) * (1.f / (abs(v.x) + abs(v.y) + abs(v.z)));
+    return (v.z <= 0.f) ? ((1.f - abs(glm::vec2(p.y, p.x))) * signNotZero(p)) : p;
+}
+
+__host__ __device__
+glm::vec3 o2f(glm::vec2 e) {
+    glm::vec3 v = glm::vec3(e.x, e.y, 1.f - abs(e.x) - abs(e.y));
+    if (v.z < 0) {
+        glm::vec2 vxy = (1.f - glm::vec2(v.y, v.x)) * signNotZero(glm::vec2(v.x, v.y));
+        v.x = vxy.x;
+        v.y = vxy.y;
     }
-    else {
-        gBuffer[idx].x = glm::vec3(0.f, 0.f, 0.f);
+    v = glm::normalize(v);
+    if (isnan(v.x)) v.x = 0.f;
+    if (isnan(v.y)) v.y = 0.f;
+    if (isnan(v.z)) v.z = 0.f;
+    return v;
+}
+
+
+__host__ __device__
+glm::vec3 f2g(Camera cam, float x, float y, float z) {
+    if (z == PI) {
+        return glm::vec3(0.f, 0.f, 0.f);
     }
-  }
+    glm::vec3 direction = glm::normalize(cam.view
+        - cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
+        - cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f));
+    return cam.position + (z-cam.position.z) * direction;
+}
+
+
+__global__ void generateGBuffer(
+    int num_paths,
+    ShadeableIntersection* shadeableIntersections,
+    PathSegment* pathSegments,
+    GBufferPixel* gBuffer) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < num_paths)
+    {
+#if OPTIMAL_N
+        gBuffer[idx].n = f2o(glm::normalize(shadeableIntersections[idx].surfaceNormal));
+#else
+        gBuffer[idx].n = shadeableIntersections[idx].surfaceNormal;
+#endif
+#if OPTIMAL_X
+        if (shadeableIntersections[idx].t > 0.0f) {
+            gBuffer[idx].x = (pathSegments[idx].ray.origin + shadeableIntersections[idx].t * glm::normalize(pathSegments[idx].ray.direction)).z;
+        }
+        else {
+            gBuffer[idx].x = PI;
+        }
+#else
+        if (shadeableIntersections[idx].t > 0.0f) {
+            gBuffer[idx].x = pathSegments[idx].ray.origin + shadeableIntersections[idx].t * glm::normalize(pathSegments[idx].ray.direction);
+        }
+        else {
+            gBuffer[idx].x = glm::vec3(0.f, 0.f, 0.f);
+        }
+#endif
+    }
 }
 
 // Add the current iteration's output to the overall image
-__global__ void finalGather(int nPaths, glm::vec3 * image, PathSegment * iterationPaths)
+__global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iterationPaths)
 {
-	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
-	if (index < nPaths)
-	{
-		PathSegment iterationPath = iterationPaths[index];
-		image[iterationPath.pixelIndex] += iterationPath.color;
-	}
+    if (index < nPaths)
+    {
+        PathSegment iterationPath = iterationPaths[index];
+        image[iterationPath.pixelIndex] += iterationPath.color;
+    }
 }
+
 
 /**
  * Wrapper for the __global__ call that sets up the kernel calls and does a ton
@@ -426,7 +484,7 @@ void pathtrace(int frame, int iter) {
 }
 
 __global__ void ATrousFilter(
-    int stride, float sigma_c, float sigma_n, float sigma_x, glm::ivec2 resolution, GBufferPixel* gBuffer, glm::vec3* in, glm::vec3* out) {
+    int stride, float sigma_c, float sigma_n, float sigma_x, glm::ivec2 resolution, GBufferPixel* gBuffer, glm::vec3* in, glm::vec3* out, const Camera cam) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     if ((x < resolution.x) &&  (y < resolution.y)){
@@ -437,25 +495,36 @@ __global__ void ATrousFilter(
 
         for (int i = -2; i <= 2; i++) {
             for (int j = -2; j <= 2; j++) {
-                if ((x + i > resolution.x - 1) || (x + i < 0) || (y + j > resolution.y - 1) || (y + j < 0)) {
-                    continue;
+                if (((x + i * stride) <= (resolution.x - 1)) && ((x + i * stride) >= 0) && ((y + j * stride <= resolution.y - 1)) && ((y + j * stride >= 0))) {
+
+                    int neighbor = x + i * stride + (y + j * stride) * resolution.x;
+                    //int neighbor = glm::clamp(x + i * stride, 0, resolution.x - 1) + glm::clamp(y + j * stride, 0, resolution.y - 1) * resolution.x;
+               
+
+
+                    float wrt = exp(-glm::length(in[index] - in[neighbor]) / sigma_c / sigma_c);
+#if OPTIMAL_N
+                    float wn = exp(-glm::length(o2f(gBuffer[index].n) - o2f(gBuffer[neighbor].n)) / sigma_n / sigma_n);
+#else
+                    float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n);
+#endif
+#if OPTIMAL_X
+                    float wx = exp(-glm::length(f2g(cam, x , y , gBuffer[index].x) - f2g(cam, x + i * stride, y + j * stride, gBuffer[neighbor].x)) / sigma_x / sigma_x);
+#else
+                    float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x / sigma_x);
+#endif
+
+                    sum += in[neighbor] * filter[max(abs(i), abs(j))] * wrt * wn * wx;
+                    k += filter[max(abs(i), abs(j))] * wrt * wn * wx;
                 }
-                int neighbor = x + i * stride + (y + j * stride) * resolution.x;
-                float wrt = exp(-glm::length(in[index] - in[neighbor]) / sigma_c / sigma_c);
-                float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n / sigma_n);
-                float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x / sigma_x);
-
-                //float wrt = exp(-glm::length(in[index] - in[neighbor]) / sigma_c);
-                //float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n );
-                //float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x );
-
-                sum += in[neighbor] * filter[max(abs(i), abs(j))] * wrt * wn * wx;
-                k += filter[max(abs(i), abs(j))] * wrt * wn * wx;
             }
         }
         out[index] = sum / k;
     }
 }
+
+
+
 
 __global__ void GaussianFilter(
     int filterSize, float sigma_c, float sigma_n, float sigma_x, glm::ivec2 resolution, GBufferPixel* gBuffer, glm::vec3* in, glm::vec3* out) {
@@ -476,9 +545,6 @@ __global__ void GaussianFilter(
                 float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n / sigma_n);
                 float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x / sigma_x);
 
-                //float wrt = exp(-glm::length(in[index] - in[neighbor]) / sigma_c);
-                //float wn = exp(-glm::length(gBuffer[index].n - gBuffer[neighbor].n) / sigma_n );
-                //float wx = exp(-glm::length(gBuffer[index].x - gBuffer[neighbor].x) / sigma_x );
                 float h = exp(-(i * i + j * j) / (2.f * 30 * 30));
 
                 sum += in[neighbor] * h * wrt * wn * wx;
@@ -500,13 +566,14 @@ void denoise(float sigma_c, float sigma_n, float sigma_x, int filterSize) {
 
 #if GAUSSIAN
     GaussianFilter <<<blocksPerGrid2d, blockSize2d >>> (filterSize / 2, sigma_c, sigma_n, sigma_x, cam.resolution, dev_gBuffer, dev_denoised_image1, dev_denoised_image2);
+    std::swap(dev_denoised_image1, dev_denoised_image2);
 #else
+    int N = int(ceil(log2((filterSize - 5) / 4.f))) + 1;
     for (int i = 0; i < N; i++) {
-        int N = int(ceil(log2((filterSize - 5) / 4.f))) + 1;
-        ATrousFilter << <blocksPerGrid2d, blockSize2d >> > (1 << i, sigma_c / (1 << i), sigma_n, sigma_x, cam.resolution, dev_gBuffer, dev_denoised_image1, dev_denoised_image2);
+        ATrousFilter << <blocksPerGrid2d, blockSize2d >> > (1 << i, sigma_c / (1 << i), sigma_n, sigma_x, cam.resolution, dev_gBuffer, dev_denoised_image1, dev_denoised_image2, cam);
+        std::swap(dev_denoised_image1, dev_denoised_image2);
     }
 #endif
-    std::swap(dev_denoised_image1, dev_denoised_image2);
 }
 
 void update(bool d) {

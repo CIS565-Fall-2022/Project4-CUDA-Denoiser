@@ -7,6 +7,9 @@
 
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
 
+#define OPTIMAL_N 0
+#define OPTIMAL_X 0
+
 enum GeomType {
     SPHERE,
     CUBE,
@@ -78,6 +81,14 @@ struct ShadeableIntersection {
 // CHECKITOUT - a simple struct for storing scene geometry information per-pixel.
 // What information might be helpful for guiding a denoising filter?
 struct GBufferPixel {
+#if OPTIMAL_N
+  glm::vec2 n;
+#else
   glm::vec3 n;
+#endif
+#if OPTIMAL_X
+  float x;
+#else
   glm::vec3 x;
+#endif
 };

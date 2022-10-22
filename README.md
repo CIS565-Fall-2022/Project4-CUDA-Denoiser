@@ -31,7 +31,7 @@ To measure the performance, a ground truth image is used to compare with denoise
 ![](img/plot2.png)
 
 
-The denoiser is using a 80*80 filter size. As expected, the runtime of both the pathtracer and the denoiser scale linearly with the number of pixels. 
+The denoiser is using a 80*80 filter size. As expected, the runtime of both the pathtracer and the denoiser scale linearly with the number of pixels when the number of pixels is not too small. When the number of pixels is small, other overheads may dominate the runtime. 
 
 **Runtime with Different Filter Size**
 ![](img/plot3.png)
@@ -91,4 +91,14 @@ The generating kernel is used to approximate gaussian filters. By comparing the 
 |![](img/denoise.png)|![](img/gaussian.png)
 | SSIM = 0.9704 | SSIM = 0.9559 |
 
-However, the gaussian filter have a worse performance with the same filter size as the A-Trous filter. Gaussian filter blurred the reflective sphere. A possible reason is the A-Trous filter have several iterations, and it uses the edge-stopping function at each iteration, so the edge-stopping function actually works for multiple times, and thus the weighted average is more accurate. Another hypothesis is there are still better parameters for Gaussian filter. I choose variance = 30, sigma_c = 5.41, sigma_n = 0.30, sigma_x = 4.94. By tuning variance and weights, we may achieve a better result. However, the runtime of Gaussian filter is not acceptable. With filtersize = 65, the runtime of Gaussian filter is 6027.12ms, while the runtime of A-Trous filter is only 186ms. This is because the A-Trous filter's time complexity is O(nlog(k)), while the Gaussian filter's time complexity is O(nk^2), where n is the pixel count and k is the filter size. 
+However, the gaussian filter have a worse performance with the same filter size as the A-Trous filter. Gaussian filter blurred the reflective sphere. A possible reason is the A-Trous filter have several iterations, and it uses the edge-stopping function at each iteration, so the edge-stopping function actually works for multiple times, and thus the weighted average is more accurate. Another hypothesis is there are still better parameters for Gaussian filter. I choose variance = 30, sigma_c = 5.41, sigma_n = 0.30, sigma_x = 4.94. By tuning variance and weights, we may achieve a better result. However, the runtime of Gaussian filter is not acceptable. With filtersize = 65, the runtime of Gaussian filter is 71ms, while the runtime of A-Trous filter is only 6.15ms. This is because the A-Trous filter's time complexity is O(nlog(k)), while the Gaussian filter's time complexity is O(nk^2), where n is the pixel count and k is the filter size. 
+
+### G-Buffer Optimization
+
+Given the depth, the camera position and the pixel index, we can calculate the position of the object. Thus, we only need to store the depth information in the G-buffer instead of the whole position. This [paper](http://jcgt.org/published/0003/02/01/paper.pdf) also provides a method to encode a 3-d normal vector with oct. With this two method, we can half the size of the G-buff. Here is the runtime
+
+|              | no optimization | optimize normal | optimize position | optimize both |
+|--------------|-----------------|-----------------|-------------------|---------------|
+| time elapsed | 6.15            | 6.258           | 6.104             | 6.517         |
+
+It shows that use depth to store the position information can reduce the runtime slightly, while oct-encode the normal will enlarge the runtime. This may because we didn't futher encode the oct-encoded normal to a single float. Also, the computation for oct-encoding and decoding is a little complex, so the increased computation time is larger than the saved I/O time.
