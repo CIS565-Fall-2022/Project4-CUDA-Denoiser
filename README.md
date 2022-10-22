@@ -1,13 +1,55 @@
 CUDA Denoiser For CUDA Path Tracer
 ==================================
 
-**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
+**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
 
-* (TODO) YOUR NAME HERE
-* Tested on: (TODO) Windows 22, i7-2222 @ 2.22GHz 22GB, GTX 222 222MB (Moore 2222 Lab)
+* Edward Zhang
+  * https://www.linkedin.com/in/edwardjczhang/
+  * https://zedward23.github.io/personal_Website/
+ 
+* Tested on: Windows 10 Home, i7-11800H @ 2.3GHz, 16.0GB, NVIDIA GeForce RTX 3060 Laptop GPU
 
-### (TODO: Your README)
+## Denoiser Showcase
 
-*DO NOT* leave the README to the last minute! It is a crucial part of the
-project, and we will not be able to grade you without a good README.
+Cornell Box - Denoised (10 Iterations)
+![](img/Denoised1.png)
+
+Cornell box with a large ceiling light denoised using an A-Trous filter using differences in color, normal, and position as stored in a frameBuffer to weight the gaussian-approximated neighbors' contributions to the denoised image output.
+
+Cornell Box - Without Denoising (10 Iterations)
+![](img/normal.png)
+
+Standard path-traced output of the same scene for the sake of comparison.
+
+## Outputs from Different Weight Combinations
+
+Only Normals
+
+![](img/normalWieghtOnly.png)
+
+Only Colors
+
+![](img/ColorWeightOnly.png)
+
+Only Positions
+
+![](img/PosWeightOnly.png)
+
+Individually, each component does not seem to guide the denoising process very strongly.
+
+## Runtime Analysis
+
+![](img/denoiseTimeChart.png)
+
+Runtime to denoise a framebuffer using the A-Trous filter increases logarithmically since the total number of neighbors per filter only increases logarithmically due to the nature of our For Loop doubling our step_width each time.
+
+![](img/FrameRenderChart.png)
+
+The denoising does impact the overall pathtrace operations at all; they are separate operations.
+
+### Note:
+When the lights of a scene are super small, the additional black in the screen from non-terminated rays will make the scene signficantly noisier.
+
+
+
 
