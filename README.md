@@ -43,7 +43,7 @@ Below is an example of a kernel generated with the gaussian function (from Wikip
 
 ![](img/figures/gaussiankernel.PNG)
 
-Applying the kernel to every pixel in an image will result in blur like the image below:
+Applying the kernel to every pixel in an image will result in blur (via Krita Art Application) like the image below:
 
 | Original   | Blurred |
 | ----------- | ----------- |
@@ -265,3 +265,5 @@ Presentation: https://www.highperformancegraphics.org/previous/www_2010/media/Ra
 Wikipedia Gaussian Blur: https://en.wikipedia.org/wiki/Gaussian_blur
 
 Filter used in the paper: https://www.eso.org/sci/software/esomidas/doc/user/18NOV/volb/node317.html
+
+Gaussian blur from Krita Application: https://krita.org/en/
