@@ -47,6 +47,9 @@ Runtime to denoise a framebuffer using the A-Trous filter increases logarithmica
 
 The denoising does impact the overall pathtrace operations at all; they are separate operations.
 
+### Note:
+When the lights of a scene are super small, the additional black in the screen from non-terminated rays will make the scene signficantly noisier.
+
 
 
 
