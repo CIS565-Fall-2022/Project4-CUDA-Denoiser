@@ -483,7 +483,7 @@ void drawGui(int windowWidth, int windowHeight) {
     ImGui::Checkbox("Denoise", &ui_denoise);
     ImGui::Checkbox("Gaussian", &ui_showGaussian);
 
-    ImGui::SliderInt("Filter Size", &ui_filterSize, 0, 100);
+    ImGui::SliderInt("Filter Size", &ui_filterSize, 0, 300);
     ImGui::SliderFloat("Color Weight", &ui_colorWeight, 0.0f, 10.0f);
     ImGui::SliderFloat("Normal Weight", &ui_normalWeight, 0.0f, 10.0f);
     ImGui::SliderFloat("Position Weight", &ui_positionWeight, 0.0f, 10.0f);

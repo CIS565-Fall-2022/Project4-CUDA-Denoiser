@@ -48,6 +48,9 @@ int iteration;
 int width;
 int height;
 
+float timer = 0;
+
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -151,6 +154,7 @@ void runCuda() {
 
     if (camchanged) {
         iteration = 0;
+        timer = 0;
         Camera& cam = renderState->camera;
         cameraPosition.x = zoom * sin(phi) * sin(theta);
         cameraPosition.y = zoom * cos(theta);
@@ -172,7 +176,7 @@ void runCuda() {
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
-    if (iteration == 0) {
+    if (iteration == 0) {      
         pathtraceFree();
         pathtraceInit(scene);
     }
@@ -185,7 +189,7 @@ void runCuda() {
 
         // execute the kernel
         int frame = 0;
-        pathtrace(frame, iteration);
+        pathtrace(frame, iteration, timer);
     }
 
     if (ui_showGbuffer) 
@@ -211,12 +215,17 @@ void runCuda() {
         }
         else
         {
-            denoise(scene, ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_filterSize);
+            denoise(scene, ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_filterSize, timer);
         }
         showDenoiseImage(pbo_dptr, iteration);
     }
     else {
         showImage(pbo_dptr, iteration);
+    } 
+
+    if (iteration == ui_iterations - 1)
+    {
+        std::cout << "timer = " << timer << std::endl;
     }
 
     // unmap buffer object

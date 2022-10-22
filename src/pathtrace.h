@@ -6,7 +6,7 @@
 void InitDataContainer(GuiDataContainer* guiData);
 void pathtraceInit(Scene *scene);
 void pathtraceFree();
-void pathtrace(int frame, int iteration);
+void pathtrace(int frame, int iteration, float&timer);
 
 void showGBuffer(uchar4* pbo, int mode);
 void showImage(uchar4* pbo, int iter);
@@ -24,7 +24,7 @@ void LoadSkyboxTextureToDevice(Scene* scene);
 void FreeSkyboxTexure();
 
 // Denoiser
-void denoise(Scene* scene, float c_phi, float n_phi, float p_phi, float filterSize);
+void denoise(Scene* scene, float c_phi, float n_phi, float p_phi, float filterSize, float& timer);
 void showDenoiseImage(uchar4* pbo, int iter);
 
 void gaussianBlur(float filterSize);

@@ -2,6 +2,8 @@
 
 #define DEFAULT_SKY_COLOR 0.1
 
+#define ENABLE_DENOISER_TIMING 1
+
 // Skybox setting
 #define ENABLE_SKYBOX 1
 

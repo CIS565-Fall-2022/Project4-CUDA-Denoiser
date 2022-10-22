@@ -161,6 +161,10 @@ static ShadeableIntersection* dev_intersections = NULL;
 static GBufferPixel* dev_gBuffer = NULL;
 // TODO: static variables for device memory, any extra info you need, etc
 
+// Timing
+static cudaEvent_t timingStartEvent = NULL;
+static cudaEvent_t timingEndEvent = NULL;
+
 // Mesh
 static Triangle* dev_triangles = NULL;
 
@@ -432,7 +436,7 @@ __global__ void ATrousFilter(
         {         
             float kernel = kernelArr[i + 2][j + 2];
 
-            glm::ivec2 uv = glm::ivec2(idx_x + j * stepwidth, idx_y + i * stepwidth);
+            glm::ivec2 uv = glm::ivec2(idx_x + i * stepwidth, idx_y + j * stepwidth);
             uv = glm::clamp(uv, glm::ivec2(0, 0), resolution);
 
             int id = uv.y * resolution.x + uv.x;
@@ -462,12 +466,19 @@ __global__ void ATrousFilter(
     }
 
     out_img[idx] = sum / cum_w;
-
-    //printf("old value = (%f, %F, %f), new value = (%f, %f, %f)\n",
-    //    cval[0], cval[1], cval[2], out_img[idx][0], out_img[idx][1], out_img[idx][2]);
 }
-void denoise(Scene* scene, float c_phi, float n_phi, float p_phi, float filterSize)
+void denoise(Scene* scene, float c_phi, float n_phi, float p_phi, float filterSize, float &timer)
 {
+    if (timingStartEvent != NULL)
+    {
+        cudaEventDestroy(timingStartEvent);
+        cudaEventDestroy(timingEndEvent);
+    }
+    cudaEventCreate(&timingStartEvent);
+    cudaEventCreate(&timingEndEvent);
+
+    cudaEventRecord(timingStartEvent);
+
     const Camera& cam = hst_scene->state.camera;
     const dim3 blockSize2d(8, 8);
     const dim3 blocksPerGrid2d(
@@ -477,7 +488,9 @@ void denoise(Scene* scene, float c_phi, float n_phi, float p_phi, float filterSi
 
     cudaMemcpy(dev_denoise_img1, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
-    int iter = glm::floor(log2((filterSize - 5) / 4.f)) + 1;
+    //int iter = filterSize / 2;
+    //int iter = glm::floor(log2((filterSize - 5) / 4.f)) + 1;   
+    int iter = glm::floor(log2((filterSize - 1) * 0.5f));
     for (int i = 0; i < iter; ++i)
     {
         ATrousFilter<<<blocksPerGrid2d, blockSize2d>>>
@@ -492,6 +505,15 @@ void denoise(Scene* scene, float c_phi, float n_phi, float p_phi, float filterSi
     }
 
     cudaMemcpy(hst_scene->state.image.data(), dev_denoise_img2, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+
+    cudaEventRecord(timingEndEvent);
+    cudaEventSynchronize(timingEndEvent);
+
+    float elapsedTime = 0;
+    cudaEventElapsedTime(&elapsedTime, timingStartEvent, timingEndEvent);
+    timer += elapsedTime;
+
+    //printf("filter size = %f, iter = %d\n", filterSize, iter);
 }
 
 __global__ void GaussianFilter(
@@ -542,7 +564,9 @@ void gaussianBlur(float filterSize)
 
     cudaMemcpy(dev_denoise_img1, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 
-    int iter = glm::floor(log2((filterSize - 5) / 4.f)) + 1;
+    //int iter = filterSize / 2;
+    //int iter = glm::floor(log2((filterSize - 5) / 4.f)) + 1;
+    int iter = glm::floor(log2((filterSize - 1) * 0.5f));
     for (int i = 0; i < iter; ++i)
     {
         GaussianFilter << <blocksPerGrid2d, blockSize2d >> >
@@ -913,8 +937,18 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
  * Wrapper for the __global__ call that sets up the kernel calls and does a ton
  * of memory management
  */
-void pathtrace(int frame, int iter)
+void pathtrace(int frame, int iter,float& timer)
 {
+    if (timingStartEvent != NULL)
+    {
+        cudaEventDestroy(timingStartEvent);
+        cudaEventDestroy(timingEndEvent);
+    }
+    cudaEventCreate(&timingStartEvent);
+    cudaEventCreate(&timingEndEvent);
+
+    cudaEventRecord(timingStartEvent);
+
     const int traceDepth = hst_scene->state.traceDepth;
     const Camera& cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -1043,6 +1077,11 @@ void pathtrace(int frame, int iter)
 #endif
         cudaDeviceSynchronize();
 
+        if (depth == 0)
+        {
+            generateGBuffer << <numblocksPathSegmentTracing, blockSize1d >> > (num_paths, dev_intersections, dev_paths, dev_gBuffer);
+        }
+
         // Sort material by type so that ajecent threads will more likely to read the same memory
 #if SORT_MATERIALS
         thrust::sort_by_key(thrust::device, dev_intersections, dev_intersections + num_paths, dev_paths, materialSort);
@@ -1067,11 +1106,6 @@ void pathtrace(int frame, int iter)
             );
         checkCUDAError("shade material");
 
-        if (depth == 0) 
-        {
-            generateGBuffer << <numblocksPathSegmentTracing, blockSize1d >> > (num_paths, dev_intersections, dev_paths, dev_gBuffer);
-        }
-
         dev_path_end = thrust::partition(thrust::device, dev_paths, dev_paths + num_paths, pathPartition);
         num_paths = dev_path_end - dev_paths;
         
@@ -1090,6 +1124,13 @@ void pathtrace(int frame, int iter)
         pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
     checkCUDAError("pathtrace");
+
+    cudaEventRecord(timingEndEvent);
+    cudaEventSynchronize(timingEndEvent);
+
+    float elapsedTime = 0;
+    cudaEventElapsedTime(&elapsedTime, timingStartEvent, timingEndEvent);
+    timer += elapsedTime;
 }
 
 
