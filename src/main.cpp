@@ -22,6 +22,9 @@ static double lastY;
 int ui_iterations = 0;
 int startupIterations = 0;
 int lastLoopIterations = 0;
+int lastPosWeight = 0;
+int lastNormalWeight = 0;
+int lastColorWeight = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
 int ui_filterSize = 80;
@@ -29,6 +32,7 @@ float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
+extern int ui_typeGbuffer = 0;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -166,8 +170,12 @@ void runCuda() {
     }
 
     if (ui_showGbuffer) {
-      showGBuffer(pbo_dptr);
-    } else {
+      showGBuffer(pbo_dptr, ui_typeGbuffer);
+    } 
+    else if (ui_denoise) {
+      showImageDenoise(pbo_dptr, iteration);
+    }
+    else {
       showImage(pbo_dptr, iteration);
     }
 
