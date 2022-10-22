@@ -254,8 +254,6 @@ the GPU needs to run the code on increases quadratically as well.
 
 ## References
 
-## Performance Analysis
-
 Edge-Avoiding A-Trous Wavelet Transform for fast Global Illumination Filtering:
 
 Paper: https://jo.dreggn.org/home/2010_atrous.pdf
