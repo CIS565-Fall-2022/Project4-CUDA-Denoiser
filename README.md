@@ -99,6 +99,6 @@ Given the depth, the camera position and the pixel index, we can calculate the p
 
 |              | no optimization | optimize normal | optimize position | optimize both |
 |--------------|-----------------|-----------------|-------------------|---------------|
-| time elapsed | 6.15            | 6.258           | 6.104             | 6.517         |
+| time elapsed (ms) | 6.15            | 6.258           | 6.104             | 6.517         |
 
 It shows that use depth to store the position information can reduce the runtime slightly, while oct-encode the normal will enlarge the runtime. This may because we didn't futher encode the oct-encoded normal to a single float. Also, the computation for oct-encoding and decoding is a little complex, so the increased computation time is larger than the saved I/O time.
