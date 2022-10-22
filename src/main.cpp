@@ -23,12 +23,13 @@ int ui_iterations = 0;
 int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
-bool ui_denoise = false;
-int ui_filterSize = 80;
+int ui_denoise = 0;
+int ui_filterSize = 30;
 float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
+bool ui_regenerate = false;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -112,7 +113,7 @@ void saveImage() {
 
     std::string filename = renderState->imageName;
     std::ostringstream ss;
-    ss << filename << "." << startTimeString << "." << samples << "samp";
+    ss << filename << "." << currentTimeString() << "." << samples << "samp";
     filename = ss.str();
 
     // CHECKITOUT
@@ -146,6 +147,11 @@ void runCuda() {
         camchanged = false;
       }
 
+    if (ui_regenerate) {
+        iteration = 0;
+        ui_regenerate = false;
+    }
+
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
@@ -162,7 +168,7 @@ void runCuda() {
 
         // execute the kernel
         int frame = 0;
-        pathtrace(frame, iteration);
+        pathtrace(frame, iteration, {ui_denoise, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight });
     }
 
     if (ui_showGbuffer) {
@@ -176,9 +182,10 @@ void runCuda() {
 
     if (ui_saveAndExit) {
         saveImage();
-        pathtraceFree();
+        ui_saveAndExit = false;
+        /*pathtraceFree();
         cudaDeviceReset();
-        exit(EXIT_SUCCESS);
+        exit(EXIT_SUCCESS);*/
     }
 }
 
