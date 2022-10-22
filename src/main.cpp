@@ -149,14 +149,15 @@ void saveImage() {
 	for (int x = 0; x < width; x++) {
 		for (int y = 0; y < height; y++) {
 			int index = x + (y * width);
-			glm::vec3 pix = renderState->image[index];
+			glm::vec3 pix = ui_denoise ? renderState->denoise_image[index] : renderState->image[index];
 			img.setPixel(width - 1 - x, y, glm::vec3(pix) / samples);
 		}
 	}
 
 	std::string filename = renderState->imageName;
 	std::ostringstream ss;
-	ss << filename << "." << startTimeString << "." << samples << "samp";
+	std::string ending = ui_denoise ? "denoised" : "raw";
+	ss << filename << "." << startTimeString << "." << samples << "samp_" << ending;
 	filename = ss.str();
 
 	// CHECKITOUT
@@ -225,7 +226,9 @@ void runCuda() {
 	}
 	if (iteration == ui_iterations && ui_denoise && !ran_denoiser)
 	{
+		
 		runDenoiser(ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+
 		ran_denoiser = true;
 	}
 	if (ui_showGbuffer) {

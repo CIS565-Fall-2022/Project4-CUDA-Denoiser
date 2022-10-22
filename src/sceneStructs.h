@@ -60,6 +60,7 @@ struct RenderState {
     unsigned int iterations;
     int traceDepth;
     std::vector<glm::vec3> image;
+    std::vector<glm::vec3> denoise_image;
     std::string imageName;
 };
 

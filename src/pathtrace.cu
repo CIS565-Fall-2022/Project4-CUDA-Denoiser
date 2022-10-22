@@ -15,6 +15,7 @@
 #include "pathtrace.h"
 #include "intersections.h"
 #include "interactions.h"
+#include <chrono>
 
 #define ERRORCHECK 1
 #define SORTMATERIALS 0
@@ -112,11 +113,11 @@ static Material * dev_materials = NULL;
 static PathSegment * dev_paths = NULL;
 static ShadeableIntersection * dev_intersections = NULL;
 static GBufferPixel* dev_gBuffer = NULL;
-static float host_kernel[25] = { 1 / 256 ,  1 / 64 , 3 / 128 , 1 / 64 , 1 / 256,
-    1 / 64 , 1 / 16 , 3 / 32 , 1 / 16 , 1 / 64,
-    3 / 128 , 3 / 32 , 9 / 64 , 3 / 32 , 3 / 128,
-    1 / 64 , 1 / 16 , 3 / 32 , 1 / 16 , 1 / 64,
-    1 / 256 , 1 / 64 , 3 / 128 , 1 / 64 , 1 / 256 };
+static float host_kernel[25] = { 1.0f / 256.0f ,  1.0f / 64.0f , 3.0f / 128.0f , 1.0f / 64.0f , 1.0f / 256.0f,
+1.0f / 64.0f , 1.0f / 16.0f , 3.0f / 32.0f , 1.0f / 16.0f , 1.0f / 64.0f,
+3.0f / 128.0f , 3.0f / 32.0f , 9.0f / 64.0f , 3.0f / 32.0f , 3.0f / 128.0f,
+1.0f / 64.0f , 1.0f / 16.0f , 3.0f / 32.0f , 1.0f / 16.0f , 1.0f / 64.0f,
+1.0f / 256.0f , 1.0f / 64.0f , 3.0f / 128.0f , 1 / 64.0f , 1.0f / 256.0f };
 static float* dev_kernel = NULL;
 static glm::vec3* dev_image_denoise = NULL;
 static glm::vec3* dev_image_denoise_ping_pong = NULL;
@@ -442,15 +443,8 @@ __global__ void finalGather(int nPaths, glm::vec3* image, glm::vec3* image_buffe
 		image[iterationPath.pixelIndex] += iterationPath.color;
 	}
 }
-__global__ void denoise(GBufferPixel* gBuffer, Camera cam, glm::vec3* image, float* dumb_kernel, glm::vec3* image_denoise, int level, float colorWeight, float normalWeight, float positionWeight)
+__global__ void denoise(GBufferPixel* gBuffer, Camera cam, glm::vec3* image, glm::vec3* image_denoise, int level, float colorWeight, float normalWeight, float positionWeight, float* kernel)
 {
-    //TODO: Test fastest way
-    float kernel_25[25] = { 1.0f / 256.0f ,  1.0f / 64.0f , 3.0f / 128.0f , 1.0f / 64.0f , 1.0f / 256.0f,
-    1.0f / 64.0f , 1.0f / 16.0f , 3.0f / 32.0f , 1.0f / 16.0f , 1.0f / 64.0f,
-    3.0f / 128.0f , 3.0f / 32.0f , 9.0f / 64.0f , 3.0f / 32.0f , 3.0f / 128.0f,
-    1.0f / 64.0f , 1.0f / 16.0f , 3.0f / 32.0f , 1.0f / 16.0f , 1.0f / 64.0f,
-    1.0f / 256.0f , 1.0f / 64.0f , 3.0f / 128.0f , 1 / 64.0f , 1.0f / 256.0f };
-    float kernel[5] = { 1.f / 16.f, 1.f / 4.f, 3.f / 8.f, 1.f / 4.f , 1.f / 16.f };
     int x_o = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y_o = (blockIdx.y * blockDim.y) + threadIdx.y;
     int origin_index = x_o + (y_o * cam.resolution.x);
@@ -472,7 +466,7 @@ __global__ void denoise(GBufferPixel* gBuffer, Camera cam, glm::vec3* image, flo
                 {
                     //Cap weights at 1.0 per paper
                     int index = (x + (y * cam.resolution.x));
-                    float kernel_weight = kernel[i] * kernel[j];
+                    float kernel_weight = kernel[i+j *5];
                     glm::vec3 t = image[origin_index] - image_denoise[index];
                     float c_w = min(exp(-glm::dot(t, t) / (colorWeight)),1.0f);
                     t = gBuffer[origin_index].normal - gBuffer[index].normal;
@@ -600,11 +594,15 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		sortMaterials(dev_intersections, dev_paths, running_paths);
 #endif
 	  if (depth == 0) {
+		auto start = chrono::high_resolution_clock::now();
 		generateGBuffer<<<numblocksPathSegmentTracing, blockSize1d>>>(running_paths, dev_intersections, dev_paths, dev_gBuffer);
+		auto end = chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+		std::cout << "Generate gBUffer took: " << duration.count() << "micros " << std::endl;
+
 	  }
 	  depth++;
 
-	// TODO:
 	// --- Shading Stage ---
 	// Shade path segments based on intersections and generate new rays by
   // evaluating the BSDF.
@@ -641,6 +639,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 }
 void runDenoiser(int filterSize, float colorWeight, float normalWeight, float positionWeight)
 {
+	auto start = chrono::high_resolution_clock::now();
     const Camera& cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
 
@@ -650,17 +649,23 @@ void runDenoiser(int filterSize, float colorWeight, float normalWeight, float po
         (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
     //Avoid negative values
     int denoise_interations = filterSize < 5 ? 0 : log2((filterSize / 5.0f));
-    std::cout << denoise_interations << std::endl;;
     cudaMemcpy(dev_image_denoise, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
     cudaMemcpy(dev_image_denoise_ping_pong, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
-    int num_paths = 0;
     for (int sweep = 0; sweep < denoise_interations; sweep++)
     {
         std::swap(dev_image_denoise, dev_image_denoise_ping_pong);
-        denoise << < blocksPerGrid2d, blockSize2d >> > (dev_gBuffer, cam, dev_image_denoise, dev_kernel, dev_image_denoise_ping_pong, sweep, colorWeight * colorWeight, normalWeight * normalWeight, positionWeight * positionWeight);
+        denoise << < blocksPerGrid2d, blockSize2d >> > (dev_gBuffer, cam, dev_image_denoise, dev_image_denoise_ping_pong, sweep, colorWeight * colorWeight, normalWeight * normalWeight, positionWeight * positionWeight, dev_kernel);
         cudaDeviceSynchronize();
     }
-    checkCUDAError("denoise");
+	auto end = chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	std::cout << "Iterations: " << denoise_interations << std::endl;
+	std::cout << "Denoiser took: " << duration.count() << "micros " << std::endl;
+	cudaMemcpy(hst_scene->state.denoise_image.data(), dev_image_denoise,
+		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+    
+	checkCUDAError("denoise");
+
 
 }
 
