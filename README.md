@@ -32,14 +32,30 @@ The following renders are base on 100 iterations.
 
 From the rendering above, we can see that with only A-tour implemented, the whole image is blurred out by our denoiser, which is not the denoising result we expect. To keep the denoised edges clear, we store the position, normal and albedo (color) information in the G-Buffer. In general, if the values of these attributes change dramatically between 2 pixels, we assume that an edge is present.  In the third figure, we can see that after implementing the G-Buffer, the edges of the sphere, the junction of the left and right walls with the floor and ceiling are not blurred anymore. For different scenes, we can also tune the weight for each properties to get a better denoised result.
 
+## Performance Analysis
+
+### Denoise quality vs. Filter size
+| Filter size = 40 | Filter size = 80 | Filter size = 160 |
+|---|---|---|
+| ![fs_40](https://user-images.githubusercontent.com/33616958/197314839-2792f1a7-17ed-45f8-b023-8857352f7405.png) | ![fs_80](https://user-images.githubusercontent.com/33616958/197314849-35d55c99-473c-4ff1-bf3f-81b83c2a9233.png) | ![fs_160](https://user-images.githubusercontent.com/33616958/197314856-686ec6de-159c-4b93-8291-724a74dc8fc4.png) |
+
+Although increasing the size of the filter improves the effectiveness of our denoiser, the visual quality does not scale uniformly with the size of the filter. In my tests, when I scaled the filter size to 200 and above, the final denoising result was almost the same as when the filter size was equal to 160.
+
+### Denoise quality vs. Different material type
+| raw image | denoised image|
+|--|--|
+|![cornell 2022-10-22_02-40-43z 100samp](https://user-images.githubusercontent.com/33616958/197315971-1e56e9f0-4d23-47fe-a50e-b0b27ca40a5a.png)|![cornell 2022-10-22_02-38-38z 100samp](https://user-images.githubusercontent.com/33616958/197315967-1c470038-5c00-4dad-aee7-0d8f8cf519c1.png)|
+
+The materials of the three spheres are refraction, pure reflection and diffuse from left to right. According to the denoising results, our denoiser has the best compatibility with diffuse materials under the same parameter Settings, and can smooth the surface of the sphere to a more ideal result even with a smaller filter size and a smaller number of iterations. However, for purely reflective materials, we can see that even if we implement the edge-voiding denoising algorithm, the edge of the reflected scene in the sphere will still be blurred. This is because for the scene reflected from the surface of the sphere, the positions and normals of the corresponding pixels are continuous on the sphere, which reduces the effect of the edge detection algorithm. For refractive materials, denoising will not only blur the scene edges refracted by the surface, but also change the appearance of the original material.
+
+
+
 ### Small light source vs. large light source
 |small light source | large light source|
 |--|--|
 |![cornell 2022-10-22_00-46-15z 100samp](https://user-images.githubusercontent.com/33616958/197309832-c7f31d90-70a7-4963-ba0b-9171f971b80b.png)|![cornell 2022-10-22_00-44-51z 100samp](https://user-images.githubusercontent.com/33616958/197309666-ff18f840-c93c-4d17-8736-a5d329362ee4.png) |
 
 The amount of light in the scene is another factor that can affect the effectiveness of our denoiser. Both images above are rendered with the same filter size (=80), number of iterations (=100) and G-Buffer weights, and we can see that the denoiser can provide less noisy results in the second scene. I think this is because for the same number of iterations, our scene can converge faster with a larger light source because the light ray has a higher probability of hitting the light source.
-
-## Performance Analysis
 
 ### Time vs. Resolution
 ![PA_time_vs_resolution](https://user-images.githubusercontent.com/33616958/197292266-36120899-5396-4cbf-b83b-f097fc451459.png)
@@ -54,7 +70,7 @@ We can see from the results above that the denoising time in general increases l
 ### Time vs. Iterations
 ![PA_time_vs_iter](https://user-images.githubusercontent.com/33616958/197292287-66688b4c-6b56-41bd-9e80-0c1448325591.png)
 
-As we can see from the above results, while the overall iteration time of our path tracer increases linearly with the number of iterations, the running time of denoiser remains roughly constant. From the paper we can learn that the time complexity of the A-tour algorithm is depend on filter size and scene resolution (number of pixels), but not to the properties of the pixels themselves. Therefore, the result is in line with our expectation.
+As we can see from the above results, while the overall iteration time of our path tracer increases linearly with the number of iterations, the running time of denoiser remains roughly constant (about 12 ms). From the paper we can learn that the time complexity of the A-tour algorithm is depend on filter size and scene resolution (number of pixels), but not to the properties of the pixels themselves. Therefore, the result is in line with our expectation.
 
 ## Blooper
 
