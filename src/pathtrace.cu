@@ -16,6 +16,12 @@
 
 #define ERRORCHECK 1
 
+//#define DISPLAY_POSITION
+//#define DISPLAY_NORMAL
+//#define DISPLAY_DEPTH
+
+#define WAVELET
+
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
 void checkCUDAErrorFn(const char *msg, const char *file, int line) {
@@ -73,17 +79,33 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
 
     if (x < resolution.x && y < resolution.y) {
         int index = x + (y * resolution.x);
-        float timeToIntersect = gBuffer[index].t * 256.0;
+        //float timeToIntersect = gBuffer[index].t * 256.0;
 
         pbo[index].w = 0;
-        pbo[index].x = timeToIntersect;
-        pbo[index].y = timeToIntersect;
-        pbo[index].z = timeToIntersect;
+#ifdef DISPLAY_NORMAL
+        pbo[index].x = ((gBuffer[index].nor.x + 1.0f) * 0.5f) * 255.0f;
+        pbo[index].y = ((gBuffer[index].nor.y + 1.0f) * 0.5f) * 255.0f;
+        pbo[index].z = ((gBuffer[index].nor.z + 1.0f) * 0.5f) * 255.0f;
+#endif
+
+#ifdef DISPLAY_POSITION
+        pbo[index].x = glm::abs(gBuffer[index].pos.x) * 0.1f * 255.0f;
+        pbo[index].y = glm::abs(gBuffer[index].pos.y) * 0.1f * 255.0f;
+        pbo[index].z = glm::abs(gBuffer[index].pos.z) * 0.1f * 255.0f;
+#endif
+
+#ifdef DISPLAY_DEPTH
+        pbo[index].x = glm::abs(gBuffer[index].t) * 0.1f * 255.0f;
+        pbo[index].y = glm::abs(gBuffer[index].t) * 0.1f * 255.0f;
+        pbo[index].z = glm::abs(gBuffer[index].t) * 0.1f * 255.0f;
+#endif
     }
 }
 
 static Scene * hst_scene = NULL;
 static glm::vec3 * dev_image = NULL;
+static glm::vec3* dev_image_denoised_a = NULL;
+static glm::vec3* dev_image_denoised_b = NULL;
 static Geom * dev_geoms = NULL;
 static Material * dev_materials = NULL;
 static PathSegment * dev_paths = NULL;
@@ -92,6 +114,25 @@ static GBufferPixel* dev_gBuffer = NULL;
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
 
+// values from
+// https://www.eso.org/sci/software/esomidas/doc/user/18NOV/volb/node317.html
+
+const float h_kernel[25] = {    1.0f / 256.0f, 1.0f / 64.0f, 3.0f / 128.0f, 1.0f / 64.0f, 1.0f / 256.0f,
+                                1.0 / 64.0f, 1.0f / 16.0f, 3.0 / 32.0f, 1.0f / 16.0f, 1.0f / 64.0f,
+                                3.0f / 128.0f, 3.0f / 32.0f, 9.0f / 64.0f, 3.0f / 32.0f, 3.0f / 128.0f,
+                                1.0 / 64.0f, 1.0f / 16.0f, 3.0 / 32.0f, 1.0f / 16.0f, 1.0f / 64.0f,
+                                1.0f / 256.0f, 1.0f / 64.0f, 3.0f / 128.0f, 1.0f / 64.0f, 1.0f / 256.0f};
+
+static float* dev_h_kernel = NULL;
+
+const glm::ivec2 h_kernel_offsets[25] = {   glm::ivec2(-2,-2), glm::ivec2(-1,-2), glm::ivec2(0,-2), glm::ivec2(1,-2), glm::ivec2(2,-2),
+                                            glm::ivec2(-2,-1), glm::ivec2(-1,-1), glm::ivec2(0,-1), glm::ivec2(1,-1), glm::ivec2(2,-1),
+                                            glm::ivec2(-2,0), glm::ivec2(-1,0), glm::ivec2(0,0), glm::ivec2(1,0), glm::ivec2(2,0),
+                                            glm::ivec2(-2,1), glm::ivec2(-1,1), glm::ivec2(0,1), glm::ivec2(1,1), glm::ivec2(2,1),
+                                            glm::ivec2(-2,2), glm::ivec2(-1,2), glm::ivec2(0,2), glm::ivec2(1,2), glm::ivec2(2,2) };
+
+static glm::ivec2* dev_h_kernel_offsets = NULL;
+
 void pathtraceInit(Scene *scene) {
     hst_scene = scene;
     const Camera &cam = hst_scene->state.camera;
@@ -99,6 +140,12 @@ void pathtraceInit(Scene *scene) {
 
     cudaMalloc(&dev_image, pixelcount * sizeof(glm::vec3));
     cudaMemset(dev_image, 0, pixelcount * sizeof(glm::vec3));
+
+    cudaMalloc(&dev_image_denoised_a, pixelcount * sizeof(glm::vec3));
+    cudaMemset(dev_image_denoised_a, 0, pixelcount * sizeof(glm::vec3));
+
+    cudaMalloc(&dev_image_denoised_b, pixelcount * sizeof(glm::vec3));
+    cudaMemset(dev_image_denoised_b, 0, pixelcount * sizeof(glm::vec3));
 
   	cudaMalloc(&dev_paths, pixelcount * sizeof(PathSegment));
 
@@ -113,6 +160,12 @@ void pathtraceInit(Scene *scene) {
 
     cudaMalloc(&dev_gBuffer, pixelcount * sizeof(GBufferPixel));
 
+    cudaMalloc(&dev_h_kernel, 25 * sizeof(float));
+    cudaMemcpy(dev_h_kernel, h_kernel, 25 * sizeof(float), cudaMemcpyHostToDevice);
+
+    cudaMalloc(&dev_h_kernel_offsets, 25 * sizeof(glm::ivec2));
+    cudaMemcpy(dev_h_kernel_offsets, h_kernel_offsets, 25 * sizeof(glm::ivec2), cudaMemcpyHostToDevice);
+
     // TODO: initialize any extra device memeory you need
 
     checkCUDAError("pathtraceInit");
@@ -120,11 +173,15 @@ void pathtraceInit(Scene *scene) {
 
 void pathtraceFree() {
     cudaFree(dev_image);  // no-op if dev_image is null
+    cudaFree(dev_image_denoised_a);
+    cudaFree(dev_image_denoised_b);
   	cudaFree(dev_paths);
   	cudaFree(dev_geoms);
   	cudaFree(dev_materials);
   	cudaFree(dev_intersections);
     cudaFree(dev_gBuffer);
+    cudaFree(dev_h_kernel);
+    cudaFree(dev_h_kernel_offsets);
     // TODO: clean up any extra device memory you created
 
     checkCUDAError("pathtraceFree");
@@ -282,6 +339,8 @@ __global__ void generateGBuffer (
   if (idx < num_paths)
   {
     gBuffer[idx].t = shadeableIntersections[idx].t;
+    gBuffer[idx].nor = shadeableIntersections[idx].surfaceNormal;
+    gBuffer[idx].pos = pathSegments[idx].ray.origin + pathSegments[idx].ray.direction * shadeableIntersections[idx].t;
   }
 }
 
@@ -417,6 +476,8 @@ void showGBuffer(uchar4* pbo) {
             (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
             (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
+
+
     // CHECKITOUT: process the gbuffer results and send them to OpenGL buffer for visualization
     gbufferToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, dev_gBuffer);
 }
@@ -431,3 +492,153 @@ const Camera &cam = hst_scene->state.camera;
     // Send results to OpenGL buffer for rendering
     sendImageToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, iter, dev_image);
 }
+
+#ifdef WAVELET
+
+// implements the a trous (ratatouille) filter
+__global__ void denoiseRatatouille(glm::ivec2 resolution, int iter, float* h_kernel, glm::ivec2* h_kernel_offsets, int iter_offset, float sigma_p_sq, float sigma_n_sq, float sigma_rt_sq, GBufferPixel* gBuffer, glm::vec3* image, glm::vec3* image_denoised) {
+    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+    if (x < resolution.x && y < resolution.y) {
+        glm::vec3 color_accum = glm::vec3(0, 0, 0);
+        int x_image;
+        int y_image;
+        int kernel_index;
+        glm::ivec2 kernel_offset;
+        float kernel_val;
+        
+        glm::vec3 input_color = image[x + (y * resolution.x)];
+        GBufferPixel input_gBuffer = gBuffer[x + (y * resolution.x)];
+        glm::vec3 buffer_diff;
+        float squared_distance;
+        float w_rt;
+        float w_n;
+        float w_p;
+        float total_weight;
+        float w_accum = 0.0f;
+
+
+        for (int i = 0; i < 25; ++i) {
+            kernel_offset = h_kernel_offsets[i] * iter_offset;
+            kernel_val = h_kernel[i];
+
+            x_image = glm::clamp(x + kernel_offset.x, 0, resolution.x - 1);
+            y_image = glm::clamp(y + kernel_offset.y, 0, resolution.y - 1);
+
+            buffer_diff = input_gBuffer.pos - gBuffer[x_image + (y_image * resolution.x)].pos;
+            squared_distance = glm::dot(buffer_diff, buffer_diff);
+            w_p = glm::min(glm::exp(-(squared_distance) / sigma_p_sq), 1.0f);
+
+            buffer_diff = input_gBuffer.nor - gBuffer[x_image + (y_image * resolution.x)].nor;
+            squared_distance = glm::max(glm::dot(buffer_diff, buffer_diff) / ((float)(iter_offset * iter_offset)), 0.0f);
+            w_n = glm::min(glm::exp(-(squared_distance) / sigma_n_sq), 1.0f);
+
+            buffer_diff = input_color - image[x_image + (y_image * resolution.x)];
+            squared_distance = glm::dot(buffer_diff, buffer_diff);
+            w_rt = glm::min(glm::exp(-(squared_distance) / sigma_rt_sq), 1.0f);
+
+            
+
+            total_weight = w_p * w_n * w_rt;
+
+            color_accum += total_weight * kernel_val * image[x_image + (y_image * resolution.x)];
+            w_accum += total_weight * kernel_val;
+        }
+        
+        image_denoised[x + (y * resolution.x)] = color_accum / w_accum;
+    }
+}
+
+
+void denoiseAndShowImage(uchar4* pbo, int iter, DenoiseParams denoise_params) {
+    if (denoise_params.denoise) {
+        const Camera& cam = hst_scene->state.camera;
+        const dim3 blockSize2d(8, 8);
+        const dim3 blocksPerGrid2d(
+            (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+            (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+
+        
+        
+        cudaMemcpy(dev_image_denoised_a, dev_image, cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
+        
+        int iter_offset = 1;
+        
+        for (int i = 0; i < denoise_params.denoise_iterations; ++i) {
+            denoiseRatatouille << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, iter, dev_h_kernel, dev_h_kernel_offsets, iter_offset, denoise_params.sigma_p * denoise_params.sigma_p, denoise_params.sigma_n * denoise_params.sigma_n, denoise_params.sigma_rt * denoise_params.sigma_rt, dev_gBuffer, dev_image_denoised_a, dev_image_denoised_b);
+            if (i < denoise_params.denoise_iterations - 1) {
+                glm::vec3* temp = dev_image_denoised_b;
+                dev_image_denoised_b = dev_image_denoised_a;
+                dev_image_denoised_a = temp;
+            }
+            iter_offset *= 2;
+            denoise_params.sigma_rt /= (float)iter_offset;
+        }
+
+
+        // Send results to OpenGL buffer for rendering
+        sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image_denoised_b);
+        
+    }
+    
+}
+
+#else
+// implements the a trous (ratatouille) filter
+__global__ void denoiseRatatouille(glm::ivec2 resolution, int iter, float* h_kernel, glm::ivec2* h_kernel_offsets, int iter_offset, GBufferPixel* gBuffer, glm::vec3* image, glm::vec3* image_denoised) {
+    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+    if (x < resolution.x && y < resolution.y) {
+        glm::vec3 color_accum = glm::vec3(0, 0, 0);
+        int x_image;
+        int y_image;
+        int kernel_index;
+        glm::ivec2 kernel_offset;
+#pragma unroll
+        for (int i = 0; i < 25; ++i) {
+            kernel_offset = h_kernel_offsets[i] * iter_offset;
+
+            x_image = glm::clamp(x + kernel_offset.x, 0, resolution.x - 1);
+            y_image = glm::clamp(y + kernel_offset.y, 0, resolution.y - 1);
+            color_accum += h_kernel[i] * image[x_image + (y_image * resolution.x)];
+        }
+
+        image_denoised[x + (y * resolution.x)] = color_accum;
+    }
+}
+
+void denoiseAndShowImage(uchar4* pbo, int iter, DenoiseParams denoise_params) {
+    if (denoise_params.denoise) {
+        const Camera& cam = hst_scene->state.camera;
+        const dim3 blockSize2d(8, 8);
+        const dim3 blocksPerGrid2d(
+            (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+            (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+
+        PerformanceTimer perf_timer;
+        perf_timer.startGpuTimer();
+        cudaMemcpy(dev_image_denoised_a, dev_image, cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
+
+        int iter_offset = 1;
+        for (int i = 0; i < denoise_params.denoise_iterations; ++i) {
+            denoiseRatatouille << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, iter, dev_h_kernel, dev_h_kernel_offsets, iter_offset, dev_gBuffer, dev_image_denoised_a, dev_image_denoised_b);
+            if (i < denoise_params.denoise_iterations - 1) {
+                glm::vec3* temp = dev_image_denoised_b;
+                dev_image_denoised_b = dev_image_denoised_a;
+                dev_image_denoised_a = temp;
+            }
+            iter_offset *= 2;
+
+        }
+
+
+        // Send results to OpenGL buffer for rendering
+        sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image_denoised_b);
+        perf_timer.endGpuTimer();
+        std::cout << perf_timer.getGpuElapsedTimeForPreviousOperation() << std::endl;
+    }
+
+}
+#endif

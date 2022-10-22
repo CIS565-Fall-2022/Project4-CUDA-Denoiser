@@ -24,10 +24,14 @@ int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
-int ui_filterSize = 80;
-float ui_colorWeight = 0.45f;
-float ui_normalWeight = 0.35f;
-float ui_positionWeight = 0.2f;
+int ui_filterIterations= 10;
+int lastFilterIterations = 10;
+float ui_colorWeight = 150.0f;
+float lastColorWeight = 150.0f;
+float ui_normalWeight = 0.061f;
+float lastNormalWeight = 0.061f;
+float ui_positionWeight = 3.049f;
+float lastPositionWeight = 3.049f;
 bool ui_saveAndExit = false;
 
 static bool camchanged = true;
@@ -44,6 +48,10 @@ int iteration;
 
 int width;
 int height;
+
+bool denoise = true;
+float time_taken_pathtrace = 0.0f;
+float time_taken_denoise = 0.0f;
 
 //-------------------------------
 //-------------MAIN--------------
@@ -126,6 +134,23 @@ void runCuda() {
       camchanged = true;
     }
 
+    if (lastColorWeight != ui_colorWeight) {
+        lastColorWeight = ui_colorWeight;
+        denoise = true;
+    }
+    if (lastNormalWeight != ui_normalWeight) {
+        lastNormalWeight = ui_normalWeight;
+        denoise = true;
+    }
+    if (lastPositionWeight != ui_positionWeight) {
+        lastPositionWeight = ui_positionWeight;
+        denoise = true;
+    }
+    if (lastFilterIterations != ui_filterIterations) {
+        lastFilterIterations = ui_filterIterations;
+        denoise = true;
+    }
+
     if (camchanged) {
         iteration = 0;
         Camera &cam = renderState->camera;
@@ -144,6 +169,8 @@ void runCuda() {
         cameraPosition += cam.lookAt;
         cam.position = cameraPosition;
         camchanged = false;
+        denoise = true;
+        time_taken_pathtrace = 0.0f;
       }
 
     // Map OpenGL buffer object for writing from CUDA on a single GPU
@@ -154,6 +181,7 @@ void runCuda() {
         pathtraceInit(scene);
     }
 
+    
     uchar4 *pbo_dptr = NULL;
     cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
 
@@ -162,12 +190,35 @@ void runCuda() {
 
         // execute the kernel
         int frame = 0;
+        PerformanceTimer perf_timer;
+        perf_timer.startGpuTimer();
         pathtrace(frame, iteration);
+        perf_timer.endGpuTimer();
+        time_taken_pathtrace += perf_timer.getGpuElapsedTimeForPreviousOperation();
+
     }
 
     if (ui_showGbuffer) {
       showGBuffer(pbo_dptr);
-    } else {
+    }
+    else if (iteration == ui_iterations) {
+        
+        PerformanceTimer perf_timer;
+        perf_timer.startGpuTimer();
+        DenoiseParams denoise_params{ denoise, ui_positionWeight, ui_normalWeight, ui_colorWeight, ui_filterIterations };
+        denoiseAndShowImage(pbo_dptr, iteration, denoise_params);
+        perf_timer.endGpuTimer();
+        if (denoise == true) {
+            std::cout << time_taken_pathtrace << std::endl;
+            time_taken_denoise = perf_timer.getGpuElapsedTimeForPreviousOperation();
+            std::cout <<  time_taken_denoise << std::endl;
+        }
+        
+        //showImage(pbo_dptr, iteration);
+        denoise = false;
+        //iteration++;
+    }
+    else {
       showImage(pbo_dptr, iteration);
     }
 
