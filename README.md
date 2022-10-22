@@ -18,9 +18,9 @@ This project implements a **CUDA denoiser** based on the following paper: ["Edge
 The A-Trous Wavelet filter is first implemented without any data weighting to achieve a simple blur effect. The result is compared to a Gaussian blur filter.
 There are some artifacts in this implementation most noticeable around the edges of the image. However, for the most part the blur effect is achieved properly and indicates that the wavelet kernel is working well.
 
-Original                   |  Gaussian                 |  Photoshop              |
-:-------------------------:|:-------------------------:|:-----------------------:|
-![](img/unDenoise.JPG)     |  ![](img/simpleBlur.JPG)  | ![](img/simpleBlur.JPG) |
+Original                   |  Gaussian                 
+:-------------------------:|:-------------------------:
+![](img/unDenoise.JPG)     |  ![](img/simpleBlur.JPG)  
 
 ### G-Buffer
 
