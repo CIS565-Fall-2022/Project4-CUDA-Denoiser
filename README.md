@@ -81,3 +81,20 @@ We can see that the visual quality improve when we use more iterations. However,
 | ![](./img/visual_filter_size/f80.png)  | ![](./img/visual_filter_size/f200.png) | ![](./img/visual_filter_size/f400.png) |
 
 You can see that the visual quality improve while increasing the filter size. The surface of the objects are smoother when filter size is larger. However, there is a limit for the filter size. When the filter size is larger than 80 x 80, the visual improvement is no longer exist. That means the visual quality does not scale uniformly with the filter size.
+
+## Visual Effect with Different Material
+
+| Material Type | Before | After |
+| :--------------------------: | :-------------------: |  :-------------------: | 
+| Diffuse  | ![](./img/material/diffuse.png) | ![](./img/material/diffuseDenoise.png) |
+| Specular  | ![](./img/before.png) | ![](./img/after.png) |
+
+We can see that the denoise effect is better on diffuse object than specular objects. The contour of the specular is blured after denoise.
+
+## Visual Effect with Different Scenes
+| Light Source | 100 iteration | 1000 iteration |
+| :--------------------------: | :-------------------: |  :-------------------: | 
+| Small Light Source  | ![](./img/NewScene/cornell.2022-10-22_23-49-30z.101.1samp.png) | ![](./img/NewScene/cornell.2022-10-22_23-49-30z.1026.3samp.png) |
+| Large Light Source  | ![](./img/after.png) | ![](./img/NewScene/Large.png) |
+
+We can see that for 100 iteration, large light source has better denoised result. This is because before denoise, small light source has a more noisy image. Therefore, too many noise in the image result in a poor denoiser effect. However, when the image converge after 1000 iteration, the denoiser effect become better.
