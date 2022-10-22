@@ -126,12 +126,29 @@ sample-per-pixel is only 20, with a very high color weight.
 | ----------- | ----------- |  ----------- |
 | ![](img/results/matcom_1iter.PNG)      |   ![](img/results/matcomp_denoised.PNG)     | ![](img/results/matcomp_5000iter.PNG) |
 
+As can be seen from the comparison above, the denoising algorithm actually struggles a bit with specular
+materials. While the edge detection handles the edges of the specular material quite well, the
+reflection on the surface appears rough and more like a microfacet material. This also does not
+go completely away until hundreds of iterations of path tracing are generated. Unlike the
+specular surface, the diffuse surface already scatters light in all directions randomly, so
+the smudging and blurring is MUCH less apparant. At one iteration and denoised the sphere
+almost looks good enough to consider converged.
+
 ### Different Scenes
 
 |  | 1 Iteration  | 100 Iterations |
 | ----------- | ----------- | ----------- |
 | Smaller Ceiling Light     |   ![](img/results/cornell_1iter_denoised.PNG)     | ![](img/results/cornell_100iter_denoised.PNG) |
 | Larger Ceiling Light     |   ![](img/results/iteration_1_denoised.PNG)     | ![](img/results/iteration_100_denoised.PNG) |
+
+As can be seen above, the denoising algorithm struggles a lot more with the smaller light scene
+than the larger light scene. This is because the smaller light scene will naturally sample the
+light less times than the one with a larger light, because it is much more likely to hit the
+larger light while sending a ray in a random direction. This of course impacts the denoising,
+because at lower path-tracing iterations, this will mean more pixels are black, and also
+there will be much more variance between pixels. Both of these are bad for blurring, because
+blurring requires there to be at least some minimum amount of useful information to use
+without looking splotchy (almost like low iteration photon mapping).
 
 ## Performance Analysis
 
@@ -206,3 +223,14 @@ As can be seen from the figure above, the runtime of the denoising algorithm inc
 quadratically with increased resolution (where width and height are the same). This is what we
 expect. Although the kernel size is constant for all of these data points, the number of pixels
 the GPU needs to run the code on increases quadratically as well.
+
+## References
+
+## Performance Analysis
+
+Edge-Avoiding A-Trous Wavelet Transform for fast Global Illumination Filtering:
+
+Paper: https://jo.dreggn.org/home/2010_atrous.pdf
+
+Presentation: https://www.highperformancegraphics.org/previous/www_2010/media/RayTracing_I/HPG2010_RayTracing_I_Dammertz.pdf
+
