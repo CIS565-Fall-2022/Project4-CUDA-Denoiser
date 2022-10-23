@@ -15,10 +15,10 @@ One major problem with Path tracing is that the completed image can often be noi
 In this project, I implemented an Edge-avoiding A-Trous Wavelet Transform filter for noisy path-traced images. The input to this function is a complete path-traced image, and the output is a denoised version of the image where large blocks of the same color will see less black specks. 
 
 | Original 1 Iteration   | Denoised 1 Iteration |
-| ----------- | ----------- |  ----------- |
+| ----------- | ----------- | 
 | ![](img/nodenoise1.png)      |   ![](img/denoise1.png)     |
 | Original 100 Iteration   | Denoise 100 Iterations | 
-| ----------- | ----------- |  ----------- |
+| ----------- | ----------- |
 | ![](img/nodenoise100.png)      |   ![](img/denoise100.png)  |
 
 ## Core Features
