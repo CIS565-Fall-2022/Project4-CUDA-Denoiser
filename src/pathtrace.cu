@@ -161,7 +161,6 @@ static glm::vec3* dev_denoise_temp = NULL;
 
 #if TIMER
 cudaEvent_t start, stop;
-int timerCount = 0;
 float totaltime = 0.f;
 #endif
 
@@ -172,6 +171,11 @@ void InitDataContainer(GuiDataContainer* imGuiData)
 }
 
 void pathtraceInit(Scene* scene) {
+#if TIMER
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+#endif
+
 	hst_scene = scene;
 
 	const Camera& cam = hst_scene->state.camera;
@@ -209,6 +213,13 @@ void pathtraceInit(Scene* scene) {
 }
 
 void pathtraceFree() {
+#if TIMER
+	if (start != NULL)
+		cudaEventDestroy(start);
+	if (stop != NULL)
+		cudaEventDestroy(stop);
+#endif
+
 	cudaFree(dev_image);  // no-op if dev_image is null
 	cudaFree(dev_paths);
 	cudaFree(dev_geoms);
@@ -834,6 +845,7 @@ void showImage(uchar4* pbo, int iter) {
 	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
 }
 
+// adapted from slides code
 __global__ void ATrousFilter(glm::ivec2 resolution, glm::vec3* inColorBuffer, glm::vec3* outFragBuffer,
 	GBufferPixel* gbuffer, float c_phi, float n_phi, float p_phi, float stepwidth) {
 	int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -925,14 +937,12 @@ void applyDenoise(float c_phi, float n_phi, float p_phi, float filtersize, int i
 #if TIMER
 	cudaEventRecord(stop);
 	cudaEventSynchronize(stop);
-	float t;
-	cudaEventElapsedTime(&t, start, stop);
-	totaltime += t;
-	timerCount++;
-	if (timerCount > 30)
-	{
-		std::cout << "DENOISE TIME: " << totaltime / (float)timerCount << std::endl;
-	}
+	float time;
+	cudaEventElapsedTime(&time, start, stop);
+	totaltime += time;
+	
+	std::cout << "DENOISE TIME: " << totaltime << std::endl;
+	
 #endif
 
 	// Retrieve image from GPU
