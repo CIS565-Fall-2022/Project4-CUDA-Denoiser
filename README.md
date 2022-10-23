@@ -89,7 +89,7 @@ Here I've rendered the same scene with different filter sizes to illustrate the 
 
 | Filter Size | 1 | 2 | 3 | 4 | 8 |
 | :------- | :-------: | :-------: | :------- | :-------: | :-------: |
-| Scene | <img src="img/filtersize1.png"> | <img src="img/filtersize2.png"> | <img src="img/filtersize3.png"> | <img src="img/filtersize4.png"> | <img src="img/filtersize8.png"> |
+| Scene | <img src="img/flitersize1.png"> | <img src="img/flitersize2.png"> | <img src="img/flitersize3.png"> | <img src="img/flitersize4.png"> | <img src="img/flitersize8.png"> |
 
 As we can see here, one of the limitations of this approach is loss of data when it comes to specular surfaces or refractive surfaces, although this can be potentially counteracted by making more bounces for specular materials until we reach a diffuse surface. Of course if the surface is imperfect specular there's no need to do that as the result won't vary that much.
 
