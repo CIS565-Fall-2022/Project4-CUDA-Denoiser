@@ -53,7 +53,7 @@ Now that we have information from blur and the GBuffer, I followed the implement
 
 Like Gaussian blur, we will use a kernel of weights to average out each neighboring pixel's contribution. However, we will also "expand" the kernel by applying these kernel values to gradually further and further apart neighbors, as shown in the diagram below:
 
-
+![](img/atrousDescription.png)
 
 I added a new function that would show the denoised version of the image rather than the original image. This function only gets called when the number of pathtrace calls has reached its limit. This function will take as an input the final rendered result of the scene. Each pixel will expand its kernel over a set size (filter size) to add and average these neighboring pixels based on weights from the kernel. 
 
