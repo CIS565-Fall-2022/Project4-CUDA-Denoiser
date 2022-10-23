@@ -234,8 +234,14 @@ void RenderImGui(int windowWidth, int windowHeight)
 	
 	ImGui::Separator();
 
-	if (ImGui::Button("Save image and exit")) {
-		ui_saveAndExit = true;
+	ImGui::Checkbox("Save Denoised Image", &ui_saveDenoised);
+
+	if (ImGui::Button("Save Image")) {
+		ui_save = true;
+	}
+	
+	if (ImGui::Button("Exit")) {
+		ui_exit = true;
 	}
 
 	ImGui::End();

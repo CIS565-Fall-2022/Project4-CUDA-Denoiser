@@ -511,31 +511,63 @@ __global__ void atrousDenoise(glm::vec3* image,
 	glm::vec3* denoised, 
 	GBufferPixel* gBuffer, 
 	glm::ivec2 resolution, 
-	int stride) 
+	float c_phi, float p_phi, 
+	float n_phi, int stride)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
 	if (x < resolution.x && y < resolution.y) {
-		float kernel[25];
-		for (int i = 0; i < 5; i++) {
-			for (int j = 0; j < 5; j++) {
-				kernel[j * 5 + i] = generator[i] * generator[j];
-			}
-		}
-		glm::vec3 sum;
-		int kern_i = 0;
-		for (int i = x - 2 * stride; i <= x + 2 * stride; i += stride) {
-			int kern_j = 0;
-			for (int j = y - 2 * stride; j <= y + 2 * stride; j += stride) {
-				if (i < resolution.x && i >= 0 && j < resolution.y && j >= 0) {
-					sum += image[j * resolution.x + i] * kernel[kern_i + kern_j * 5];
+		
+		float stepwidth;
+		glm::vec3 blurredVal;
+
+		float wTotal = 0.f;
+		glm::vec3 cval, nval, pval;
+		glm::vec2 step = glm::vec2(1.f / resolution.x, 1.f / resolution.y);
+
+		int idx = y * resolution.x + x;
+
+		cval = gBuffer[idx].col;
+		nval = gBuffer[idx].nor;
+		pval = gBuffer[idx].pos;
+
+		float cum_v = 0.f;
+		for (int i = -2; i <= 2; i++) {
+			for (int j = -2; j <= 2; j++) {
+				glm::ivec2 kernelCoords = glm::vec2(i + 2, j + 2);
+				glm::ivec2 imageCoords = glm::vec2(x + i * stride, y + j * stride);
+
+				int sampleIdx = imageCoords.y * resolution.x + imageCoords.x;
+
+				float kernel = generator[kernelCoords.x] * generator[kernelCoords.y];
+				if (imageCoords.x < resolution.x && 
+					imageCoords.y < resolution.y && 
+					imageCoords.x >= 0 && 
+					imageCoords.y >= 0) 
+				{
+					glm::vec3 t = cval - gBuffer[sampleIdx].col;
+					float dist2 = glm::dot(t, t);
+					float cW = c_phi > 0.f ? glm::min(glm::exp(-dist2 / c_phi), 1.f) : 1.f;
+
+					t = nval - gBuffer[sampleIdx].nor;
+					dist2 = glm::dot(t, t);
+					float nW = n_phi > 0.f ? glm::min(glm::exp(-dist2 / n_phi), 1.f) : 1.f;
+
+					t = pval - gBuffer[sampleIdx].pos;
+					dist2 = glm::dot(t, t);
+					float pW = p_phi > 0.f ? glm::min(glm::exp(-dist2 / p_phi), 1.f) : 1.f;
+
+					float weight = cW * pW * nW * kernel;
+
+					wTotal += weight;
+
+					blurredVal += image[sampleIdx] * weight;
 				}
-				kern_j++;
+
 			}
-			kern_i++;
 		}
-		denoised[x + y * resolution.x] = sum;
+		denoised[idx] = blurredVal / wTotal;
 	}
 }
 
@@ -728,8 +760,14 @@ void pathtrace(int frame, int iter) {
 	///////////////////////////////////////////////////////////////////////////
 
 	// Retrieve image from GPU
-	cudaMemcpy(hst_scene->state.image.data(), dev_image,
-		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+	if (ui_saveDenoised) {
+		cudaMemcpy(hst_scene->state.image.data(), dev_denoised,
+			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+	}
+	else {
+		cudaMemcpy(hst_scene->state.image.data(), dev_image,
+			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+	}
 
 	checkCUDAError("pathtrace");
 }
@@ -753,9 +791,25 @@ void showImage(uchar4* pbo, int iter) {
 
 	if (ui_denoise) {
 		// DENOISING CODE HERE
-		atrousDenoise << <blocksPerGrid2d, blockSize2d >> > (dev_image, dev_denoised, dev_gBuffer, cam.resolution, 1);
+		atrousDenoise << <blocksPerGrid2d, blockSize2d >> > (
+			dev_image, 
+			dev_denoised,
+			dev_gBuffer,
+			cam.resolution,
+			ui_colorWeight,
+			ui_positionWeight,
+			ui_normalWeight,
+			1);
 		for (int i = 1; i < ui_filterSize; i++) {
-			atrousDenoise << <blocksPerGrid2d, blockSize2d >> > (dev_denoised, dev_denoised, dev_gBuffer, cam.resolution, 1 << i);
+			atrousDenoise << <blocksPerGrid2d, blockSize2d >> > (
+				dev_denoised, 
+				dev_denoised, 
+				dev_gBuffer, 
+				cam.resolution, 
+				ui_colorWeight,
+				ui_positionWeight,
+				ui_normalWeight,
+				1 << i);
 		}
 		// Send results to OpenGL buffer for rendering
 		sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_denoised);

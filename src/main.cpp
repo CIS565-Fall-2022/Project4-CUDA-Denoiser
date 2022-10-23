@@ -11,11 +11,13 @@ int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
-int ui_filterSize = 3;
+int ui_filterSize = 2;
 float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
-bool ui_saveAndExit = false;
+bool ui_exit = false;
+bool ui_save = false;
+bool ui_saveDenoised = false;
 GBufferMode ui_buffermode = GBufferMode::DISTANCE;
 
 // For camera controls
@@ -115,13 +117,15 @@ void saveImage() {
 	}
 
 	std::string filename = renderState->imageName;
+	std::string denoised = ui_saveDenoised ? ".denoised" : "";
 	std::ostringstream ss;
-	ss << filename << "." << startTimeString << "." << samples << "samp";
+	ss << filename << "." << startTimeString << "." << samples << "samp" << denoised;
 	filename = ss.str();
 
 	// CHECKITOUT
 	img.savePNG(filename);
 	//img.saveHDR(filename);  // Save a Radiance HDR file
+	ui_save = false;
 }
 
 void runCuda() {
@@ -182,8 +186,11 @@ void runCuda() {
 	// unmap buffer object
 	cudaGLUnmapBufferObject(pbo);
 	
-	if (ui_saveAndExit){
+	if (ui_save){
 		saveImage();
+	}
+
+	if (ui_exit) {
 		pathtraceFree();
 		cudaDeviceReset();
 		exit(EXIT_SUCCESS);

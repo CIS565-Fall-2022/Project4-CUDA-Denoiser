@@ -45,7 +45,9 @@ extern int ui_filterSize;
 extern float ui_colorWeight;
 extern float ui_normalWeight;
 extern float ui_positionWeight;
-extern bool ui_saveAndExit;
+extern bool ui_exit;
+extern bool ui_save;
+extern bool ui_saveDenoised;
 extern GBufferMode ui_buffermode;
 
 
