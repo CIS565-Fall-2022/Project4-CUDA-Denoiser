@@ -26,6 +26,10 @@ In this project, I implemented an Edge-avoiding A-Trous Wavelet Transform filter
 
 #### Simple Blurring
 
+| Original | Simple Blurring | Photo Editing Software Blur
+| ----------- | ----------- | ----------- |
+| ![](img/position.png)  |  ![](img/normal.png)  | ![](img/timeToIntersect.png)
+
 #### Geometry Buffers: Position, Normal, and Time To Intersect
 
 | Position | Normal | Time to Intersect
