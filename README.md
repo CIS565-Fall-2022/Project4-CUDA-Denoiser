@@ -22,12 +22,13 @@ Features implemented include:
 * [Denoising](#denoising)
 
 ## Specular Reflective Material
+
 ================
 The specular reflective material either reflects light perfectly (incident angle == exitent angle), or diffusely, the rate of each is manually set and the two percentages sum up to 100% (for example, if the material was 63% specular, it'd have to be 37% diffuse):
 
 <img align="center" src="img/cornell.2022-10-11_03-01-03z.11379samp.png" width=50% height=50%>
 
-#Refractive Material
+## Refractive Material
 ================
 The specular refractive material either reflects light or transmits it according to [Snell's Law](https://en.wikipedia.org/wiki/Snell%27s_law), the rate of each is based on the material type and index of refration. This is usually calculated by the [Fresnel Equations](https://en.wikipedia.org/wiki/Fresnel_equations), however, here I use the [Schlick approximation](https://en.wikipedia.org/wiki/Schlick%27s_approximation) to calculate the rates as it's more computationally efficient with a very low error rate:
 
