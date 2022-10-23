@@ -28,8 +28,8 @@ bool ui_showGbuffer = false;
 bool ui_denoise = false;
 int ui_filterSize = 80;
 float ui_colorWeight = 200.f;
-float ui_normalWeight = 0.061f;
-float ui_positionWeight = 3.049f;
+float ui_normalWeight = 0.05f;
+float ui_positionWeight = 4.f;
 bool ui_saveAndExit = false;
 
 static bool camchanged = true;
