@@ -55,7 +55,7 @@ Like Gaussian blur, we will use a kernel of weights to average out each neighbor
 
 ![](img/atrousDescription.png)
 
-I added a new function that would show the denoised version of the image rather than the original image. This function only gets called when the number of pathtrace calls has reached its limit. This function will take as an input the final rendered result of the scene. Each pixel will expand its kernel over a set size (filter size) to add and average these neighboring pixels based on weights from the kernel. 
+I added a new function that would denoise the output image rather than show the original image. This function only gets called when the number of pathtrace calls has reached its limit. This function will take as an input the final rendered result of the scene. Each pixel will expand its kernel over a set size (filter size) to add and average these neighboring pixels based on weights from the kernel. 
 
 
 | Original (50 Iterations) | Denoised (50 Iterations) |
