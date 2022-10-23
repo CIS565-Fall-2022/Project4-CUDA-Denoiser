@@ -6,7 +6,7 @@
 #include "../imgui/imgui_impl_glfw.h"
 #include "../imgui/imgui_impl_opengl3.h"
 
-#define ATROUS_DENOISE 1
+#define ATROUS_DENOISE 0
 
 static std::string startTimeString;
 
@@ -24,12 +24,12 @@ static double lastY;
 int ui_iterations = 0;
 int startupIterations = 0;
 int lastLoopIterations = 0;
-bool ui_showGbuffer = false;
+bool ui_showGbuffer = true;
 bool ui_denoise = false;
 int ui_filterSize = 80;
-float ui_colorWeight = 1.45f;
-float ui_normalWeight = 0.35f;
-float ui_positionWeight = 6.2f;
+float ui_colorWeight = 200.f;
+float ui_normalWeight = 0.061f;
+float ui_positionWeight = 3.049f;
 bool ui_saveAndExit = false;
 
 static bool camchanged = true;
@@ -171,10 +171,13 @@ void runCuda() {
         showGBuffer(pbo_dptr);
     }
     else {
-#if ATROUS_DENOISE
-        showDenoised(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
-#else
         showImage(pbo_dptr, iteration);
+#if ATROUS_DENOISE
+        if (iteration == ui_iterations) {
+            showDenoised(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+        }
+#else
+        // showImage(pbo_dptr, iteration);
 #endif
     }
 

@@ -153,29 +153,30 @@ __global__ void denoiseImage(uchar4* pbo, glm::ivec2 resolution, int iter, GBuff
 
 		float cumu_weight = 0.0;
 		int kernelIdx = 0;
-		for (int i = -2; i < 2; i++) {
-			for (int j = -2; j < 2; j++) {
-				int ixn = glm::clamp(x + i * stepWidth * 1.f, 0.f, (float) resolution.x);
-				int iyn = glm::clamp(y + j * stepWidth * 1.f, 0.f, (float) resolution.y);
+
+		for (int j = -2; j <= 2; j++) {
+			for (int i = -2; i <= 2; i++) {
+				int ixn = glm::clamp(x + i * stepWidth * 1.f, 0.f, (float) resolution.x - 1);
+				int iyn = glm::clamp(y + j * stepWidth * 1.f, 0.f, (float) resolution.y - 1);
 				int indexn = ixn + (iyn * resolution.x);
 
 				glm::vec3 pixn = image[indexn];
-				glm::vec3 posn = gBuffer[indexn].position;
-				glm::vec3 norn = gBuffer[indexn].normal;
+				//glm::vec3 posn = gBuffer[indexn].position;
+				//glm::vec3 norn = gBuffer[indexn].normal;
 
-				glm::vec3 colDiff = pixn - pix;
-				float dist2 = dot(colDiff, colDiff);
-				float c_w = min(exp(-(dist2) / c_phi), 1.0f);
+				//glm::vec3 colDiff = pixn - pix;
+				//float distSq = glm::dot(colDiff, colDiff);
+				//float c_w = glm::min(glm::exp(-(distSq) / c_phi), 1.0f);
 
-				glm::vec3 norDiff = norn - nor;
-				float dist3 = max(dot(norDiff, norDiff) / (stepWidth * stepWidth), 0.f);
-				float n_w = min(exp(-(dist3) / n_phi), 1.0f);
+				//glm::vec3 norDiff = norn - nor;
+				//distSq = glm::max(glm::dot(norDiff, norDiff) / ((float)(stepWidth * stepWidth)), 0.f);
+				//float n_w = glm::min(glm::exp(-(distSq) / n_phi), 1.0f);
 
-				glm::vec3 pDiff = posn - pos;
-				float dist4 = dot(pDiff, pDiff);
-				float p_w = min(exp(-(dist4) / p_phi), 1.0f);
+				//glm::vec3 pDiff = posn - pos;
+				//distSq = glm::dot(pDiff, pDiff);
+				//float p_w = glm::min(glm::exp(-(distSq) / p_phi), 1.0f);
 
-				weight = c_w * n_w * p_w;
+				//weight = c_w * n_w * p_w;
 				float kernelVal = kernel[kernelIdx];
 
 				sumColor += pixn * weight * kernelVal;
@@ -1315,7 +1316,9 @@ void showDenoised(uchar4* pbo, int iter, int filterSize, float colorWeight, floa
 
 		cudaDeviceSynchronize();
 
+		glm::vec3* tmp_denoise = dev_denoisedImagePong;
 		dev_denoisedImagePong = dev_denoisedImage;
+		dev_denoisedImage = tmp_denoise;
 	}
 	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_denoisedImage);
 }
