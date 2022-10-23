@@ -49,6 +49,12 @@ For debugging purposes, we also have to implement a GBuffer which contains infor
 
 #### Edge-Avoiding ATrous Denoising (As seen on a simple scene)
 
+Now that we have information from blur and the GBuffer, I followed the implementation details suggested by the following paper: [Edge-Avoiding À-Trous Wavelet Transform for fast Global](https://jo.dreggn.org/home/2010_atrous.pdf). 
+
+I added a new function that would show the denoised version of the image rather than the original image. This function only gets called when the number of pathtrace calls has reached its limit. This function will take as an input the final rendered result of the scene. Each pixel will expand its kernel over a set size (filter size) to add and average these neighboring pixels based on weights from the kernel.
+
+Illumination Filtering
+
 | Original (50 Iterations) | Denoised (50 Iterations) |
 | ----------- | ----------- |
 | ![](img/noDenoise50.png)  |  ![](img/denoise50.png)  |
