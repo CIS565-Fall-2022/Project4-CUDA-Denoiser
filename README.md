@@ -15,7 +15,7 @@ This is a GPU based path tracer. The project focus on implementing an edge-avoid
 ### `GBuffer Data Visualization`
 Normal                     |  Position 
 :-------------------------:|:-------------------------:
-![](img/normal.png)  |  ![](img/position.png)
+![](img/normal.PNG)  |  ![](img/position.PNG)
 
 ### `Denoiser`
 Before denoising (50 iterations) | Simple blur (50 iterations) |  After denoising (50 iterations) 
