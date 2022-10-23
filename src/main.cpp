@@ -22,6 +22,9 @@ static double lastY;
 int ui_iterations = 0;
 int startupIterations = 0;
 int lastLoopIterations = 0;
+int lastPosWeight = 0;
+int lastNormalWeight = 0;
+int lastColorWeight = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
 int ui_filterSize = 80;
@@ -29,6 +32,7 @@ float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
+extern int ui_typeGbuffer = 0;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -44,6 +48,8 @@ int iteration;
 
 int width;
 int height;
+
+int num_pic = 0;
 
 //-------------------------------
 //-------------MAIN--------------
@@ -112,7 +118,7 @@ void saveImage() {
 
     std::string filename = renderState->imageName;
     std::ostringstream ss;
-    ss << filename << "." << startTimeString << "." << samples << "samp";
+    ss << filename << "." << startTimeString << "." << samples << "." << num_pic++ << "samp";
     filename = ss.str();
 
     // CHECKITOUT
@@ -162,17 +168,25 @@ void runCuda() {
 
         // execute the kernel
         int frame = 0;
-        pathtrace(frame, iteration);
+        pathtrace(frame, iteration, ui_iterations == iteration);
     }
 
     if (ui_showGbuffer) {
-      showGBuffer(pbo_dptr);
-    } else {
+      showGBuffer(pbo_dptr, iteration, ui_typeGbuffer);
+    } 
+    else if (ui_denoise) {
+      showImageDenoise(pbo_dptr, iteration);
+    }
+    else {
       showImage(pbo_dptr, iteration);
     }
 
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
+
+    if (iteration != 0 && iteration % 1000 == 0 && iteration != ui_iterations) {
+      saveImage();
+    }
 
     if (ui_saveAndExit) {
         saveImage();

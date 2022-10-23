@@ -196,8 +196,8 @@ void drawGui(int windowWidth, int windowHeight) {
     ImGui::NewFrame();
 
     // Dear imgui define
-    ImVec2 minSize(300.f, 220.f);
-    ImVec2 maxSize((float)windowWidth * 0.5, (float)windowHeight * 0.3);
+    ImVec2 minSize(330.f, 250.f);
+    ImVec2 maxSize((float)windowWidth * 0.5, (float)windowHeight * 0.4);
     ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
 
     ImGui::SetNextWindowPos(ui_hide ? ImVec2(-1000.f, -1000.f) : ImVec2(0.0f, 0.0f));
@@ -214,14 +214,15 @@ void drawGui(int windowWidth, int windowHeight) {
 
     ImGui::Checkbox("Denoise", &ui_denoise);
 
-    ImGui::SliderInt("Filter Size", &ui_filterSize, 0, 100);
-    ImGui::SliderFloat("Color Weight", &ui_colorWeight, 0.0f, 10.0f);
-    ImGui::SliderFloat("Normal Weight", &ui_normalWeight, 0.0f, 10.0f);
-    ImGui::SliderFloat("Position Weight", &ui_positionWeight, 0.0f, 10.0f);
+    ImGui::SliderInt("Filter Size", &ui_filterSize, 0, 400);
+    ImGui::SliderFloat("Color Weight", &ui_colorWeight, 0.0f, 2.0f);
+    ImGui::SliderFloat("Normal Weight", &ui_normalWeight, 0.0f, 2.0f);
+    ImGui::SliderFloat("Position Weight", &ui_positionWeight, 0.0f, 2.0f);
 
     ImGui::Separator();
 
-    ImGui::Checkbox("Show GBuffer", &ui_showGbuffer);
+    ImGui::Checkbox("Show GBuffer (0: Normal, 1: Position, 2: Color)", &ui_showGbuffer);
+    ImGui::SliderInt("GBuffer Type", &ui_typeGbuffer, 0, 2);
 
     ImGui::Separator();
 
