@@ -37,7 +37,7 @@ A denoised image with 30 iteratiions could qualify the naive path traced image w
 
 **How denoising at different resolutions impacts runtime**
 
-From the table below, we could see that the time for denoising increases almost linearly as the resolution increases.
+From the table below, we could see that the time for denoising increases linearly as the resolution increases. However, when the filter size reaches 80, the time becomes almost constant. 
 
   | Denoising time vs Resolution |
 |:--:|  
@@ -87,7 +87,7 @@ In my case, the denoiser works better in brighter scene. The reason is, with a l
 
 **Other scenes**
 
-We can see from the table below that the denoiser fails to work to render a bunny with ~50 samples. The problem can be mitigated when we switch to a small size filter.
+We can see from the table below that the denoiser fails to work to render a bunny with ~50 samples. The reason could be that too many triangles with different information are concentreted in a small range. The problem can be mitigated when we switch to a small size filter.
 
 
  
