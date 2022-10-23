@@ -24,7 +24,9 @@ In this project, I implemented an Edge-avoiding A-Trous Wavelet Transform filter
 
 ## Core Features
 
-### Geometry Buffers: Position, Normal, and Time To Intersect
+#### Simple Blurring
+
+#### Geometry Buffers: Position, Normal, and Time To Intersect
 
 | Position | Normal | Time to Intersect
 | ----------- | ----------- | ----------- |
