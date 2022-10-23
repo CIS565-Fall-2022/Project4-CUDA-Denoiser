@@ -113,7 +113,7 @@ Denoising the image predictably increases running time (assuming all else is con
 
 The results are more or less what you'd expect, approximately a linear factor slower with denoising. After that, I tested the effect of filter size on running time. My expectation was to see running time increasing linearly with filter size since you have to do that same amount of computation once more for every time you increment filter size. While I was testing filter size, I also tested the effect of using `#pragma unroll` on the `atrousDenoise()` function. The results were as follows:
 
-<img align="center" src="img/filtersize.png" width=50% height=50%>
+<img align="center" src="img/flitersize.png" width=50% height=50%>
 
 Initially, as I was increasing filter size, the amount of time it took was relatively flat. While that could've been linear with a small factor, it could just be measurement error. So I started using logarithmic intervals, and for a few iterations, it remained flat. When I hit filter size 32 I started to see a solid increase in running time, however it seemed it could be linear (on logarithmic intervals), however when I reached filter size 128, the exponential increase started to become clearer. So it seems the relationship between filter size and running time is linear with a small constant factor. 
 
