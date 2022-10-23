@@ -22,9 +22,18 @@ In this project, I implemented an Edge-avoiding A-Trous Wavelet Transform filter
 | ----------- | ----------- |
 | ![](img/nodenoise100.png)  |  ![](img/denoise100.png)  |
 
+For the above images, I used the following settings:
+- Filter Size: 80
+- Color Weight: 200
+- Normal Weight: 0.05
+- Position Weight: 4
+- Kernel Size: 5x5 
+
 ## Core Features
 
 #### Simple Blurring
+
+The first step in implementing Edge Avoiding ATrous Denoising is to average each pixel's neighboring color without taking any weights into consideration. (This is very similar to implementing Gaussian blur, except there is no kernel of weights. We simply divide the sum of all neighboring colors by the number of neighbors. In my case, I use a 5x5 area around the pixel as its neighbors.
 
 | Original | Simple Blurring | Photo Editing Software Blur
 | ----------- | ----------- | ----------- |
