@@ -66,16 +66,16 @@ I added a new function that would denoise the output image rather than show the 
 
 ## Performance Analysis
 
-- how much time denoising adds to your renders
-- how denoising influences the number of iterations needed to get an "acceptably smooth" result
-- how denoising at different resolutions impacts runtime
-- how varying filter sizes affect performance
+**how much time denoising adds to your renders**
+**how denoising influences the number of iterations needed to get an "acceptably smooth" result**
+**how denoising at different resolutions impacts runtime**
+**how varying filter sizes affect performance**
 
 In addition to the above, you should also analyze your denoiser on a qualitative level:
 
-- how visual results vary with filter size -- does the visual quality scale uniformly with filter size?
-- how effective/ineffective is this method with different material types
-- how do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?
+**how visual results vary with filter size -- does the visual quality scale uniformly with filter size?**
+**how effective/ineffective is this method with different material types**
+**how do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?**
 
 Note that "acceptably smooth" is somewhat subjective - we will leave the means for image comparison up to you, but image diffing tools may be a good place to start, and can help visually convey differences between two images.
 
