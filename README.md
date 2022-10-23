@@ -1,13 +1,108 @@
-CUDA Denoiser For CUDA Path Tracer
-==================================
+CUDA Path Tracer
+================
 
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
 
-* (TODO) YOUR NAME HERE
-* Tested on: (TODO) Windows 22, i7-2222 @ 2.22GHz 22GB, GTX 222 222MB (Moore 2222 Lab)
 
-### (TODO: Your README)
+* Yilin Liu
+  * [LinkedIn](https://www.linkedin.com/in/yilin-liu-9538ba1a5/)
+  * [Personal website](https://www.yilin.games)
+* Tested on personal laptop:
+  - Windows 10, Intel(R) Core(TM), i7-10750H CPU @ 2.60GHz 2.59 GHz, RTX 2070 Max-Q 8GB
 
-*DO NOT* leave the README to the last minute! It is a crucial part of the
-project, and we will not be able to grade you without a good README.
+Overview
+=============
 
+In this project I implemented a pathtracing denoiser that runs on CUDA and directs a smoothing filter using geometry buffers (G-buffers). It helps provide a smoother appearance in a pathtraced image with fewer samples per pixel and is based on the study "Edge-Avoiding A-Trous Wavelet Transform for rapid Global Illumination Filtering."
+
+Features
+=============
+* A-Trous denoiser
+* Gbuffer visualization
+
+G-Buffer
+============
+
+Performance Analysis
+============
+**Additional Time for Each Frame**
+
+According to the test analysis, the cost added by denoising is varying between 0.8 ms to 20 ms mainly depending on the resolution.
+
+**How denoising influences the number of iterations needed to get an "acceptably smooth" result**
+
+A denoised image with 30 iteratiions could qualify the naive path traced image with 1000 iterations!
+
+| 30 samples denoised image | 1000 samples naive image |
+:-------:|:-------:
+|![](img/denoiser/30sample_denoiser.png)|![](img/denoiser/1000sample.png) |
+
+**How denoising at different resolutions impacts runtime**
+
+The time for denoising increases as the resolution increases.
+
+
+**How varying filter sizes affect performance**
+
+The effect of filter size increases initially and goes down later. 
+
+
+**how visual results vary with filter size -- does the visual quality scale uniformly with filter size?**
+
+We can see from the table below that while the filter size is below 30, the denoise effect is not significant enough. When the filter size goes large, the background is blurred. Therefore, the ideal range of an efficient filter size should be between 30 to 60.
+
+| Filter Size | Image |
+:-------:|:-------:
+|5|![](img/denoiser/fs5.png) |
+|10|![](img/denoiser/fs10.png) |
+|20|![](img/denoiser/fs20.png) |
+|30|![](img/denoiser/fs30.png) |
+|40|![](img/denoiser/fs50.png) |
+|50|![](img/denoiser/fs60.png) |
+|60|![](img/denoiser/fs70.png) |
+|70|![](img/denoiser/fs80.png) |
+|80|![](img/denoiser/fs90.png) |
+|90|![](img/denoiser/fs100.png) |
+|100|![](img/denoiser/fs110.png) |
+
+**how effective/ineffective is this method with different material types**
+
+We can see that the denoiser works fine on alll types of materials except that the refractiion could be blurred a little bit. 
+
+| Materials | Orignial Image| Denoised Image |
+:-------:|:-------:
+|Diffuse|![](img/denoiser/diffuse_naive.png) |![](img/denoiser/diffuse_denoised.png) |
+|Specular|![](img/denoiser/specular_naive.png) |![](img/denoiser/fs50.png) |
+|Refractive|![](img/denoiser/refract_naive.png) |![](img/denoiser/refract_denoised.png) |
+
+**How do results compare across different scenes - for example, between cornell.txt and cornell_ceiling_light.txt. Does one scene produce better denoised results? Why or why not?**
+
+In my case, the denoiser works better in brighter scene. The reason is, with a light that has a larger areas, more paths fall onto the light source within a limited number of iterations and the scene converges faster. As a result, there are less noises inherently in the scene and leave less work for the denoiser whose performance could significantly be influenced by the initial conditions.  
+
+
+**Other scenes
+
+We can see from the table below that the denoiser fails to work to render a bunny with ~50 samples. The problem can be mitigated when we switch to a small size filter.
+
+ 
+| Bunny with 50 samples | Denosied Bunny with Filter Size 60 | Denosied Bunny with Filter Size 25 |
+:-------:|:-------:|:-------:
+|![](img/denoiser/bunny_naive.png)|![](img/denoiser/bunny_denoised.png) |![](img/denoiser/bunny_denoised25.png) |
+
+
+Bloopers
+===============
+  | *G-Buffer Position Fail* |
+|:--:|  
+ |![image](img/bloopers/gbuffer_pos_bug2.png)|
+ 
+
+  | *G-Buffer Position Fail2* |
+  |:--:|
+  |![image](img/bloopers/gbuffer_pos_bug3.png)|
+   
+Reference
+===============
+[tinyObj](https://github.com/tinyobjloader/tinyobjloader)
+
+[pbrt](https://pbrt.org/)
