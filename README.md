@@ -12,7 +12,7 @@ CUDA Denoiser
 
 One major problem with Path tracing is that the completed image can often be noisy or grainy. This issue is amplified with scenes where rays are unlikely to hit the light: scenes with small lights, with a lot of geometry, etc. On top of that, the number of path trace iterations reaches a point of diminishing returns. The difference betweeen 500 and 1000 samples per pixel is not always obvious. 
 
-In this project, I implemented an Edge-avoiding A-Trous Wavelet Transform filter for noisy path-traced images. The input to this function is a complete path-traced image, and the output is a denoised version of the image where large blocks of the same color will see less black specks. The following is a sample of the output when there is only 1 iteration on Pathtrace vs. when there are 100 Iterations. It can be seen that the denoised version of the first set of images is still noisy compared to the denoised version of a more converged image.
+In this project, I implemented an Edge-avoiding A-Trous Wavelet Transform filter for noisy path-traced images. The goal here is to reduce the number of samples-per-pixel/pathtracing iterations needed to obtain an acceptably smooth image. The input to this function is a complete path-traced image, and the output is a denoised version of the image where large blocks of the same color will see less black specks. The following is a sample of the output when there is only 1 iteration on Pathtrace vs. when there are 100 Iterations. It can be seen that the denoised version of the first set of images is still noisy compared to the denoised version of a more converged image.
 
 | Original 1 Iteration   | Denoised 1 Iteration |
 | ----------- | ----------- | 
@@ -63,8 +63,6 @@ I added a new function that would denoise the output image rather than show the 
 | ![](img/noDenoise50.png)  |  ![](img/denoise50.png)  |
 
 ## Performance Analysis
-
-The point of denoising is to reduce the number of samples-per-pixel/pathtracing iterations needed to achieve an acceptably smooth image. You should provide analysis and charts for the following:
 
 - how much time denoising adds to your renders
 - how denoising influences the number of iterations needed to get an "acceptably smooth" result
