@@ -36,6 +36,12 @@ In this project, I implemented an Edge-avoiding A-Trous Wavelet Transform filter
 | ----------- | ----------- | ----------- |
 | ![](img/position.png)  |  ![](img/normal.png)  | ![](img/timeToIntersect.png)
 
+#### Edge-Avoiding ATrous Denoising (As seen on a simple scene)
+
+| Original (50 Iterations) | Denoised (50 Iterations) |
+| ----------- | ----------- |
+| ![](img/noDenoise50.png)  |  ![](img/denoise50.png)  |
+
 ## Performance Analysis
 
 The point of denoising is to reduce the number of samples-per-pixel/pathtracing iterations needed to achieve an acceptably smooth image. You should provide analysis and charts for the following:
