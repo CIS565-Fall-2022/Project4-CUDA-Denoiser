@@ -273,6 +273,7 @@ void drawGui(int windowWidth, int windowHeight) {
 	ImGui::Separator();
 
 	ImGui::Checkbox("Show GBuffer", &ui_showGbuffer);
+	ImGui::Combo("GBuffer Data", &currGBufferOption, gBufferOption, IM_ARRAYSIZE(gBufferOption));
 
 	ImGui::Separator();
 

@@ -35,6 +35,8 @@ extern int height;
 extern int ui_iterations;
 extern int startupIterations;
 extern bool ui_showGbuffer;
+extern const char* gBufferOption[3];
+extern int currGBufferOption;
 extern bool ui_denoise;
 extern int ui_filterSize;
 extern float ui_colorWeight;

@@ -19,8 +19,10 @@ int ui_iterations = 0;
 int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
+const char* gBufferOption[3] = { "t", "position", "normal" };
+int currGBufferOption = 0;
 bool ui_denoise = false;
-int ui_filterSize = 80;
+int ui_filterSize = 4;
 float ui_colorWeight = 0.45f;
 float ui_normalWeight = 0.35f;
 float ui_positionWeight = 0.2f;
@@ -41,6 +43,8 @@ int iteration;
 
 int width;
 int height;
+
+bool denoiseTimePrinted = false;
 
 //-------------------------------
 //-------------MAIN--------------
@@ -157,6 +161,7 @@ void runCuda() {
 	if (iteration == 0) {
 		pathtraceFree();
 		pathtraceInit(scene);
+		denoiseTimePrinted = false;
 	}
 
 	uchar4* pbo_dptr = NULL;
@@ -169,12 +174,22 @@ void runCuda() {
 		int frame = 0;
 		pathtrace(frame, iteration);
 	}
+	else
+	{
+		if (ui_denoise && !denoiseTimePrinted)
+		{
+			denoise(iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+			printDenoiseTime();
+			denoiseTimePrinted = true;
+		}
+		
+	}
 
 	if (ui_showGbuffer) {
-		showGBuffer(pbo_dptr);
+		showGBuffer(pbo_dptr, gBufferOption[currGBufferOption]);
 	}
 	else {
-		showImage(pbo_dptr, iteration);
+		showImage(pbo_dptr, iteration, ui_denoise && iteration == ui_iterations);
 	}
 
 	// unmap buffer object
