@@ -75,7 +75,7 @@ In general I've found that with filter size 2 or 3, I can get feasible results w
 | Denoised | No | No | Yes |
 | Iterations | 1000 | 5000 | 1000 |
 
-| Scene | <img src="img/3mat1000.png"> | <img src="img/3mat5000.png"> | <img src="img/3matldenoise1000.png"> |
+| Scene | <img src="img/3mat1000.png"> | <img src="img/3mat5000.png"> | <img src="img/3matdenoise1000.png"> |
 | :------- | :-------: | :-------: | :------- |
 | Denoised | No | No | Yes |
 | Iterations | 1000 | 5000 | 1000 |
