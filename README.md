@@ -22,8 +22,6 @@ Features implemented include:
 * [Denoising](#denoising)
 
 ## Specular Reflective Material
-
-================
 The specular reflective material either reflects light perfectly (incident angle == exitent angle), or diffusely, the rate of each is manually set and the two percentages sum up to 100% (for example, if the material was 63% specular, it'd have to be 37% diffuse):
 
 <img align="center" src="img/cornell.2022-10-11_03-01-03z.11379samp.png" width=50% height=50%>
