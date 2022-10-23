@@ -19,6 +19,10 @@ This project is to build a denoiser using colors and 2 geometry buffer: normals,
 | :--------------------------: | :-------------------: | 
 | ![](./img/before.png) | ![](./img/after.png) |
 
+| Blur Image | After Denoise | 
+| :--------------------------: | :-------------------: | 
+| ![](./img/beforeBlur.jpg) | ![](./img/after.png) |
+
 ## **GBuffer**
 | Normal Buffer |  Position Buffer | 
 | :--------------------------: | :-------------------: | 
