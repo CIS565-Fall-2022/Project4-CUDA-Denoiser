@@ -33,13 +33,15 @@ For the above images, I used the following settings:
 
 #### Simple Blurring
 
-The first step in implementing Edge Avoiding ATrous Denoising is to average each pixel's neighboring color without taking any weights into consideration. (This is very similar to implementing Gaussian blur, except there is no kernel of weights. We simply divide the sum of all neighboring colors by the number of neighbors. In my case, I use a 5x5 area around the pixel as its neighbors.
+The first step in implementing Edge Avoiding ATrous Denoising is to average each pixel's neighboring color without taking any weights into consideration. (This is very similar to implementing Gaussian blur, except there is no kernel of weights). We simply divide the sum of all neighboring colors by the number of neighbors. In my case, I use a 5x5 area around the pixel as its neighbors.
 
 | Original | Simple Blurring | Photo Editing Software Blur
 | ----------- | ----------- | ----------- |
 | ![](img/nodenoise100.png)  |  ![](img/simpleBlur.png)  | ![](img/pixlrBlur.png)
 
 #### Geometry Buffers: Position, Normal, and Time To Intersect
+
+For debugging purposes, we can also 
 
 | Position | Normal | Time to Intersect
 | ----------- | ----------- | ----------- |
