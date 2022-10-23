@@ -41,7 +41,7 @@ The first step in implementing Edge Avoiding ATrous Denoising is to average each
 
 #### Geometry Buffers: Position, Normal, and Time To Intersect
 
-For debugging purposes, we can also 
+For debugging purposes, we also have to implement a GBuffer which contains information about each pixel that we will use to calculate edge-avoidance later on. For the purposes of this project, I created a GBuffer struct that stores glm::vec3 for position and normal, and a float representing the time it took for the intersection to happen on that pixel.
 
 | Position | Normal | Time to Intersect
 | ----------- | ----------- | ----------- |
