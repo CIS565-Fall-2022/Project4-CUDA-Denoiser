@@ -176,8 +176,6 @@ void runCuda() {
         if (iteration == ui_iterations) {
             showDenoised(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
         }
-#else
-        // showImage(pbo_dptr, iteration);
 #endif
     }
 
