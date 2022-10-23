@@ -1,46 +1,80 @@
-CUDA Path Tracer
-================
+CUDA Denoiser For CUDA Path Tracer
+==================================
 
-**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
+**University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 4**
 
 * Zhuohao Lin
   * [LinkedIn](https://www.linkedin.com/in/zhuohao-lin-960b54194/)
 * Tested on: Windows 10, i7-10875H @ 2.30GHz 16GB, NVIDIA Grforce RTX 2060 6GB (personal machine)
 
 # Overview
-This is a GPU based path tracer. The project contains both visual and performance improvements so that mutiple objects with different kinds of materials can be rendered quickly.
-![](img/cornell.2022-10-08_06-59-29z.5000samp.png)
+This is a GPU based path tracer. The project focus on implementing an edge-avoiding A-Trous Wavelet denoiser based on a [paper](https://jo.dreggn.org/home/2010_atrous.pdf).
+![](img/denoisedRoom.png)
 
 # Features
-### `Arbitrary mesh loading and rendering with obj file`
-![](img/cornell.2022-10-08_20-44-19z.5000samp.png)
-
-### `Antialiasing`
-Before Antialiasing            |  After Antialiasing 
+### `GBuffer Data Visualization`
+Normal                     |  Position 
 :-------------------------:|:-------------------------:
-![](img/beforeAntialiasing.png)  |  ![](img/afterAntialiasing.png)
+![](img/normal.png)  |  ![](img/position.png)
 
-### `Refraction material`
-Index of refraction of cube and sphere: 1.5
-![](img/cornell.2022-10-08_22-12-30z.5000samp.png)
+### `Denoiser`
+Before denoising (50 iterations) | Simple blur (50 iterations) |  After denoising (50 iterations) 
+:-------------------------:|:-------------------------:|:-------------------------:
+![](img/cornell50samp.png)  | ![](img/cornellBlur50samp.png) |  ![](img/cornellDenoise50samp.png)
 
-### `Bounding volume hierarchy acceleration data structure`
-I implemented bounding volume hierarchy data structure in order to accelerate the intersection testing process. This data structure organize primitives into a binary tree based on their bounding box. There are various ways to split primitives. What I did is simply divide primitives into equal subsets. The BVH tree was built in CPU and then passed into GPU in a linear array. When doing intersection tests, first find box intersections within BVH tree apparently improve performance since a lot of primitives are abandoned.
+Before denoising (100 iterations) |  After denoising (100 iterations) 
+:-------------------------:|:-------------------------:
+![](img/dragon.png)  |  ![](img/denoisedDragon.png)
+
 
 # Performance Analysis
 
-## Cache the First Bounce
-For the first intersection of every iteration, it's always the same without any doubts. Therefore, I cache the first intersection data so that the computation can be skipped in every iteration except the first one. To see how much performance this brings, I make a graph as below (all data are got from the same scene)
+### `How much time denoising adds to my renders`
 
-![](img/cacheFirstBounce.PNG)
+The time cost for a scene with 800 x 800 resolution is only 1.28314 ms. The time cost for a scene with 1080 x 1080 resolution is 2.69891 ms. Comparing to the huge time cost for compution in path tracer (especially when there are thousands of iterations), denoising almost costs nothing.
 
-By caching the first bounce in the scene, we always get a higher FPS than no cache. However, as the max ray depth increases, the percentage increase in FPS is going down.
+### `how denoising at different resolutions impacts runtime`
+
+![](img/denoiseAtDiffResolution.PNG)
+
+Denoising costs more time as the resolution increases according to the data shown above. This is because denoising takes each pixel and tries to blend neighbor pixels with certain weights.
+
+### `How denoising influences the number of iterations needed to get an "acceptably smooth" result`
+
+cornell box (200 iterations) | denoised cornell box (50 iterations)
+:-------------------------:|:-------------------------:
+![](img/cornell200samp.png) | ![](img/cornellDenoise50samp.png)
+
+The denoiser can produce a smooth image for cornell box with 50 iterations, but it costs 200 iterations without a denoiser. The denoiser definitely reduces the number of iterations required to produce a smooth scene, but the actual number would be dependent on the subjective judgements and complexities of a scene.
+
+### `how varying filter sizes affect performance`
+
+![](img/filterSize.PNG)
+
+According to the graph shown above, the performance of the denoiser is higher when the filter size is smaller. Large filter size still costs very little time, which is ignorable.
 
 
-## Bounding Volume Hierarchy
-I put 3 objects with different number of faces in the same scene for performance comparison. In order to keep the number of intersections as close as possible, I set 3 objects in similar sizes.
+### `How visual results vary with filter size`
+Filter size 8 | Filter size 16 |  Filter size 32 | Filter size 64 
+:-------------------------:|:-------------------------:|:-------------------------:|:-------------------------:
+![](img/denoise8size.png)  | ![](img/denoise16size.png) |  ![](img/denoise32size.png) |  ![](img/denoise64size.png)
 
-![](img/bvhPerformance.PNG)
+Visual results does not scale uniformly with filter size. If the filter size is too small, the noise was blended but still visible. If the filter size is too large, the image would become too blurry. The optimal filter size needs to be determined by comparing images produced by different filter sizes.
 
-It's obvious that BVH tree brings a huge performance improvement. The more the number of faces a mesh has, the lower the FPS will be. However, the FPS is dropping much slower using BVH than not using BVH. This is expected since BVH is a binary tree. The time cost to search intersections using BVH is roughly log(N) but N for not using BVH. <br/>
-Note: Search intersections in BVH tree is roughly log(N) because it can get into different leaf nodes if some bounding boxes overlap.
+### `How effective/ineffective is this method with different material types`
+Diffuse material | Reflective material |  Refractive material
+:-------------------------:|:-------------------------:|:-------------------------:
+![](img/denoiseDiffuse.png)  | ![](img/denoiseReflective.png) |  ![](img/denoiseRefractive.png)
+
+The denoiser is quite effective with diffuse material, since everything on the surface can be easily blended. For reflective and refractive materials, the denoiser would blend out the details which should be diplayed on the surface of these materials. There is no way to avoid it with this denoiser, since we cannot know the materials reflect or refract an edge or not.
+
+### `How do results compare across different scenes`
+
+Cornell box                |  Dragon
+:-------------------------:|:-------------------------:
+![](img/cornellDenoise50samp.png)  |  ![](img/denoisedDragon.png)
+
+The denoising quality of results from different scenes varies a lot. The light in a scene affects the quality a lot, since it directly determines the amount of visible noises with the same path trace iterations. Another facter of the denoising quality is the complexity of objects and scenes. If a scene is too complex, the position and normal we stored in GBuffer won't be enough to detect edges. Thus, the details on objects will be blended out.
+
+
+

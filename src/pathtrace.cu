@@ -77,7 +77,6 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 	}
 }
 
-//Kernel that writes the image to the OpenGL PBO directly.
 __global__ void getImageColor(glm::ivec2 resolution, int iter, glm::vec3* image) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -95,7 +94,24 @@ __global__ void getImageColor(glm::ivec2 resolution, int iter, glm::vec3* image)
 	}
 }
 
-//Kernel that writes the image to the OpenGL PBO directly.
+__global__ void getImageColorSum(glm::ivec2 resolution, int iter, glm::vec3* image) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+	if (x < resolution.x && y < resolution.y) {
+		int index = x + (y * resolution.x);
+		glm::vec3 pix = image[index];
+
+		glm::vec3 color;
+		color.x = pix.x * iter;
+		color.y = pix.y * iter;
+		color.z = pix.z * iter;
+
+		image[index] = color;
+	}
+}
+
+
 __global__ void sendDenoisedImageToPBO(uchar4* pbo, glm::ivec2 resolution, glm::vec3* image) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -724,6 +740,7 @@ __global__ void kernDenoise(glm::vec3* outImage, glm::vec3* inImage, glm::ivec2 
 			sum += sampleColor * weight * kernel[kernelIdx];
 			cumulativeWeight += weight * kernel[kernelIdx];
 #else
+			int kernelIdx = (j + 2) * 5 + i + 2;
 			sum += sampleColor * kernel[kernelIdx];
 			cumulativeWeight += kernel[kernelIdx];
 #endif
@@ -773,7 +790,9 @@ void denoise(int iter, int filterSize, float colorWeight, float norWeight, float
 	denoiseTime += elapsedTime;
 #endif
 
-	cudaMemcpy(hst_scene->state.image.data(), dev_outDenoisedImage,
+	cudaMemcpy(dev_inDenoisedImage, dev_outDenoisedImage, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
+	getImageColorSum << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, iter, dev_inDenoisedImage);
+	cudaMemcpy(hst_scene->state.image.data(), dev_inDenoisedImage,
 		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 }
 
@@ -870,5 +889,7 @@ void showImage(uchar4* pbo, int iter, bool isDenoise) {
 
 void printDenoiseTime()
 {
+#if DENOISE_TIME
 	std::cout << "Denoising Time: " << denoiseTime << std::endl;
+#endif
 }
