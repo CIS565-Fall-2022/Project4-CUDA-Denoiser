@@ -24,6 +24,12 @@ In this project, I implemented an Edge-avoiding A-Trous Wavelet Transform filter
 
 ## Core Features
 
+### Geometry Buffers: Position, Normal, and Time To Intersect
+
+| Position | Normal | Time to Intersect
+| ----------- | ----------- | ----------- |
+| ![](img/position.png)  |  ![](img/normal.png)  | ![](img/timeToIntersect.png)
+
 ## Performance Analysis
 
 The point of denoising is to reduce the number of samples-per-pixel/pathtracing iterations needed to achieve an acceptably smooth image. You should provide analysis and charts for the following:
