@@ -74,6 +74,11 @@ I added a new function that would denoise the output image rather than show the 
 In addition to the above, you should also analyze your denoiser on a qualitative level:
 
 **how visual results vary with filter size -- does the visual quality scale uniformly with filter size?**
+
+| Original | FilterSize = 12  | FilterSize = 20
+| ----------- | ----------- | ----------- |
+| ![](img/position.png)  |  ![](img/normal.png)  | ![](img/timeToIntersect.png)
+
 **how effective/ineffective is this method with different material types**
 **how do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?**
 
