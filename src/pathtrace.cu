@@ -32,7 +32,7 @@
 
 // For AI Denoiser, one of the following should be turned on 
 #define NORMAL_BUFFER 0
-#define POSITION_BUFFER 1
+#define POSITION_BUFFER 0
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)

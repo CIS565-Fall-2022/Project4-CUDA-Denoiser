@@ -24,7 +24,7 @@ static double lastY;
 int ui_iterations = 0;
 int startupIterations = 0;
 int lastLoopIterations = 0;
-bool ui_showGbuffer = true;
+bool ui_showGbuffer = false;
 bool ui_denoise = false;
 int ui_filterSize = 80;
 float ui_colorWeight = 200.f;
