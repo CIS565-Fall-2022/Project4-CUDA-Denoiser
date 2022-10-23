@@ -16,10 +16,10 @@ In this project, I implemented an Edge-avoiding A-Trous Wavelet Transform filter
 
 | Original 1 Iteration   | Denoised 1 Iteration |
 | ----------- | ----------- | 
-| ![](img/nodenoise1.png)      |   ![](img/denoise1.png)     |
-| Original 100 Iteration   | Denoise 100 Iterations | 
+| ![](img/nodenoise1.png)  |   ![](img/denoise1.png)     |
+| Original 100 Iteration | Denoise 100 Iterations | 
 | ----------- | ----------- |
-| ![](img/nodenoise100.png)      |   ![](img/denoise100.png)  |
+| ![](img/nodenoise100.png)  |  ![](img/denoise100.png)  |
 
 ## Core Features
 
