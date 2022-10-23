@@ -13,6 +13,8 @@ CUDA Denoiser For CUDA Path Tracer
 
 ## Introduction
 
+[Link to full path tracer project](https://github.com/rcj9719/GPU-Programming-CUDA-Path-Tracer)
+[Link to denoiser branch for denoiser code](https://github.com/rcj9719/GPU-Project4-CUDA-Denoiser/tree/denoiser)
 Since we cast many rays per pixel in order to get enough light information, we can get effects like caustics, soft shadows, anti-aliasing, and depth of field. Since this technique involves computing a large number of rays independently, it can be highly parallelized to converge images incredibly faster on a GPU as compared to a path tracer implementation on CPU. In this project, I have used CUDA to compute intersections and shading per iteration for multiple rays parallelly.
 
 In this branch, I have explained how I enhanced my path tracer by implementinf a pathtracing denoiser that uses geometry buffers (G-buffers) to guide a smoothing filter.
