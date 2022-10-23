@@ -75,10 +75,33 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 	}
 }
 
+//Kernel that writes the image to the OpenGL PBO directly.
+__global__ void sendDenoisedImageToPBO(uchar4* pbo, glm::ivec2 resolution,
+	int iter, glm::vec3* image) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+	if (x < resolution.x && y < resolution.y) {
+		int idx = x + resolution.x * y;
+		glm::vec3 pix = image[idx];
+
+		glm::ivec3 color;
+		color.x = glm::clamp((int)(pix.x * 255.0), 0, 255);
+		color.y = glm::clamp((int)(pix.y * 255.0), 0, 255);
+		color.z = glm::clamp((int)(pix.z * 255.0), 0, 255);
+		
+		pbo[idx].w = 0;
+		pbo[idx].x = color.x;
+		pbo[idx].y = color.y;
+		pbo[idx].z = color.z;
+	}
+}
+
 static Scene* hst_scene = NULL;
 static GuiDataContainer* guiData = NULL;
 static glm::vec3* dev_image = NULL;
 static glm::vec3* dev_denoisedImage = NULL;
+static glm::vec3* dev_denoisedImageSaved = NULL;
 static glm::vec3* dev_denoisedIn= NULL;
 static Geom* dev_geoms = NULL;
 static Triangle* dev_tris = NULL;
@@ -108,6 +131,9 @@ void pathtraceInit(Scene* scene) {
 
 	cudaMalloc(&dev_denoisedImage, pixelcount * sizeof(glm::vec3));
 	cudaMemset(dev_denoisedImage, 0, pixelcount * sizeof(glm::vec3));
+
+	cudaMalloc(&dev_denoisedImageSaved, pixelcount * sizeof(glm::vec3));
+	cudaMemset(dev_denoisedImageSaved, 0, pixelcount * sizeof(glm::vec3));
 
 	cudaMalloc(&dev_denoisedIn, pixelcount * sizeof(glm::vec3));
 	cudaMemset(dev_denoisedIn, 0, pixelcount * sizeof(glm::vec3));
@@ -142,6 +168,7 @@ void pathtraceFree() {
 	cudaFree(dev_image);  // no-op if dev_image is null
 	cudaFree(dev_denoisedImage);
 	cudaFree(dev_denoisedIn);
+	cudaFree(dev_denoisedImageSaved);
 	cudaFree(dev_paths);
 	cudaFree(dev_geoms);
 	cudaFree(dev_materials);
@@ -723,6 +750,33 @@ __global__ void A_Trous(glm::ivec2 resolution, GBufferPixel* gBuffer,
 	outputImage[curIdx] = sum / cum_w;
 }
 
+//
+__global__ void DenoiseInit(int iteration, glm::ivec2 resolution, glm::vec3* image, glm::vec3* denoisedImage)
+{
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+	if (x < resolution.x && y < resolution.y) {
+		int idx = x + resolution.x * y;
+		denoisedImage[idx].x = image[idx].x / iteration;
+		denoisedImage[idx].y = image[idx].y / iteration;
+		denoisedImage[idx].z = image[idx].z / iteration;
+	}
+}
+
+__global__ void DenoiseFinalize(int iteration, glm::ivec2 resolution, glm::vec3* finalOutput, glm::vec3* denoisedImage)
+{
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+	if (x < resolution.x && y < resolution.y) {
+		int idx = x + resolution.x * y;
+		finalOutput[idx].x = denoisedImage[idx].x  * iteration;
+		finalOutput[idx].y = denoisedImage[idx].y  * iteration;
+		finalOutput[idx].z = denoisedImage[idx].z  * iteration;
+	}
+}
+
 void denoise(float cw, float nw, float pw, int filterSize, int iter, int endIteration) {
 	cudaEvent_t start, stop;
 	cudaEventCreate(&start);
@@ -735,9 +789,10 @@ void denoise(float cw, float nw, float pw, int filterSize, int iter, int endIter
 		(cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
 	const int pixelcount = cam.resolution.x * cam.resolution.y;
-	cudaMemcpy(dev_denoisedImage, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
+	DenoiseInit << <blocksPerGrid2d, blockSize2d >> > (iter, cam.resolution, dev_image, dev_denoisedImage);
+	//cudaMemcpy(dev_denoisedImage, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
 	cudaEventRecord(start);
-	for (int stepWidth = 1; stepWidth <= filterSize; stepWidth <<= 1){
+	for (int stepWidth = 1; stepWidth <= filterSize / 2; stepWidth <<= 1){
 		A_Trous << < blocksPerGrid2d, blockSize2d >> > (cam.resolution, dev_gBuffer,
 			cw, nw, pw, stepWidth, dev_denoisedImage, dev_denoisedIn);
 		swap(dev_denoisedImage, dev_denoisedIn);
@@ -751,7 +806,9 @@ void denoise(float cw, float nw, float pw, int filterSize, int iter, int endIter
 
 	timer += milliseconds;
 	if (iter == endIteration) cout << "Total denoised time elapsed: " << timer <<" ms"<< endl;
-	cudaMemcpy(hst_scene->state.image.data(), dev_denoisedImage, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+	DenoiseFinalize << <blocksPerGrid2d, blockSize2d >> > (iter, cam.resolution, dev_denoisedImageSaved, dev_denoisedImage);
+	//for save
+	cudaMemcpy(hst_scene->state.image.data(), dev_denoisedImageSaved, cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 }
 
 // CHECKITOUT: this kernel "post-processes" the gbuffer/gbuffers into something that you can visualize for debugging.
@@ -775,7 +832,7 @@ void showImage(uchar4* pbo, int iter, bool denoise) {
 
 	// Send results to OpenGL buffer for rendering
 	if (denoise) {
-		sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_denoisedImage);
+		sendDenoisedImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_denoisedImage);
 	}
 	else {
 		sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_image);
