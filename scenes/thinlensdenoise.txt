@@ -1,16 +1,6 @@
-// Red Light
+// Emissive material (light)
 MATERIAL 0
-RGB         1 1 1
-SPECEX      0
-SPECRGB     0 0 0
-REFL        0
-REFR        0
-REFRIOR     0
-EMITTANCE   10
-
-// Blue Light
-MATERIAL 1
-RGB         0.3 0.3 0.7
+RGB         0.5 0.5 1
 SPECEX      0
 SPECRGB     0 0 0
 REFL        0
@@ -19,7 +9,7 @@ REFRIOR     0
 EMITTANCE   10
 
 // Diffuse white
-MATERIAL 2
+MATERIAL 1
 RGB         .98 .98 .98
 SPECEX      0
 SPECRGB     0 0 0
@@ -29,7 +19,7 @@ REFRIOR     0
 EMITTANCE   0
 
 // Diffuse red
-MATERIAL 3
+MATERIAL 2
 RGB         .85 .35 .35
 SPECEX      0
 SPECRGB     0 0 0
@@ -39,8 +29,8 @@ REFRIOR     0
 EMITTANCE   0
 
 // Diffuse green
-MATERIAL 4
-RGB         .35 .25 .85
+MATERIAL 3
+RGB         .35 .85 .35
 SPECEX      0
 SPECRGB     0 0 0
 REFL        0
@@ -49,7 +39,7 @@ REFRIOR     0
 EMITTANCE   0
 
 // Specular white
-MATERIAL 5
+MATERIAL 4
 RGB         .98 .98 .98
 SPECEX      0
 SPECRGB     .98 .98 .98
@@ -59,7 +49,7 @@ REFRIOR     0
 EMITTANCE   0
 
 // Refractive Material
-MATERIAL 6
+MATERIAL 5
 RGB         .98 .98 .98
 SPECEX      0
 SPECRGB     .98 .98 .98
@@ -68,108 +58,116 @@ REFR        1
 REFRIOR     0
 EMITTANCE   0
 
-// White Light
-MATERIAL 7
-RGB         1 1 1
+// Emissive material (light)
+MATERIAL 6
+RGB         1 0.5 0.5
 SPECEX      0
 SPECRGB     0 0 0
 REFL        0
 REFR        0
 REFRIOR     0
-EMITTANCE   1
+EMITTANCE   10
 
+MATERIAL 7
+RGB         1 0.5 1
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   10
 
 // Camera
 CAMERA
-RES         512 512
+RES         1080 1080
 FOVY        45
 ITERATIONS  1000
 DEPTH       32
-LENSR       0
-FOCALD      7.5
+LENSR       0.5
+FOCALD      8.5
 FILE        cornell
-EYE         0.0 7 10.5
-LOOKAT      0 7 0
+EYE         0.0 5 10.5
+LOOKAT      0 5 0
 UP          0 1 0
 
 
 // Ceiling light
 OBJECT 0
-cube
+sphere
 material 0
-TRANS       0 25 4
-ROTAT       45 0 0
-SCALE       10 0.1 10
+TRANS       -3 17 2
+ROTAT       0 0 0
+SCALE       4 4 4
+VELOCITY    0 0 0
+
+// Ceiling light
+OBJECT 1
+sphere
+material 0
+TRANS       3 17 2
+ROTAT       0 0 0
+SCALE       4 4 4
 VELOCITY    0 0 0
 
 // Floor
-OBJECT 1
-cube
-material 2
-TRANS       0 0 0
-ROTAT       0 0 0
-SCALE       100 .01 100
-VELOCITY    0 0 0
-
-// Back wall
 OBJECT 2
 cube
-material 3
-TRANS       -5 3.75 -5
-ROTAT       45 90 0
-SCALE       .01 7.5 10
-VELOCITY    0 0 0
-
-// Back wall
-OBJECT 3
-cube
-material 4
-TRANS       5 3.75 -5
-ROTAT       12 90 0
-SCALE       .01 7.5 10
-VELOCITY    0 0 0
-
-// Back wall
-OBJECT 4
-cube
-material 4
-TRANS       -5 11.25 -5
-ROTAT       -32 90 0
-SCALE       .01 7.5 10
-VELOCITY    0 0 0
-
-// Back wall
-OBJECT 5
-cube
-material 3
-TRANS       5 11.25 -5
-ROTAT       94 90 0
-SCALE       .01 7.5 10
-VELOCITY    0 0 0
-
-// Back wall
-OBJECT 6
-cube
-material 3
-TRANS       -5 18.75 -5
-ROTAT       -77 90 0
-SCALE       .01 7.5 10
-VELOCITY    0 0 0
-
-// Back wall
-OBJECT 7
-cube
-material 4
-TRANS       5 18.75 -5
-ROTAT       28 90 0
-SCALE       .01 7.5 10
+material 1
+TRANS       0 0 0
+ROTAT       0 0 0
+SCALE       40 .01 20
 VELOCITY    0 0 0
 
 // Sphere
+OBJECT 3
+sphere
+material 4
+TRANS       0 5 1.5
+ROTAT       0 0 0
+SCALE       5 5 5
+VELOCITY    0 0 0
+
+// Left wall
+OBJECT 4
+cube
+material 4
+TRANS       -5 5 0
+ROTAT       45 0 0
+SCALE       .01 20 20
+VELOCITY    0 0 0
+
+// Right wall
+OBJECT 5
+cube
+material 4
+TRANS       5 5 0
+ROTAT       -45 0 0
+SCALE       .01 20 20
+VELOCITY    0 0 0
+
+// Sphere
+OBJECT 6
+sphere
+material 3
+TRANS       0 15 -10
+ROTAT       0 0 0
+SCALE       5 5 5
+VELOCITY    0 0 0
+
+// Sphere
+OBJECT 7
+sphere
+material 3
+TRANS       0 1.5 8
+ROTAT       0 0 0
+SCALE       5 5 5
+VELOCITY    0 0 0
+
+// Ceiling light
 OBJECT 8
 sphere
-material 5
-TRANS       0 5 1.5
+material 7
+TRANS       0 5 13.5
 ROTAT       0 0 0
 SCALE       4 4 4
 VELOCITY    0 0 0
@@ -177,8 +175,18 @@ VELOCITY    0 0 0
 // Sphere
 OBJECT 9
 sphere
-material 6
-TRANS       0 10 1.5
+material 2
+TRANS       0 10 -5
 ROTAT       0 0 0
-SCALE       4 4 4
+SCALE       5 5 5
 VELOCITY    0 0 0
+
+// Sphere
+OBJECT 10
+sphere
+material 2
+TRANS       0 2.5 5.5
+ROTAT       0 0 0
+SCALE       5 5 5
+VELOCITY    0 0 0
+

@@ -204,8 +204,8 @@ void RenderImGui(int windowWidth, int windowHeight)
 	ImGui::NewFrame();
 
 	// Dear imgui define
-	ImVec2 minSize(300.f, 220.f);
-	ImVec2 maxSize((float)windowWidth * 0.5, (float)windowHeight * 0.3);
+	ImVec2 minSize(300.f, 360.f);
+	ImVec2 maxSize((float)windowWidth * 0.5, (float)windowHeight * 0.4);
 	ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
 	ImGui::SetNextWindowPos(ui_hide ? ImVec2(-1000.f, -1000.f) : ImVec2(0.0f, 0.0f));
 
@@ -216,7 +216,7 @@ void RenderImGui(int windowWidth, int windowHeight)
 	if (ImGui::IsKeyPressed('H')) {
 		ui_hide = !ui_hide;
 	}
-	ImGui::SliderInt("Iterations", &ui_iterations, 1, startupIterations);
+	ImGui::SliderInt("Iterations", &ui_iterations, 1, glm::max(startupIterations, 5000));
 	ImGui::Checkbox("Denoise", &ui_denoise);
 	ImGui::SliderInt("Filter Size", &ui_filterSize, 0, 100);
 	ImGui::SliderFloat("Color Weight", &ui_colorWeight, 0.0f, 10.0f);
@@ -234,10 +234,13 @@ void RenderImGui(int windowWidth, int windowHeight)
 	
 	ImGui::Separator();
 
-	ImGui::Checkbox("Save Denoised Image", &ui_saveDenoised);
 
 	if (ImGui::Button("Save Image")) {
 		ui_save = true;
+	}
+
+	if (ImGui::Button("Save Denoised Image")) {
+		ui_saveDenoised = true;
 	}
 	
 	if (ImGui::Button("Exit")) {

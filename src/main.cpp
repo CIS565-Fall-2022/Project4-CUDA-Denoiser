@@ -10,11 +10,11 @@ int ui_iterations = 0;
 int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
-bool ui_denoise = false;
-int ui_filterSize = 2;
-float ui_colorWeight = 0.45f;
+bool ui_denoise = true;
+int ui_filterSize = 128;
+float ui_colorWeight = 0.8f;
 float ui_normalWeight = 0.35f;
-float ui_positionWeight = 0.2f;
+float ui_positionWeight = 0.1f;
 bool ui_exit = false;
 bool ui_save = false;
 bool ui_saveDenoised = false;
@@ -26,6 +26,8 @@ static bool rightMousePressed = false;
 static bool middleMousePressed = false;
 static double lastX;
 static double lastY;
+
+static int saveCounter = 0;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -103,7 +105,7 @@ int main(int argc, char** argv) {
 	return 0;
 }
 
-void saveImage() {
+void saveImage(bool denoised) {
 	float samples = iteration;
 	// output image file
 	image img(width, height);
@@ -111,21 +113,24 @@ void saveImage() {
 	for (int x = 0; x < width; x++) {
 		for (int y = 0; y < height; y++) {
 			int index = x + (y * width);
-			glm::vec3 pix = renderState->image[index];
+			glm::vec3 pix = denoised ? renderState->denoisedImage[index] 
+				: renderState->image[index];
 			img.setPixel(width - 1 - x, y, glm::vec3(pix) / samples);
 		}
 	}
 
 	std::string filename = renderState->imageName;
-	std::string denoised = ui_saveDenoised ? ".denoised" : "";
+	std::string denoisedSuffix = denoised ? ".denoised" : "";
 	std::ostringstream ss;
-	ss << filename << "." << startTimeString << "." << samples << "samp" << denoised;
+	ss << filename << "." << startTimeString << "." << samples << "samp" << denoisedSuffix << saveCounter;
 	filename = ss.str();
 
 	// CHECKITOUT
 	img.savePNG(filename);
 	//img.saveHDR(filename);  // Save a Radiance HDR file
 	ui_save = false;
+	ui_saveDenoised = false;
+	saveCounter++;
 }
 
 void runCuda() {
@@ -187,7 +192,18 @@ void runCuda() {
 	cudaGLUnmapBufferObject(pbo);
 	
 	if (ui_save){
-		saveImage();
+		if (iteration >= ui_iterations) {
+			pathtrace(0, iteration);
+		}
+		saveImage(false);
+	}
+
+	if (ui_saveDenoised) {
+		if (iteration >= ui_iterations || !ui_denoise) {
+			ui_denoise = true;
+			pathtrace(0, iteration);
+		}
+		saveImage(true);
 	}
 
 	if (ui_exit) {
@@ -201,11 +217,11 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	if (action == GLFW_PRESS) {
 		switch (key) {
 		case GLFW_KEY_ESCAPE:
-			saveImage();
+			saveImage(false);
 			glfwSetWindowShouldClose(window, GL_TRUE);
 			break;
 		case GLFW_KEY_S:
-			saveImage();
+			saveImage(false);
 			break;
 		case GLFW_KEY_SPACE:
 			camchanged = true;

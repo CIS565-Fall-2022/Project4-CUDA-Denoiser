@@ -155,6 +155,9 @@ int Scene::loadCamera() {
     state.image.resize(arraylen);
     std::fill(state.image.begin(), state.image.end(), glm::vec3());
 
+    state.denoisedImage.resize(arraylen);
+    std::fill(state.denoisedImage.begin(), state.denoisedImage.end(), glm::vec3());
+
     cout << "Loaded camera!" << endl;
     return 1;
 }

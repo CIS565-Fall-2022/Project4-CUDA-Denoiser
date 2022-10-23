@@ -215,6 +215,10 @@ void pathtraceFree() {
 	cudaFree(dev_gBuffer);
 	// TODO: clean up any extra device memory you created
 
+	cudaFree(dev_cache);
+	cudaFree(dev_lights);
+	cudaFree(dev_denoised);
+
 	checkCUDAError("pathtraceFree");
 }
 
@@ -533,6 +537,7 @@ __global__ void atrousDenoise(glm::vec3* image,
 		pval = gBuffer[idx].pos;
 
 		float cum_v = 0.f;
+
 		for (int i = -2; i <= 2; i++) {
 			for (int j = -2; j <= 2; j++) {
 				glm::ivec2 kernelCoords = glm::vec2(i + 2, j + 2);
@@ -760,14 +765,10 @@ void pathtrace(int frame, int iter) {
 	///////////////////////////////////////////////////////////////////////////
 
 	// Retrieve image from GPU
-	if (ui_saveDenoised) {
-		cudaMemcpy(hst_scene->state.image.data(), dev_denoised,
-			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	}
-	else {
-		cudaMemcpy(hst_scene->state.image.data(), dev_image,
-			pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	}
+	cudaMemcpy(hst_scene->state.denoisedImage.data(), dev_denoised,
+		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+	cudaMemcpy(hst_scene->state.image.data(), dev_image,
+		pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
 	checkCUDAError("pathtrace");
 }
