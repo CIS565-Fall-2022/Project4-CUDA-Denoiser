@@ -161,22 +161,22 @@ __global__ void denoiseImage(uchar4* pbo, glm::ivec2 resolution, int iter, GBuff
 				int indexn = ixn + (iyn * resolution.x);
 
 				glm::vec3 pixn = image[indexn];
-				//glm::vec3 posn = gBuffer[indexn].position;
-				//glm::vec3 norn = gBuffer[indexn].normal;
+				glm::vec3 posn = gBuffer[indexn].position;
+				glm::vec3 norn = gBuffer[indexn].normal;
 
-				//glm::vec3 colDiff = pixn - pix;
-				//float distSq = glm::dot(colDiff, colDiff);
-				//float c_w = glm::min(glm::exp(-(distSq) / c_phi), 1.0f);
+				glm::vec3 colDiff = pixn - pix;
+				float distSq = glm::dot(colDiff, colDiff);
+				float c_w = glm::min(glm::exp(-(distSq) / c_phi), 1.0f);
 
-				//glm::vec3 norDiff = norn - nor;
-				//distSq = glm::max(glm::dot(norDiff, norDiff) / ((float)(stepWidth * stepWidth)), 0.f);
-				//float n_w = glm::min(glm::exp(-(distSq) / n_phi), 1.0f);
+				glm::vec3 norDiff = norn - nor;
+				distSq = glm::max(glm::dot(norDiff, norDiff) / ((float)(stepWidth * stepWidth)), 0.f);
+				float n_w = glm::min(glm::exp(-(distSq) / n_phi), 1.0f);
 
-				//glm::vec3 pDiff = posn - pos;
-				//distSq = glm::dot(pDiff, pDiff);
-				//float p_w = glm::min(glm::exp(-(distSq) / p_phi), 1.0f);
+				glm::vec3 pDiff = posn - pos;
+				distSq = glm::dot(pDiff, pDiff);
+				float p_w = glm::min(glm::exp(-(distSq) / p_phi), 1.0f);
 
-				//weight = c_w * n_w * p_w;
+				weight = c_w * n_w * p_w;
 				float kernelVal = kernel[kernelIdx];
 
 				sumColor += pixn * weight * kernelVal;

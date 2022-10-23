@@ -6,7 +6,7 @@
 #include "../imgui/imgui_impl_glfw.h"
 #include "../imgui/imgui_impl_opengl3.h"
 
-#define ATROUS_DENOISE 0
+#define ATROUS_DENOISE 1
 
 static std::string startTimeString;
 
