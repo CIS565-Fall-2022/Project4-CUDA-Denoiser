@@ -85,9 +85,12 @@ If there are many iterations, then denoising should not add much time to the ove
 
 - **how denoising at different resolutions impacts runtime**
 
+![](img/resolutionDenoise.png)
+
 
 - **how varying filter sizes affect performance**
 
+![](img/filterSizeDenoise.png)
 
 
 In addition to the above, you should also analyze your denoiser on a qualitative level:
