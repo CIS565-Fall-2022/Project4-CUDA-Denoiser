@@ -77,7 +77,11 @@ In addition to the above, you should also analyze your denoiser on a qualitative
 
 | Original | FilterSize = 12  | FilterSize = 20
 | ----------- | ----------- | ----------- |
-| ![](img/position.png)  |  ![](img/normal.png)  | ![](img/timeToIntersect.png)
+| ![](img/noDenoise50.png)  |  ![](img/denoise12.png)  | ![](img/denoise20.png)
+
+| FilterSize = 36 | FilterSize = 68  | FilterSize = 150
+| ----------- | ----------- | ----------- |
+| ![](img/denoise36.png)  |  ![](img/denoise68.png)  | ![](img/denoise150.png)
 
 **how effective/ineffective is this method with different material types**
 **how do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?**
