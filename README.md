@@ -99,7 +99,16 @@ For the following image, this difference between specular and diffuse is seen cl
 
 - **how do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?**
 
-Note that "acceptably smooth" is somewhat subjective - we will leave the means for image comparison up to you, but image diffing tools may be a good place to start, and can help visually convey differences between two images.
+Generally speaking, the image with a larger light will produce better denoised results as seen below (however, this does not mean that larger light intensity will result in a more denoised image. In fact, the more the light intensity, often times the more noisy the resuling image becomes). For scenes with larger lights, more rays are likely to hit the light, which reduces the number of black specks on the screen. 
+
+| Original Cornell Scene (50 Iterations, 3 Light Intensity) | Denoised Cornell Scene (50 Iterations, 3 Light Intensity) |
+| ----------- | ----------- |
+| ![](img/smallLightNoDenoise.png)  |  ![](img/smallLightDenoise.png)  |
+
+
+| Large Light Cornell Scene (50 Iterations, 1 Light Intensity) | Denoised Large Light Cornell Scene (50 Iterations, 1 Light Intensity) |
+| ----------- | ----------- |
+| ![](img/largeLightNoDenoise.png)  |  ![](img/largeLightDenoise.png)  |
 
 ## Bloopers! :)
 
