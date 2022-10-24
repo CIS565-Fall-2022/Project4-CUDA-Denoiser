@@ -66,14 +66,14 @@ I added a new function that would denoise the output image rather than show the 
 
 ## Performance Analysis
 
-**how much time denoising adds to your renders**
-**how denoising influences the number of iterations needed to get an "acceptably smooth" result**
-**how denoising at different resolutions impacts runtime**
-**how varying filter sizes affect performance**
+- **how much time denoising adds to your renders**
+- **how denoising influences the number of iterations needed to get an "acceptably smooth" result**
+- **how denoising at different resolutions impacts runtime**
+- **how varying filter sizes affect performance**
 
 In addition to the above, you should also analyze your denoiser on a qualitative level:
 
-**how visual results vary with filter size -- does the visual quality scale uniformly with filter size?**
+- **how visual results vary with filter size -- does the visual quality scale uniformly with filter size?**
 
 The visual quality does not scale uniform with filter size. Although the higher the filter is, the more smooth the image, You have to roughly double the size of the filter each time in order to see progressive improvement. This is to say that although there was a large difference between Filter size 20 and size 12, there's little to no change between filter 28 and filter 20. 
 
@@ -85,7 +85,7 @@ The visual quality does not scale uniform with filter size. Although the higher 
 | ----------- | ----------- | ----------- |
 | ![](img/denoise36.png)  |  ![](img/denoise68.png)  | ![](img/denoise150.png)
 
-**how effective/ineffective is this method with different material types**
+- **how effective/ineffective is this method with different material types**
 
 My understanding and theory would be that this method works significantly better for diffuse surfaces than specular. Let's consider a specular cube. When we calculate the final color of a pixel in Edge-Avoiding ATrous, we take into account its position, color, and normal. However, on a particular face of a cube, the normals are all the same for each of those pixels. If a specular cube is reflecting the corner of a room, for example, then the reflection would be more blurry than the actual corner of the room, since the walls making up the corner of the room will have different normals.
 
@@ -97,7 +97,7 @@ For the following image, this difference between specular and diffuse is seen cl
 
 
 
-**how do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?**
+- **how do results compare across different scenes - for example, between `cornell.txt` and `cornell_ceiling_light.txt`. Does one scene produce better denoised results? Why or why not?**
 
 Note that "acceptably smooth" is somewhat subjective - we will leave the means for image comparison up to you, but image diffing tools may be a good place to start, and can help visually convey differences between two images.
 
