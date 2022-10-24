@@ -76,11 +76,11 @@ If there are many iterations, then denoising should not add much time to the ove
 
 | Acceptably Smooth Without Denoise (500 Iters) | Acceptably Smooth Denoised (50 Iterations) |
 | ----------- | ----------- |
-| ![](img/noDenoise50.png)  |  ![](img/denoise50.png)  |
+| ![](img/acceptableSmooth700.png)  |  ![](img/acceptableSmooth50.png)  |
 
 | Acceptably Smooth Without Denoise (1000 Iters) | Acceptably Smooth Denoised (100 Iterations) |
 | ----------- | ----------- |
-| ![](img/noDenoise50.png)  |  ![](img/denoise50.png)  |
+| ![](img/acceptableSmooth1000.png)  |  ![](img/acceptableSmooth100.png)  |
 
 
 - **how denoising at different resolutions impacts runtime**
