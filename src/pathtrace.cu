@@ -224,6 +224,8 @@ static Geom* dev_lights = NULL;
 #if PERF_ANALYSIS
 static cudaEvent_t beginEvent = NULL;
 static cudaEvent_t endEvent = NULL;
+static cudaEvent_t beginDenoise = NULL;
+static cudaEvent_t endDenoise = NULL;
 #endif
 
 void InitDataContainer(GuiDataContainer* imGuiData)
@@ -363,6 +365,8 @@ void pathtraceInit(Scene* scene) {
 #if PERF_ANALYSIS
 	cudaEventCreate(&beginEvent);
 	cudaEventCreate(&endEvent);
+	cudaEventCreate(&beginDenoise);
+	cudaEventCreate(&endDenoise);
 #endif
 
 	checkCUDAError("pathtraceInit");
@@ -406,6 +410,12 @@ void pathtraceFree() {
 	} 
 	if (endEvent != NULL) {
 		cudaEventDestroy(endEvent);
+	}
+	if (beginDenoise != NULL) {
+		cudaEventDestroy(beginDenoise);
+	}
+	if (endDenoise != NULL) {
+		cudaEventDestroy(endDenoise);
 	}
 #endif
 
@@ -1310,7 +1320,7 @@ void showDenoised(uchar4* pbo, int iter, int filterSize, float colorWeight, floa
 	int pixelcount = cam.resolution.x * cam.resolution.y;
 
 	cudaMemcpy(dev_denoisedImagePong, dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
-	
+
 	for (int stepWidth = 1; stepWidth < filterSize / 4; stepWidth *= 2) {
 		denoiseImage << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_gBuffer, dev_denoisedImagePong, dev_denoisedImage, stepWidth, colorWeight, normalWeight, positionWeight);
 
@@ -1320,5 +1330,6 @@ void showDenoised(uchar4* pbo, int iter, int filterSize, float colorWeight, floa
 		dev_denoisedImagePong = dev_denoisedImage;
 		dev_denoisedImage = tmp_denoise;
 	}
+
 	sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, iter, dev_denoisedImage);
 }

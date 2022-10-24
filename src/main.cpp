@@ -47,6 +47,9 @@ int iteration;
 int width;
 int height;
 
+float deltaTimePathTrace = 0.0f;
+float deltaTimeDenoise = 0.0f;
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -151,9 +154,11 @@ void runCuda() {
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
+    PerformanceTimer timer;
     if (iteration == 0) {
         pathtraceFree();
         pathtraceInit(scene);
+
     }
 
     uchar4* pbo_dptr = NULL;
@@ -161,10 +166,14 @@ void runCuda() {
 
     if (iteration < ui_iterations) {
         iteration++;
-
         // execute the kernel
         int frame = 0;
+
+        timer.startGpuTimer();
         pathtrace(frame, iteration);
+        timer.endGpuTimer();
+        deltaTimePathTrace += timer.getGpuElapsedTimeForPreviousOperation();
+        
     }
 
     if (ui_showGbuffer) {
@@ -172,11 +181,27 @@ void runCuda() {
     }
     else {
         showImage(pbo_dptr, iteration);
-#if ATROUS_DENOISE
+
         if (iteration == ui_iterations) {
+            std::cout << "Path tracing for " << iteration << "iterations took: " << deltaTimePathTrace << " miliseconds." << std::endl;
+#if ATROUS_DENOISE
+            PerformanceTimer denoiseTimer;
+            denoiseTimer.startGpuTimer();
+
+            showDenoised(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+                
+            denoiseTimer.endGpuTimer();
+            deltaTimeDenoise = denoiseTimer.getGpuElapsedTimeForPreviousOperation();
+            std::cout << "Denoise took: " << deltaTimeDenoise << " miliseconds." << std::endl;
+            iteration++;
+#endif
+        }
+
+
+        //todo: remove. This is here for perf analysis purposes.
+        if (iteration > ui_iterations) {
             showDenoised(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
         }
-#endif
     }
 
     // unmap buffer object
