@@ -21,6 +21,7 @@ Compared to using many thousands of iterations to generate an acceptably smooth 
 ![Denoised](img/title.png)
 ![Reference](img/reference.png)
 
+### Performance Analysis
 2 parameters that affect runtime of the denoiser are resolution and filter size. For resolution, this makes sense because resolution determines the total number of operations needed to be performed. Specifically, the higher the resolution, the more threads need to be launched since one denoising thread is launched per pixel. Similarly, increasing filter size increases runtime because it increases the number of iterations of increasing the filter size. Specifically, we start at a size of 5x5 and increase the step width by a factor of 2 until we reach the desired filter size. We can see these affects reflected in the data below:
 
 ### Resolution Performance Impact
@@ -31,6 +32,7 @@ Compared to using many thousands of iterations to generate an acceptably smooth 
 
 ### Filter Size Visual Analysis
 Here are some images comparing the effects of filter size. As you can see, filter values that are too small are ineffective and filter sizes that are too big make the image too blurry. This makes sense because smaller filters do not take into account enough of the neighboring pixels to be effective and larger filters take into account too many neighboring pixels. 
+### Different Filter Size Visualization
 ![5x5](img/five.png)
 ![15x15](img/fifteen.png)
 ![45x45](img/fourtyfive.png)
@@ -39,11 +41,13 @@ Here are some images comparing the effects of filter size. As you can see, filte
 
 ### Material Type
 The material type also determines the effectiveness of this technique. Diffuse materials work best while specular is worse since the reflections are blurred as well.
+### Different Material Visualization
 ![diffuse](img/diffuse.png)
 ![specular](img/title.png)
 
-###
+### Scene Type
 The amount of light also determines the effectiveness of this technique. Specifically, brighter scenes work better since there is less complexity in the lighting and more uniformity. As you can see in the darker Cornell box scene, there are more dark splotches that are due to the fact that there is a large change from light to dark that the filter is unable to smooth.
+### Different Lighting Visualization
 ![dark](img/dark.png)
 ![light](img/title.png)
 
