@@ -32,7 +32,7 @@ Compared to using many thousands of iterations to generate an acceptably smooth 
 ### Filter Size Visual Analysis
 Here are some images comparing the effects of filter size. As you can see, filter values that are too small are ineffective and filter sizes that are too big make the image too blurry. This makes sense because smaller filters do not take into account enough of the neighboring pixels to be effective and larger filters take into account too many neighboring pixels. 
 ![5x5](img/five.png)
-![15x15](img/fifthteen.png)
+![15x15](img/fifteen.png)
 ![45x45](img/fourtyfive.png)
 ![80x80](img/eighty.png)
 ![100x100](img/hundred.png)
@@ -43,7 +43,7 @@ The material type also determines the effectiveness of this technique. Diffuse m
 ![specular](img/title.png)
 
 ###
-The amount of light also determines the effectiveness of this technique. Specifically, brighter scenes work better since there is less complexity in the lighting and more uniformity. 
+The amount of light also determines the effectiveness of this technique. Specifically, brighter scenes work better since there is less complexity in the lighting and more uniformity. As you can see in the darker Cornell box scene, there are more dark splotches that are due to the fact that there is a large change from light to dark that the filter is unable to smooth.
 ![dark](img/dark.png)
 ![light](img/title.png)
 
