@@ -77,7 +77,7 @@ In addition to the above, you should also analyze your denoiser on a qualitative
 
 | Original | FilterSize = 12  | FilterSize = 20
 | ----------- | ----------- | ----------- |
-| ![](img/noDenoise50.png)  |  ![](img/denoise12.png)  | ![](img/denoise20.png)
+| ![](img/noDenoise.png)  |  ![](img/denoise12.png)  | ![](img/denoise20.png)
 
 | FilterSize = 36 | FilterSize = 68  | FilterSize = 150
 | ----------- | ----------- | ----------- |
