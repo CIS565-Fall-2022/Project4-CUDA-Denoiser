@@ -74,6 +74,8 @@ If there are many iterations, then denoising should not add much time to the ove
 
 - **how denoising influences the number of iterations needed to get an "acceptably smooth" result**
 
+Denoising will lower the number of iterations requried to get an acceptably smooth result as seen below.
+
 | Acceptably Smooth Without Denoise (500 Iters) | Acceptably Smooth Denoised (50 Iterations) | No Denoise (50 Iterations) |
 | ----------- | ----------- | ----------- |
 | ![](img/acceptableSmooth700.png)  |  ![](img/acceptableSmooth50.png)  | ![](img/noDenoise50.png) 
@@ -85,15 +87,16 @@ If there are many iterations, then denoising should not add much time to the ove
 
 - **how denoising at different resolutions impacts runtime**
 
+As the resolution of the final output increases, the runtime of the denoise algorithm will also increase. This is surprising to me, as the denoising algorithm is called in parallel across the pixels, so increasing the resolution should not increase the denoise runtime that significantly. However, to test this hypothesis, I will have to tweak the blockSize2d and blocksPerGrid2d.
+
 ![](img/resolutionDenoise.png)
 
 
 - **how varying filter sizes affect performance**
 
+Increasing the filter size will increase the runtime of denoise. This is not surprising, as the filter expansion process is sequential. If the filter needs to expand to a larger goal size, then it will require more iterations in the for loop to do so since we don't modify the stepWidth based off of the filter size. The stepWidth always increases by double on each loop. 
+
 ![](img/filterSizeDenoise.png)
-
-
-In addition to the above, you should also analyze your denoiser on a qualitative level:
 
 - **how visual results vary with filter size -- does the visual quality scale uniformly with filter size?**
 
