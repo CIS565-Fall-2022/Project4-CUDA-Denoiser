@@ -70,7 +70,7 @@ I added a new function that would denoise the output image rather than show the 
 
 If there are many iterations, then denoising should not add much time to the overall production time. This is because denoising only occurs once after the entire image has converged, and is thus not correlated to the number of iterations in the image. For example, with 1 iteration, perhaps the total amount of production time will increase by a lot. However, with something like 1000+ iterations, the amount of extra time it takes to denoise will hardly add much:
 
-
+![](img/itersDenoise.png)
 
 - **how denoising influences the number of iterations needed to get an "acceptably smooth" result**
 
