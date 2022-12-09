@@ -33,7 +33,7 @@ A denoised image with 30 iteratiions could qualify the naive path traced image w
 
 | 30 samples denoised image | 1000 samples naive image |
 :-------:|:-------:
-|![](img/denoiser/denoise_2.png)|![](img/denoiser/1000sample.png) |
+|![](img/denoiser/denoise_2.png)|![](img/original_50_iter.png) |
 
 **How denoising at different resolutions impacts runtime**
 
