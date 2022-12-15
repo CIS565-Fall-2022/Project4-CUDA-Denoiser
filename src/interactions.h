@@ -2,6 +2,7 @@
 
 #include "intersections.h"
 
+// CHECKITOUT
 /**
  * Computes a cosine-weighted random direction in a hemisphere.
  * Used for diffuse lighting.
@@ -40,23 +41,79 @@ glm::vec3 calculateRandomDirectionInHemisphere(
         + sin(around) * over * perpendicularDirection2;
 }
 
+
 /**
- * Simple ray scattering with diffuse and perfect specular support.
+ * Scatter a ray with some probabilities according to the material properties.
+ * For example, a diffuse surface scatters in a cosine-weighted hemisphere.
+ * A perfect specular surface scatters in the reflected ray direction.
+ * In order to apply multiple effects to one surface, probabilistically choose
+ * between them.
+ *
+ * The visual effect you want is to straight-up add the diffuse and specular
+ * components. You can do this in a few ways. This logic also applies to
+ * combining other types of materias (such as refractive).
+ *
+ * - Always take an even (50/50) split between a each effect (a diffuse bounce
+ *   and a specular bounce), but divide the resulting color of either branch
+ *   by its probability (0.5), to counteract the chance (0.5) of the branch
+ *   being taken.
+ *   - This way is inefficient, but serves as a good starting point - it
+ *     converges slowly, especially for pure-diffuse or pure-specular.
+ * - Pick the split based on the intensity of each material color, and divide
+ *   branch result by that branch's probability (whatever probability you use).
+ *
+ * This method applies its changes to the Ray parameter `ray` in place.
+ * It also modifies the color `color` of the ray in place.
+ *
+ * You may need to change the parameter list for your purposes!
  */
 __host__ __device__
 void scatterRay(
-		PathSegment & pathSegment,
+        PathSegment & pathSegment,
         glm::vec3 intersect,
         glm::vec3 normal,
         const Material &m,
         thrust::default_random_engine &rng) {
-    glm::vec3 newDirection;
-    if (m.hasReflective) {
-        newDirection = glm::reflect(pathSegment.ray.direction, normal);
-    } else {
-        newDirection = calculateRandomDirectionInHemisphere(normal, rng);
+    // TODO: implement this.
+    // A basic implementation of pure-diffuse shading will just call the
+    // calculateRandomDirectionInHemisphere defined above.
+    glm::vec3 newDir;
+
+    thrust::uniform_real_distribution<float> u01(0, 1);
+    float random = u01(rng);
+
+    if (random < m.hasReflective) { // rng falls in range of reflectivity
+        // Specular
+        newDir = glm::reflect(pathSegment.ray.direction, normal);
+        pathSegment.color *= m.specular.color;
+
+    }
+    else if (random < m.hasRefractive) {
+        // Refractive
+        float cosTheta = glm::dot(normal, pathSegment.ray.direction);
+        float sinTheta = glm::sqrt(1.0f - cosTheta * cosTheta);
+        bool entering = cosTheta > 0;
+        float eta = entering ? 1.0f / m.indexOfRefraction : m.indexOfRefraction;
+
+        newDir = glm::refract(pathSegment.ray.direction, normal, eta);
+        //glm::vec3 ori = intersect + 0.01f * newDir;
+
+        if (sinTheta * eta > 1.0f)
+        {
+            //newDir = glm::reflect(pathSegment.ray.direction, normal);
+            //ori = intersect + 0.001f * normal;
+        }
+
+        pathSegment.color *= m.specular.color;
+    }
+    else {
+        // Diffuse
+        newDir = calculateRandomDirectionInHemisphere(normal, rng);
+        pathSegment.color *= m.color;
+
     }
 
-    pathSegment.ray.direction = newDirection;
-    pathSegment.ray.origin = intersect + (newDirection * 0.0001f);
+    pathSegment.ray.origin = intersect + newDir * 0.001f;
+    pathSegment.ray.direction = newDir;
+
 }
