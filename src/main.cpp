@@ -23,13 +23,14 @@ int ui_iterations = 0;
 int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
-bool ui_denoise = false;
-int currFilterSize = 80;
-int ui_filterSize = 80;
-float currColorWeight = 0.45f;
-float ui_colorWeight = 0.45f;
-float currNormalWeight = 0.35f;
-float ui_normalWeight = 0.35f;
+bool currDenoiser = false;
+bool ui_denoiser = false;
+int currFilterSize = 20;
+int ui_filterSize = 20;
+float currColorWeight = 12.0f;
+float ui_colorWeight = 12.0f;
+float currNormalWeight = 0.01f;
+float ui_normalWeight = 0.01f;
 float currPositionWeight = 0.2f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
@@ -114,10 +115,15 @@ void saveImage() {
         }
     }
 
-    std::string filename = renderState->imageName;
+    /*std::string filename = renderState->imageName;
     std::ostringstream ss;
     ss << filename << "." << startTimeString << "." << samples << "samp";
-    filename = ss.str();
+    filename = ss.str();*/
+    
+    std::string filename = std::to_string(lastLoopIterations);
+    if (currDenoiser) {
+        filename += ("_" + std::to_string(currColorWeight) + "_" + std::to_string(currNormalWeight) + "_" + std::to_string(currPositionWeight) + "_");
+    }
 
     // CHECKITOUT
     img.savePNG(filename);
@@ -144,6 +150,11 @@ void runCuda() {
     }
     if (currPositionWeight != ui_positionWeight) {
         currPositionWeight = ui_positionWeight;
+        camchanged = true;
+    }
+
+    if (currDenoiser != ui_denoiser) {
+        currDenoiser = ui_denoiser;
         camchanged = true;
     }
 
@@ -188,19 +199,19 @@ void runCuda() {
     if (iteration < ui_iterations) {
         iteration++;
 
-        cudaEvent_t event_start;
+        /*cudaEvent_t event_start;
         cudaEvent_t event_end;
         cudaEventCreate(&event_start);
         cudaEventCreate(&event_end);
-        cudaEventRecord(event_start);
+        cudaEventRecord(event_start);*/
         // execute the kernel
         int frame = 0;
-        pathtrace(frame, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
-        cudaEventRecord(event_end);
+        pathtrace(frame, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_denoiser);
+        /*cudaEventRecord(event_end);
         cudaEventSynchronize(event_end);
         float timeElapsedMilliseconds;
         cudaEventElapsedTime(&timeElapsedMilliseconds, event_start, event_end);
-        std::cout << timeElapsedMilliseconds << std::endl;
+        std::cout << timeElapsedMilliseconds << std::endl;*/
     }
 
     if (ui_showGbuffer) {

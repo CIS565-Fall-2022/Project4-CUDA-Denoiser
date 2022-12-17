@@ -17,8 +17,6 @@
 #include "intersections.h"
 #include "interactions.h"
 
-#define DENOISE 0
-
 #define ERRORCHECK 1
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -344,7 +342,8 @@ __global__ void kernDenoise(
     float c_phi,
     float n_phi,
     float p_phi,
-    glm::vec3* image2
+    glm::vec3* image2,
+    int iteration
 ) {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
@@ -368,11 +367,12 @@ __global__ void kernDenoise(
             //keep currPixel inside image
             int currPixelX = glm::clamp(currOffset.x + pixelX, 0, cam.resolution.x - 1);
             int currPixelY = glm::clamp(currOffset.y + pixelY, 0, cam.resolution.y - 1);
-            int currIndex = currPixelX + (currPixelY * cam.resolution.x);        
+            int currIndex = currPixelX + (currPixelY * cam.resolution.x);    
 
             glm::vec3 ctmp = image[currIndex];
             glm::vec3 t = cval - ctmp;
             
+            //increase color weight when iteration is higher
             float dist2 = glm::dot(t, t);
             float c_w = glm::min(glm::exp(-(dist2) / c_phi), 1.f);
 
@@ -417,7 +417,7 @@ __global__ void kernImageCopy(
  * Wrapper for the __global__ call that sets up the kernel calls and does a ton
  * of memory management
  */
-void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, float p_phi) {
+void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, float p_phi, bool denoiser) {
     const int traceDepth = hst_scene->state.traceDepth;
     const Camera &cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -472,10 +472,10 @@ void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, fl
 
 	// --- PathSegment Tracing Stage ---
 	// Shoot ray into scene, bounce between objects, push shading chunks
-#if DENOISE
-    // Empty gbuffer
-    cudaMemset(dev_gBuffer, 0, pixelcount * sizeof(GBufferPixel));
-#endif
+    if (denoiser) {
+        // Empty gbuffer
+        cudaMemset(dev_gBuffer, 0, pixelcount * sizeof(GBufferPixel));
+    }
 	// clean shading chunks
 	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
@@ -495,11 +495,12 @@ void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, fl
 	    checkCUDAError("trace one bounce");
 	    cudaDeviceSynchronize();
 
-#if DENOISE
-        if (depth == 0) {
-            generateGBuffer<<<numblocksPathSegmentTracing, blockSize1d>>>(num_paths, dev_intersections, dev_paths, dev_gBuffer);
+        if (denoiser) {
+            if (depth == 0) {
+                generateGBuffer << <numblocksPathSegmentTracing, blockSize1d >> > (num_paths, dev_intersections, dev_paths, dev_gBuffer);
+            }
         }
-#endif
+
 	    ++depth;
 
         shadeSimpleMaterials<<<numblocksPathSegmentTracing, blockSize1d>>> (
@@ -520,36 +521,29 @@ void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, fl
     dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
 	finalGather<<<numBlocksPixels, blockSize1d>>>(num_paths, dev_image, dev_paths);
 
-#if DENOISE
-    int num_steps = ceil(log2(filterSize));
-    if (num_steps != 0) {
-        for (int i = 0; i < num_steps; ++i) {
-            kernDenoise << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_kernel, dev_offset, dev_gBuffer, filterSize, i, cam, c_phi, n_phi, p_phi, dev_image2);
-            if (i != (num_steps - 1)) {
-                cudaMemcpy(dev_image, dev_image2, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
-            }
-            if (i == 1) {
-                break;
+    if (denoiser) {
+        //filter size represents one dimension of the filter
+        int num_steps = ceil(log2(filterSize/2));
+        if (num_steps != 0) {
+            for (int i = 0; i < num_steps; ++i) {
+                kernDenoise << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_kernel, dev_offset, dev_gBuffer, filterSize, i, cam, c_phi, n_phi, p_phi, dev_image2, iter);
+                if (i != (num_steps - 1)) {
+                    cudaMemcpy(dev_image, dev_image2, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
+                }
             }
         }
+        cudaMemcpy(hst_scene->state.image.data(), dev_image2,
+            pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
     }
     else {
-        cudaMemcpy(dev_image, dev_image2, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
+        cudaMemcpy(hst_scene->state.image.data(), dev_image,
+            pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
     }
-#endif
     ///////////////////////////////////////////////////////////////////////////
 
     // CHECKITOUT: use dev_image as reference if you want to implement saving denoised images.
     // Otherwise, screenshots are also acceptable.
     // Retrieve image from GPU
-#if DENOISE
-    cudaMemcpy(hst_scene->state.image.data(), dev_image2,
-            pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-#else
-    cudaMemcpy(hst_scene->state.image.data(), dev_image,
-        pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-#endif
-
 
     checkCUDAError("pathtrace");
 }
