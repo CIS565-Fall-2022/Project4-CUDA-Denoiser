@@ -24,9 +24,13 @@ int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
 bool ui_denoise = false;
+int currFilterSize = 80;
 int ui_filterSize = 80;
+float currColorWeight = 0.45f;
 float ui_colorWeight = 0.45f;
+float currNormalWeight = 0.35f;
 float ui_normalWeight = 0.35f;
+float currPositionWeight = 0.2f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
 
@@ -126,6 +130,23 @@ void runCuda() {
       camchanged = true;
     }
 
+    if (currFilterSize != ui_filterSize) {
+        currFilterSize = ui_filterSize;
+        camchanged = true;
+    }
+    if (currColorWeight != ui_colorWeight) {
+        currColorWeight = ui_colorWeight;
+        camchanged = true;
+    }
+    if (currNormalWeight != ui_normalWeight) {
+        currNormalWeight = ui_normalWeight;
+        camchanged = true;
+    }
+    if (currPositionWeight != ui_positionWeight) {
+        currPositionWeight = ui_positionWeight;
+        camchanged = true;
+    }
+
     if (camchanged) {
         iteration = 0;
         Camera &cam = renderState->camera;
@@ -144,6 +165,13 @@ void runCuda() {
         cameraPosition += cam.lookAt;
         cam.position = cameraPosition;
         camchanged = false;
+
+        //cout << cam.position.x << endl;
+        //cout << cam.position.y << endl;
+        //cout << cam.position.z << endl;
+        //cout << cam.lookAt.x << endl;
+        //cout << cam.lookAt.y << endl;
+        //cout << cam.lookAt.z << endl;
       }
 
     // Map OpenGL buffer object for writing from CUDA on a single GPU
@@ -160,9 +188,19 @@ void runCuda() {
     if (iteration < ui_iterations) {
         iteration++;
 
+        cudaEvent_t event_start;
+        cudaEvent_t event_end;
+        cudaEventCreate(&event_start);
+        cudaEventCreate(&event_end);
+        cudaEventRecord(event_start);
         // execute the kernel
         int frame = 0;
-        pathtrace(frame, iteration);
+        pathtrace(frame, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+        cudaEventRecord(event_end);
+        cudaEventSynchronize(event_end);
+        float timeElapsedMilliseconds;
+        cudaEventElapsedTime(&timeElapsedMilliseconds, event_start, event_end);
+        std::cout << timeElapsedMilliseconds << std::endl;
     }
 
     if (ui_showGbuffer) {
