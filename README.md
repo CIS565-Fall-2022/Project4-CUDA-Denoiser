@@ -34,8 +34,8 @@ I tested the influence of denoiser with filter size of 20, color weight of 12, n
 Below is a chart that compare the runtime with different resolutions. The runtime are counted in millisecond for 50 iterations. The resolution are tested from 1000x1000 to 2500x2500. Note, the increase in resolutions is not linear, so the increase in the difference of runtime is also not linear. However, we can notice from the overall trends that the runtime increase should be linear with respect to number pixels.  
 ![](images/runtime_vs_resolution.png)  
 * Impact of filter sizes on Runtime  
-
-
+The impact of filter sizes on runtime are tested with a resolution of 1000x1000 and iterations of 50. The runtime are counted in millisecond for 50 iterations. The filter size are tested from 10x10 to 80x80. I am expecting the runtime increase as filter size increase. The result generally shows this trends and also a linear relationship with respect to the filter size.  
+![](images/filtersize_vs_runtime.png)  
 
 * Impact of filter sizes on Image  
 
