@@ -34,6 +34,7 @@ float ui_normalWeight = 0.01f;
 float currPositionWeight = 0.2f;
 float ui_positionWeight = 0.2f;
 bool ui_saveAndExit = false;
+float ui_timer = 0.f;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -183,6 +184,7 @@ void runCuda() {
         //cout << cam.lookAt.x << endl;
         //cout << cam.lookAt.y << endl;
         //cout << cam.lookAt.z << endl;
+        ui_timer = 0.f;
       }
 
     // Map OpenGL buffer object for writing from CUDA on a single GPU
@@ -197,21 +199,21 @@ void runCuda() {
     cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
 
     if (iteration < ui_iterations) {
-        iteration++;
+        ++iteration;
 
-        /*cudaEvent_t event_start;
+        cudaEvent_t event_start;
         cudaEvent_t event_end;
         cudaEventCreate(&event_start);
         cudaEventCreate(&event_end);
-        cudaEventRecord(event_start);*/
+        cudaEventRecord(event_start);
         // execute the kernel
         int frame = 0;
         pathtrace(frame, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_denoiser);
-        /*cudaEventRecord(event_end);
+        cudaEventRecord(event_end);
         cudaEventSynchronize(event_end);
         float timeElapsedMilliseconds;
         cudaEventElapsedTime(&timeElapsedMilliseconds, event_start, event_end);
-        std::cout << timeElapsedMilliseconds << std::endl;*/
+        ui_timer += timeElapsedMilliseconds;
     }
 
     if (ui_showGbuffer) {

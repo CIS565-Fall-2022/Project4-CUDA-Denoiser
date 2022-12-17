@@ -221,6 +221,7 @@ void drawGui(int windowWidth, int windowHeight) {
 
     ImGui::Checkbox("Show GBuffer", &ui_showGbuffer);
     ImGui::Checkbox("Denoiser", &ui_denoiser);
+    ImGui::Text("Runtime = %f", ui_timer);
     ImGui::Separator();
 
     if (ImGui::Button("Save image and exit")) {
