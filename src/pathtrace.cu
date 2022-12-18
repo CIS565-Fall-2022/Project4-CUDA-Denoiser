@@ -110,8 +110,10 @@ static float* dev_kernel = NULL;
 static glm::ivec2* dev_offset = NULL;
 static glm::vec3* dev_image2 = NULL;
 static GBufferPixelZ * dev_gBufferZ = NULL;
+static float* dev_gaussian = NULL;
+static glm::ivec2* dev_gaussianOffset = NULL;
 
-void pathtraceInit(Scene *scene, bool useZforPos) {
+void pathtraceInit(Scene *scene, bool useZforPos, bool gaussian) {
     hst_scene = scene;
     const Camera &cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -145,10 +147,14 @@ void pathtraceInit(Scene *scene, bool useZforPos) {
         cudaMalloc(&dev_gBuffer, pixelcount * sizeof(GBufferPixel));
     }
 
+    //just malloc gaussian anyway
+    cudaMalloc(&dev_gaussianOffset, 49 * sizeof(glm::ivec2));
+    cudaMalloc(&dev_gaussian, 49 * sizeof(float));
+    setGaussianOffset(dev_gaussian, dev_gaussianOffset);
     checkCUDAError("pathtraceInit");
 }
 
-void pathtraceFree(bool useZforPos) {
+void pathtraceFree(bool useZforPos, bool gaussian) {
     cudaFree(dev_image);  // no-op if dev_image is null
   	cudaFree(dev_paths);
   	cudaFree(dev_geoms);
@@ -164,6 +170,7 @@ void pathtraceFree(bool useZforPos) {
     else {
         cudaFree(dev_gBuffer);
     }
+    cudaFree(dev_gaussian);
     checkCUDAError("pathtraceFree");
 }
 
@@ -385,7 +392,8 @@ __global__ void kernDenoise(
     glm::vec3* image2,
     int iteration,
     GBufferPixelZ* gBufferZ, 
-    bool useZforPos
+    bool useZforPos,
+    int kernSize
 ) {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
@@ -410,7 +418,7 @@ __global__ void kernDenoise(
         float cum_w = 0.f;
 
         //offset: (-2, -2), (-2, -1), (-2, 0), ....
-        for (int i = 0; i < 25; ++i) {
+        for (int i = 0; i < kernSize; ++i) {
 
             int stepSize = pow(2, num_step);
             glm::ivec2 currOffset = offset[i] * stepSize;
@@ -481,7 +489,7 @@ __global__ void kernImageCopy(
  * Wrapper for the __global__ call that sets up the kernel calls and does a ton
  * of memory management
  */
-void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, float p_phi, bool denoiser, bool useZforPos) {
+void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, float p_phi, bool denoiser, bool useZforPos, bool gaussian) {
     const int traceDepth = hst_scene->state.traceDepth;
     const Camera &cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -590,7 +598,14 @@ void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, fl
         int num_steps = ceil(log2(filterSize/2));
         if (num_steps != 0) {
             for (int i = 0; i < num_steps; ++i) {
-                kernDenoise << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_kernel, dev_offset, dev_gBuffer, filterSize, i, cam, c_phi, n_phi, p_phi, dev_image2, iter, dev_gBufferZ, useZforPos);
+                if (gaussian) {
+                    int kernSize = 49;
+                    kernDenoise << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_gaussian, dev_gaussianOffset, dev_gBuffer, filterSize, i, cam, c_phi, n_phi, p_phi, dev_image2, iter, dev_gBufferZ, useZforPos, kernSize);
+                }
+                else {
+                    int kernSize = 25;
+                    kernDenoise << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_kernel, dev_offset, dev_gBuffer, filterSize, i, cam, c_phi, n_phi, p_phi, dev_image2, iter, dev_gBufferZ, useZforPos, kernSize);
+                }
                 if (i != (num_steps - 1)) {
                     cudaMemcpy(dev_image, dev_image2, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
                 }
@@ -654,5 +669,29 @@ void setKernelOffset(float* dev_kernel, glm::ivec2* dev_offset) {
     for (int i = 0; i < 25; ++i) {
         kernelNominator[i] /= 273.f;
         cudaMemcpy(dev_kernel + i, &kernelNominator[i], sizeof(float), cudaMemcpyHostToDevice);
+    }
+}
+
+void setGaussianOffset(float* gaussian, glm::ivec2* gaussianOffset) {
+    
+    std::vector<float> kernelNominator = { 0.f, 0.f, 1.f, 2.f, 1.f, 0.f, 0.f,
+                                          0.f, 3.f, 13.f, 22.f, 13.f, 3.f, 0.f,
+                                          1.f, 13.f, 59.f, 97.f, 59.f, 13.f, 1.f,
+                                          2.f, 22.f, 97.f, 159.f, 97.f, 22.f, 2.f,
+                                          1.f, 13.f, 59.f, 97.f, 59.f, 13.f, 1.f, 
+                                          0.f, 3.f, 13.f, 22.f, 13.f, 3.f, 0.f,
+                                          0.f, 0.f, 1.f, 2.f, 1.f, 0.f, 0.f
+    };
+    for (int i = 0; i < 49; ++i) {
+        kernelNominator[i] /= 1003.f;
+        cudaMemcpy(gaussian + i, &kernelNominator[i], sizeof(float), cudaMemcpyHostToDevice);
+    }
+
+    int offsetCount = 0;
+    for (int i = -3; i < 4; ++i) {
+        for (int j = -3; j < 4; ++j) {
+            cudaMemcpy(gaussianOffset + offsetCount, &(glm::ivec2(i, j)), sizeof(glm::ivec2), cudaMemcpyHostToDevice);
+            ++offsetCount;
+        }
     }
 }
