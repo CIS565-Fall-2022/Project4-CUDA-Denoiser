@@ -37,6 +37,8 @@ float currPositionWeight = 0.025f;
 float ui_positionWeight = 0.025f;
 bool ui_saveAndExit = false;
 float ui_timer = 0.f;
+bool currUseZforPos = false;
+bool ui_useZforPos = false;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -161,6 +163,11 @@ void runCuda() {
         camchanged = true;
     }
 
+    if (currUseZforPos != ui_useZforPos) {
+        currUseZforPos = ui_useZforPos;
+        camchanged = true;
+    }
+
     if (camchanged) {
         iteration = 0;
         Camera &cam = renderState->camera;
@@ -193,8 +200,8 @@ void runCuda() {
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
     if (iteration == 0) {
-        pathtraceFree();
-        pathtraceInit(scene);
+        pathtraceFree(currUseZforPos);
+        pathtraceInit(scene, currUseZforPos);
     }
 
     uchar4 *pbo_dptr = NULL;
@@ -210,7 +217,7 @@ void runCuda() {
         cudaEventRecord(event_start);
         // execute the kernel
         int frame = 0;
-        pathtrace(frame, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_denoiser);
+        pathtrace(frame, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_denoiser, currUseZforPos);
         cudaEventRecord(event_end);
         cudaEventSynchronize(event_end);
         float timeElapsedMilliseconds;
@@ -229,7 +236,7 @@ void runCuda() {
 
     if (ui_saveAndExit) {
         saveImage();
-        pathtraceFree();
+        pathtraceFree(currUseZforPos);
         cudaDeviceReset();
         exit(EXIT_SUCCESS);
     }

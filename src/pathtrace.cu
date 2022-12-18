@@ -109,10 +109,9 @@ static GBufferPixel* dev_gBuffer = NULL;
 static float* dev_kernel = NULL;
 static glm::ivec2* dev_offset = NULL;
 static glm::vec3* dev_image2 = NULL;
-// TODO: static variables for device memory, any extra info you need, etc
-// ...
+static GBufferPixelZ * dev_gBufferZ = NULL;
 
-void pathtraceInit(Scene *scene) {
+void pathtraceInit(Scene *scene, bool useZforPos) {
     hst_scene = scene;
     const Camera &cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -131,7 +130,6 @@ void pathtraceInit(Scene *scene) {
   	cudaMalloc(&dev_intersections, pixelcount * sizeof(ShadeableIntersection));
   	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
-    cudaMalloc(&dev_gBuffer, pixelcount * sizeof(GBufferPixel));
 
     // TODO: initialize any extra device memeory you need
     cudaMalloc(&dev_image2, pixelcount * sizeof(glm::vec3));
@@ -139,20 +137,33 @@ void pathtraceInit(Scene *scene) {
     cudaMalloc(&dev_kernel, 25 * sizeof(float));
     cudaMalloc(&dev_offset, 25 * sizeof(glm::ivec2));
     setKernelOffset(dev_kernel, dev_offset);
+    
+    if (useZforPos) {
+        cudaMalloc(&dev_gBufferZ, pixelcount * sizeof(GBufferPixelZ));
+    }
+    else {
+        cudaMalloc(&dev_gBuffer, pixelcount * sizeof(GBufferPixel));
+    }
+
     checkCUDAError("pathtraceInit");
 }
 
-void pathtraceFree() {
+void pathtraceFree(bool useZforPos) {
     cudaFree(dev_image);  // no-op if dev_image is null
   	cudaFree(dev_paths);
   	cudaFree(dev_geoms);
   	cudaFree(dev_materials);
   	cudaFree(dev_intersections);
-    cudaFree(dev_gBuffer);
     // TODO: clean up any extra device memory you created
     cudaFree(dev_kernel);
     cudaFree(dev_offset);
     cudaFree(dev_image2);
+    if (useZforPos) {
+        cudaFree(dev_gBufferZ);
+    }
+    else {
+        cudaFree(dev_gBuffer);
+    }
     checkCUDAError("pathtraceFree");
 }
 
@@ -166,15 +177,15 @@ void pathtraceFree() {
 */
 __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, PathSegment* pathSegments)
 {
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;  //pixel index x
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;  //pixel index y
 
 	if (x < cam.resolution.x && y < cam.resolution.y) {
 		int index = x + (y * cam.resolution.x);
 		PathSegment & segment = pathSegments[index];
 
 		segment.ray.origin = cam.position;
-    segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
+        segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
 		segment.ray.direction = glm::normalize(cam.view
 			- cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
@@ -303,17 +314,31 @@ __global__ void generateGBuffer (
   int num_paths,
   ShadeableIntersection* shadeableIntersections,
 	PathSegment* pathSegments,
-  GBufferPixel* gBuffer) {
+  GBufferPixel* gBuffer,
+    GBufferPixelZ* gBufferZ,
+    bool useZforPos
+) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < num_paths)
   {
-    gBuffer[idx].t = shadeableIntersections[idx].t;
-    gBuffer[idx].normal = shadeableIntersections[idx].surfaceNormal;
-    if (gBuffer[idx].t == -1.f) {
-        gBuffer[idx].position = glm::vec3(0.f);
+    if (useZforPos) {
+        gBufferZ[idx].normal = shadeableIntersections[idx].surfaceNormal;
+        if (shadeableIntersections[idx].t == -1) {
+            gBufferZ[idx].z = 0.f;
+        }
+        else {
+            gBufferZ[idx].z = shadeableIntersections[idx].t;
+        }
     }
     else {
-        gBuffer[idx].position = pathSegments[idx].ray.origin + gBuffer[idx].t * pathSegments[idx].ray.direction;
+        gBuffer[idx].t = shadeableIntersections[idx].t;
+        gBuffer[idx].normal = shadeableIntersections[idx].surfaceNormal;
+        if (gBuffer[idx].t == -1.f) {
+            gBuffer[idx].position = glm::vec3(0.f);
+        }
+        else {
+            gBuffer[idx].position = pathSegments[idx].ray.origin + gBuffer[idx].t * pathSegments[idx].ray.direction;
+        }
     }
   }
 }
@@ -330,6 +355,21 @@ __global__ void finalGather(int nPaths, glm::vec3 * image, PathSegment * iterati
 	}
 }
 
+__host__ __device__ void getPosFromZ(
+    int pixelX,
+    int pixelY,
+    Camera cam,
+    float z,
+    glm::vec3& pos
+) {
+    glm::vec3 origin = cam.position;
+
+    glm::vec3 dir = glm::normalize(cam.view
+        - cam.right * cam.pixelLength.x * ((float)pixelX - (float)cam.resolution.x * 0.5f)
+        - cam.up * cam.pixelLength.y * ((float)pixelY - (float)cam.resolution.y * 0.5f));
+    pos = origin + dir * (z - 0.0000001f);
+}
+
 __global__ void kernDenoise(
     int num_paths, 
     glm::vec3* image,
@@ -343,7 +383,9 @@ __global__ void kernDenoise(
     float n_phi,
     float p_phi,
     glm::vec3* image2,
-    int iteration
+    int iteration,
+    GBufferPixelZ* gBufferZ, 
+    bool useZforPos
 ) {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
@@ -351,12 +393,21 @@ __global__ void kernDenoise(
     {
         glm::vec3 sum = glm::vec3(0.f);
         glm::vec3 cval = image[index];
-        glm::vec3 nval = gBuffers[index].normal;
-        glm::vec3 pval = gBuffers[index].position;
-        float cum_w = 0.f;
-
+        glm::vec3 nval;
+        glm::vec3 pval;
         int pixelY = index / cam.resolution.x;
         int pixelX = index - (pixelY * cam.resolution.x);
+
+        if (useZforPos) {
+            float z = gBufferZ[index].z;
+            getPosFromZ(pixelX, pixelY, cam, z, pval);
+            nval = gBufferZ[index].normal;
+        }
+        else {
+            nval = gBuffers[index].normal;
+            pval = gBuffers[index].position;
+        }
+        float cum_w = 0.f;
 
         //offset: (-2, -2), (-2, -1), (-2, 0), ....
         for (int i = 0; i < 25; ++i) {
@@ -376,12 +427,25 @@ __global__ void kernDenoise(
             float dist2 = glm::dot(t, t);
             float c_w = glm::min(glm::exp(-(dist2) / c_phi), 1.f);
 
-            glm::vec3 ntmp = gBuffers[currIndex].normal;
+            glm::vec3 ptmp;
+            glm::vec3 ntmp;
+            if (useZforPos) {
+                ntmp = gBufferZ[currIndex].normal;
+            }
+            else {
+                ntmp = gBuffers[currIndex].normal;
+            }
             t = nval - ntmp;
             dist2 = glm::max(glm::dot(t, t) / (stepSize * stepSize), 0.f);
             float n_w = glm::min(glm::exp(-(dist2) / n_phi), 1.f);
 
-            glm::vec3 ptmp = gBuffers[currIndex].position;
+            if (useZforPos) {
+                float currZ = gBufferZ[currIndex].z;
+                getPosFromZ(currPixelX, currPixelY, cam, currZ, ptmp);
+            }
+            else {
+                ptmp = gBuffers[currIndex].position;
+            }
             t = pval - ptmp;
             dist2 = glm::dot(t, t);
             float p_w = glm::min(glm::exp(-(dist2) / p_phi), 1.f);
@@ -417,7 +481,7 @@ __global__ void kernImageCopy(
  * Wrapper for the __global__ call that sets up the kernel calls and does a ton
  * of memory management
  */
-void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, float p_phi, bool denoiser) {
+void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, float p_phi, bool denoiser, bool useZforPos) {
     const int traceDepth = hst_scene->state.traceDepth;
     const Camera &cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -497,7 +561,7 @@ void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, fl
 
         if (denoiser) {
             if (depth == 0) {
-                generateGBuffer << <numblocksPathSegmentTracing, blockSize1d >> > (num_paths, dev_intersections, dev_paths, dev_gBuffer);
+                generateGBuffer << <numblocksPathSegmentTracing, blockSize1d >> > (num_paths, dev_intersections, dev_paths, dev_gBuffer, dev_gBufferZ, useZforPos);
             }
         }
 
@@ -526,7 +590,7 @@ void pathtrace(int frame, int iter, int filterSize, float c_phi, float n_phi, fl
         int num_steps = ceil(log2(filterSize/2));
         if (num_steps != 0) {
             for (int i = 0; i < num_steps; ++i) {
-                kernDenoise << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_kernel, dev_offset, dev_gBuffer, filterSize, i, cam, c_phi, n_phi, p_phi, dev_image2, iter);
+                kernDenoise << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_kernel, dev_offset, dev_gBuffer, filterSize, i, cam, c_phi, n_phi, p_phi, dev_image2, iter, dev_gBufferZ, useZforPos);
                 if (i != (num_steps - 1)) {
                     cudaMemcpy(dev_image, dev_image2, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToDevice);
                 }

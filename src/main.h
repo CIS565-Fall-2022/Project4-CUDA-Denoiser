@@ -43,6 +43,7 @@ extern float ui_positionWeight;
 extern bool ui_saveAndExit;
 extern bool ui_denoiser;
 extern float ui_timer;
+extern bool ui_useZforPos;
 
 void runCuda();
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);

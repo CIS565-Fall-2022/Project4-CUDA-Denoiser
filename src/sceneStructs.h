@@ -82,3 +82,8 @@ struct GBufferPixel {
   glm::vec3 normal;
   glm::vec3 position;
 };
+
+struct GBufferPixelZ {
+    float z;
+    glm::vec3 normal;
+};
