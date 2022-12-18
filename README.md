@@ -55,3 +55,9 @@ I tested the effectiveness of this method on lambert, ideal reflective and idea 
 | Ideal refractive | ![](images/cornell_ceiling_2/d_refractive.png) | ![](images/cornell_ceiling_2/refractive.png) |
 
 * Results across Different Scenes  
+I tested the result between the "cornell.txt" scene which is the standard cornell box scene and the "cornell_ceiling_light.txt" scene which is the standard cornell box scene with a much larger ceiling light. I tested the two scenes with 50 iterations, filter size of 20, color weight of 10, normal weight of 0.01, position weight of 0.025. Note here I choose color weight of 10 because a higher color weight is needed for generating a good results for the "cornell.txt" scene. The result are shown below. From the results, we can see that the scene with a larger light converge to a much better result than the scene with standard light. The reason behind is that with a larger light, each ray is more likely to hit the light source and thus are more likely to provide useful and correct color information for this pixel. With standard cornell box scene, many rays may not hit the light source for many iterations and thus still give only black color for a pixel, and thus won't provide good result when we try to average the image with denoiser. One better solution is to switch our integrator to full-light integrator which will actively gather information from light sources instead of the naive integrator we currently have.  
+
+| standard cornell box scene | cornell box scene with larger light |
+| ------ | -- |
+| ![](images/cornell_ceiling_1and2/cornell.png) | ![](images/cornell_ceiling_1and2/cornell_ceiling.png) |
+
