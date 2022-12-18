@@ -12,8 +12,8 @@ This project built a denoiser based on an GPU-based path tracer. The algorithm o
   
   
 ### Feature  
-* I implemented all the features for part 1.  
-
+* I implemented all the features for part 2.  
+* I implemented G-buffer optimization to switch the position of G-buffer from 3 float(glm::vec3) to 1 float(z-depth).  
 
 ### Analysis  
 * Runtime for Denoiser  
@@ -61,3 +61,7 @@ I tested the result between the "cornell.txt" scene which is the standard cornel
 | ------ | -- |
 | ![](images/cornell_ceiling_1and2/cornell.png) | ![](images/cornell_ceiling_1and2/cornell_ceiling.png) |
 
+### Extra Features  
+* G-buffer Optimization  
+I also implemented G-buffer optimization that uses Z-depth instead of glm::vec3 for positions in the G-buffer. On the GUI, I added a checkbox called "using Z for position". You can check it to switch to z-depth mode and uncheck it to switch back to vec3 mode. I compared the difference between the two modes and the results are shown below. The result below are tested with 50 iterations, resolutions from 1000x1000 to 3000x3000. We can see that the runtime of z-depth mode are slightly smaller than vec3 mode for all resolution and it also seems to be linear to the resolution.  
+![](images/zdepth_vs_vec3.png)
