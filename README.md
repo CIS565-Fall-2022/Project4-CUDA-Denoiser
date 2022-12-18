@@ -14,6 +14,7 @@ This project built a denoiser based on an GPU-based path tracer. The algorithm o
 ### Feature  
 * I implemented all the features for part 2.  
 * I implemented G-buffer optimization to switch the position of G-buffer from 3 float(glm::vec3) to 1 float(z-depth).  
+* I implemented a complete 7x7 gaussian kernel and a GUI checkbox to switch between A-trous kernel and gaussian kernel.  
 
 ### Analysis  
 * Runtime for Denoiser  
@@ -46,7 +47,7 @@ Generally speaking, the image quality will increase as the filter size increase.
 | ![](images/cornell_ceiling/filtersize/10.png) | ![](images/cornell_ceiling/filtersize/20.png) | ![](images/cornell_ceiling/filtersize/40.png) |
 
 * Effectiveness of this method on different materials  
-I tested the effectiveness of this method on lambert, ideal reflective and idea refractive materials. I tested each scene with 50 iterations, filter size of 20, color weight of 3.9, normal weight of 0.01, position weight of 0.025. The results are shown below. Based on the result, I think the method works well on all these three materials.
+I tested the effectiveness of this method on lambert, ideal reflective and idea refractive materials. I change the colors of all materials to be yellow and tested each scene with 50 iterations, filter size of 20, color weight of 3.9, normal weight of 0.01, position weight of 0.025. The results are shown below. Based on the result, I think the method works well on all these three materials.
 
 |  |  Denoiser on | Denoiser off |
 | --- | ----------------- | ----------------- |
@@ -64,4 +65,11 @@ I tested the result between the "cornell.txt" scene which is the standard cornel
 ### Extra Features  
 * G-buffer Optimization  
 I also implemented G-buffer optimization that uses Z-depth instead of glm::vec3 for positions in the G-buffer. On the GUI, I added a checkbox called "using Z for position". You can check it to switch to z-depth mode and uncheck it to switch back to vec3 mode. I compared the difference between the two modes and the results are shown below. The result below are tested with 50 iterations, resolutions from 1000x1000 to 3000x3000. We can see that the runtime of z-depth mode are slightly smaller than vec3 mode for all resolution and it also seems to be linear to the resolution.  
-![](images/zdepth_vs_vec3.png)
+![](images/zdepth_vs_vec3.png)  
+
+* Gaussian kernel  
+I also implemented a complete 7x7 gaussian kernel. Since gaussian kernel is different for different kernel dimension I just choose one dimension to implement which is 7x7. On the GUI, I added a checkbox called "gaussian" which can be checked to switch between gaussian kernel and A-trous kernel. Below is a compare result with gaussian kernel and A-trous. I set the filter size as 7, iterations as 50. Now, no matter how I adjust the parameters, the results from gaussian kernel and A-trous all look really similar. So I think that A-trous is a quite good approximate to gaussian kernel. 
+
+| gaussian kernel | A-trous kernel |
+| --- | --- | 
+| ![](images/gaussian/gaussian.png)  | ![](images/gaussian/no_gaussian.png) |
