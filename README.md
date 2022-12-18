@@ -46,5 +46,12 @@ Generally speaking, the image quality will increase as the filter size increase.
 | ![](images/cornell_ceiling/filtersize/10.png) | ![](images/cornell_ceiling/filtersize/20.png) | ![](images/cornell_ceiling/filtersize/40.png) |
 
 * Effectiveness of this method on different materials  
+I tested the effectiveness of this method on lambert, ideal reflective and idea refractive materials. I tested each scene with 50 iterations, filter size of 20, color weight of 3.9, normal weight of 0.01, position weight of 0.025. The results are shown below. Based on the result, I think the method works well on all these three materials.
+
+|  |  Denoiser on | Denoiser off |
+| --- | ----------------- | ----------------- |
+| lambert | ![](images/cornell_ceiling_2/d_lambert.png) | ![](images/cornell_ceiling_2/lambert.png)  |
+| Ideal reflective | ![](images/cornell_ceiling_2/d_reflective.png)  | ![](images/cornell_ceiling_2/reflective.png)  |
+| Ideal refractive | ![](images/cornell_ceiling_2/d_refractive.png) | ![](images/cornell_ceiling_2/refractive.png) |
 
 * Results across Different Scenes  
