@@ -23,12 +23,24 @@ int ui_iterations = 0;
 int startupIterations = 0;
 int lastLoopIterations = 0;
 bool ui_showGbuffer = false;
-bool ui_denoise = false;
-int ui_filterSize = 80;
-float ui_colorWeight = 0.45f;
-float ui_normalWeight = 0.35f;
-float ui_positionWeight = 0.2f;
+bool currDenoiser = false;
+bool ui_denoiser = false;
+int currFilterSize = 20;
+int ui_filterSize = 20;
+//float currColorWeight = 3.9f;
+//float ui_colorWeight = 3.9f;
+float currColorWeight = 10.f;
+float ui_colorWeight = 10.f;
+float currNormalWeight = 0.01f;
+float ui_normalWeight = 0.01f;
+float currPositionWeight = 0.025f;
+float ui_positionWeight = 0.025f;
 bool ui_saveAndExit = false;
+float ui_timer = 0.f;
+bool currUseZforPos = false;
+bool ui_useZforPos = false;
+bool currGaussian = false;
+bool ui_gaussian = false;
 
 static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
@@ -110,10 +122,15 @@ void saveImage() {
         }
     }
 
-    std::string filename = renderState->imageName;
+    /*std::string filename = renderState->imageName;
     std::ostringstream ss;
     ss << filename << "." << startTimeString << "." << samples << "samp";
-    filename = ss.str();
+    filename = ss.str();*/
+    
+    std::string filename = std::to_string(lastLoopIterations);
+    if (currDenoiser) {
+        filename += ("_" + std::to_string(currColorWeight) + "_" + std::to_string(currNormalWeight) + "_" + std::to_string(currPositionWeight) + "_");
+    }
 
     // CHECKITOUT
     img.savePNG(filename);
@@ -124,6 +141,38 @@ void runCuda() {
     if (lastLoopIterations != ui_iterations) {
       lastLoopIterations = ui_iterations;
       camchanged = true;
+    }
+
+    if (currFilterSize != ui_filterSize) {
+        currFilterSize = ui_filterSize;
+        camchanged = true;
+    }
+    if (currColorWeight != ui_colorWeight) {
+        currColorWeight = ui_colorWeight;
+        camchanged = true;
+    }
+    if (currNormalWeight != ui_normalWeight) {
+        currNormalWeight = ui_normalWeight;
+        camchanged = true;
+    }
+    if (currPositionWeight != ui_positionWeight) {
+        currPositionWeight = ui_positionWeight;
+        camchanged = true;
+    }
+
+    if (currDenoiser != ui_denoiser) {
+        currDenoiser = ui_denoiser;
+        camchanged = true;
+    }
+
+    if (currUseZforPos != ui_useZforPos) {
+        currUseZforPos = ui_useZforPos;
+        camchanged = true;
+    }
+
+    if (currGaussian != ui_gaussian) {
+        currGaussian = ui_gaussian;
+        camchanged = true;
     }
 
     if (camchanged) {
@@ -144,25 +193,43 @@ void runCuda() {
         cameraPosition += cam.lookAt;
         cam.position = cameraPosition;
         camchanged = false;
+
+        //cout << cam.position.x << endl;
+        //cout << cam.position.y << endl;
+        //cout << cam.position.z << endl;
+        //cout << cam.lookAt.x << endl;
+        //cout << cam.lookAt.y << endl;
+        //cout << cam.lookAt.z << endl;
+        ui_timer = 0.f;
       }
 
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
     if (iteration == 0) {
-        pathtraceFree();
-        pathtraceInit(scene);
+        pathtraceFree(currUseZforPos, currGaussian);
+        pathtraceInit(scene, currUseZforPos, currGaussian);
     }
 
     uchar4 *pbo_dptr = NULL;
     cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
 
     if (iteration < ui_iterations) {
-        iteration++;
+        ++iteration;
 
+        cudaEvent_t event_start;
+        cudaEvent_t event_end;
+        cudaEventCreate(&event_start);
+        cudaEventCreate(&event_end);
+        cudaEventRecord(event_start);
         // execute the kernel
         int frame = 0;
-        pathtrace(frame, iteration);
+        pathtrace(frame, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, ui_denoiser, currUseZforPos, currGaussian);
+        cudaEventRecord(event_end);
+        cudaEventSynchronize(event_end);
+        float timeElapsedMilliseconds;
+        cudaEventElapsedTime(&timeElapsedMilliseconds, event_start, event_end);
+        ui_timer += timeElapsedMilliseconds;
     }
 
     if (ui_showGbuffer) {
@@ -176,7 +243,7 @@ void runCuda() {
 
     if (ui_saveAndExit) {
         saveImage();
-        pathtraceFree();
+        pathtraceFree(currUseZforPos, currGaussian);
         cudaDeviceReset();
         exit(EXIT_SUCCESS);
     }

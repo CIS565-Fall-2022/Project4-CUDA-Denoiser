@@ -53,7 +53,11 @@ void scatterRay(
     glm::vec3 newDirection;
     if (m.hasReflective) {
         newDirection = glm::reflect(pathSegment.ray.direction, normal);
-    } else {
+    }
+    else if (m.hasRefractive) {
+        newDirection = pathSegment.ray.direction;
+    }
+    else {
         newDirection = calculateRandomDirectionInHemisphere(normal, rng);
     }
 
