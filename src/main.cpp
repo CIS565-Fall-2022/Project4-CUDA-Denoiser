@@ -27,12 +27,12 @@ bool currDenoiser = false;
 bool ui_denoiser = false;
 int currFilterSize = 20;
 int ui_filterSize = 20;
-float currColorWeight = 12.0f;
-float ui_colorWeight = 12.0f;
+float currColorWeight = 3.9f;
+float ui_colorWeight = 3.9f;
 float currNormalWeight = 0.01f;
 float ui_normalWeight = 0.01f;
-float currPositionWeight = 0.2f;
-float ui_positionWeight = 0.2f;
+float currPositionWeight = 0.025f;
+float ui_positionWeight = 0.025f;
 bool ui_saveAndExit = false;
 float ui_timer = 0.f;
 
