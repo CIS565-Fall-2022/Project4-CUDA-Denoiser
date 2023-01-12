@@ -521,13 +521,16 @@ __global__ void kernDenoise(
 
   auto &color = image_denoised_in[index];
   auto& position = gBuffer[index].position;
-  auto& normal = gBuffer[index].position;
+  auto& normal = gBuffer[index].normal;
 
   float cum_w = 0.0f;
   glm::vec3 sum(0.f);
 
   for (int i = 0; i < 25; ++i) {
     glm::ivec2 neighbourIdx = glm::ivec2(x, y) + offset[i] * stepWidth;
+
+    //neighbourIdx.x = glm::clamp(neighbourIdx.x, 0, resolution.x - 1);
+    //neighbourIdx.y = glm::clamp(neighbourIdx.y, 0, resolution.y - 1);
 
     if (neighbourIdx.x >= 0 && neighbourIdx.x < resolution.x
       && neighbourIdx.y >= 0 && neighbourIdx.y < resolution.y) {
@@ -568,8 +571,9 @@ void denoiseAndWriteToPbo(
   kernInitDenoiseBuffer << <blocksPerGrid2d, blockSize2d >> > (dev_image, cam.resolution, pathtraceIter, dev_image_denoised_in);
 
   int DENOISE_ITERS = 1;
+  int stepWidth = 1;
 
-  for (int stepWidth = 1; stepWidth <= DENOISE_ITERS; ++stepWidth) {
+  for (int i = 0; i < DENOISE_ITERS; ++i) {
     kernDenoise << <blocksPerGrid2d, blockSize2d >> > (
       cam.resolution,
       dev_gBuffer,
@@ -581,6 +585,8 @@ void denoiseAndWriteToPbo(
       positionWeight,
       dev_image_denoised_in,
       dev_image_denoised_out);
+    //stepWidth = stepWidth << 2;
+    //colorWeight = colorWeight / stepWidth;
 
     std::swap(dev_image_denoised_in, dev_image_denoised_out); // most updated version is _in now
   }
