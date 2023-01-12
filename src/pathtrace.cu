@@ -14,8 +14,8 @@
 #include "intersections.h"
 #include "interactions.h"
 
-#define SHOW_GBUFFER_NORMALS 1
-#define SHOW_GBUFFER_POS 0
+#define SHOW_GBUFFER_NORMALS 0
+#define SHOW_GBUFFER_POS 1
 
 #define ERRORCHECK 1
 
@@ -494,7 +494,7 @@ __global__ void kernInitDenoiseBuffer(glm::vec3* image, glm::ivec2 resolution, f
 
 __device__ float getWeight(glm::vec3 v1, glm::vec3 v2, float sigma) {
   glm::vec3 t = v1 - v2;
-  float dist_squared = glm::max(dot(t, t), 0.0f);
+  float dist_squared = glm::max(glm::dot(t, t), 0.0f);
   return glm::min(exp(-dist_squared / (sigma * sigma)), 1.0f);
 }
 
@@ -546,8 +546,8 @@ __global__ void kernDenoise(
       float n_w = getWeight(normal, neighbourNorm, normalWeight);
 
       float weight = c_w * n_w * p_w;
-      sum += kernel[n] * weight * neighbourColor;
-      cum_w += kernel[n] * weight;
+      sum += kernel[i] * weight * neighbourColor;
+      cum_w += kernel[i] * weight;
     }
   }
 
