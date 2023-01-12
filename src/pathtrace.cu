@@ -145,9 +145,9 @@ void pathtraceInit(Scene *scene) {
     cudaMalloc(&dev_kernel, 25 * sizeof(float));
     float kernel[25] =
     { 1.f / 256, 1.f / 64, 3.f / 128, 1.f / 64, 1.f / 256,
-      1.f / 64, 1.f / 16, 3.f / 32, 1.f / 16, 1 / 64,
+      1.f / 64, 1.f / 16, 3.f / 32, 1.f / 16, 1.f / 64,
       3.f / 128, 3.f / 32, 9.f / 64, 3.f / 32, 3.f / 128,
-      1.f / 64, 1.f / 16, 3.f / 32, 1.f / 16, 1 / 64,
+      1.f / 64, 1.f / 16, 3.f / 32, 1.f / 16, 1.f / 64,
       1.f / 256, 1.f / 64, 3.f / 128, 1.f / 64, 1.f / 256 };
     cudaMemcpy(dev_kernel, kernel, 25 * sizeof(float), cudaMemcpyHostToDevice);
 
@@ -492,10 +492,10 @@ __global__ void kernInitDenoiseBuffer(glm::vec3* image, glm::ivec2 resolution, f
   image_denoised[index] = image[index] / pathtraceIter;
 }
 
-__device__ float getWeight(glm::vec3 v1, glm::vec3 v2, float phi) {  // phi is sigma^2
+__device__ float getWeight(glm::vec3 v1, glm::vec3 v2, float sigma) {
   glm::vec3 t = v1 - v2;
   float dist_squared = glm::max(dot(t, t), 0.0f);
-  return glm::min(exp(-dist_squared / phi), 1.0f);
+  return glm::min(exp(-dist_squared / (sigma * sigma)), 1.0f);
 }
 
 __global__ void kernDenoise(
