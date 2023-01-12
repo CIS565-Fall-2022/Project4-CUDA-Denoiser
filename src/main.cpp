@@ -172,7 +172,7 @@ void runCuda() {
     }
 
     if (ui_denoise) {
-      denoiseAndWriteToPbo(pbo_dptr, iteration);
+      denoiseAndWriteToPbo(pbo_dptr, iteration, ui_colorWeight, ui_normalWeight, ui_positionWeight);
     }
 
     // unmap buffer object

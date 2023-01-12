@@ -100,7 +100,8 @@ static ShadeableIntersection * dev_intersections = NULL;
 static GBufferPixel* dev_gBuffer = NULL;
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
-static glm::vec3* dev_image_denoised = NULL;
+static glm::vec3* dev_image_denoised_in = NULL; // ping pong
+static glm::vec3* dev_image_denoised_out = NULL;
 
 void pathtraceInit(Scene *scene) {
     hst_scene = scene;
@@ -124,8 +125,11 @@ void pathtraceInit(Scene *scene) {
     cudaMalloc(&dev_gBuffer, pixelcount * sizeof(GBufferPixel));
 
     // TODO: initialize any extra device memeory you need
-    cudaMalloc(&dev_image_denoised, pixelcount * sizeof(glm::vec3));
-    cudaMemset(dev_image_denoised, 0, pixelcount * sizeof(glm::vec3));
+    cudaMalloc(&dev_image_denoised_in, pixelcount * sizeof(glm::vec3));
+    cudaMemset(dev_image_denoised_in, 0, pixelcount * sizeof(glm::vec3));
+
+    cudaMalloc(&dev_image_denoised_out, pixelcount * sizeof(glm::vec3));
+    cudaMemset(dev_image_denoised_out, 0, pixelcount * sizeof(glm::vec3));
 
     checkCUDAError("pathtraceInit");
 }
@@ -138,7 +142,8 @@ void pathtraceFree() {
   	cudaFree(dev_intersections);
     cudaFree(dev_gBuffer);
     // TODO: clean up any extra device memory you created
-    cudaFree(dev_image_denoised);
+    cudaFree(dev_image_denoised_in);
+    cudaFree(dev_image_denoised_out);
 
     checkCUDAError("pathtraceFree");
 }
@@ -455,29 +460,75 @@ const Camera &cam = hst_scene->state.camera;
     sendImageToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, iter, dev_image);
 }
 
+__device__ float getWeight(glm::vec3 v1, glm::vec3 v2, float phi) {  // phi is sigma^2
+
+}
+
+__global__ void kernInitDenoiseBuffer(glm::vec3* image, glm::ivec2 resolution, float pathtraceIter, glm::vec3* image_denoised) {
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  if (!(x < resolution.x && y < resolution.y)) {
+    return;
+  }
+  int index = x + (y * resolution.x);
+  image_denoised[index] = image[index] / pathtraceIter;
+}
+
 __global__ void kernDenoise(
-  glm::vec3 *image,
   glm::ivec2 resolution,
   GBufferPixel *gBuffer, 
-  int iteration,
-  glm::vec3 *image_denoised) {
+  int pathtraceIter,
+  int denoiseIter,
+  int colorWeight,
+  int normalWeight,
+  int positionWeight,
+  glm::vec3 *image_denoised_in,
+  glm::vec3 *image_denoised_out) {
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
-  if (x < resolution.x && y < resolution.y) {
-    int index = x + (y * resolution.x);
-    // to be removed: show difference between orig and denoised
-    image_denoised[index] = image[index] / (float) iteration * glm::vec3(1, 0, 0); 
+  if (!(x < resolution.x && y < resolution.y)) {
+    return;
   }
+
+  int index = x + (y * resolution.x);
+  // to be removed: show difference between orig and denoised
+  //image_denoised[index] = image[index] / (float) iteration * glm::vec3(1, 0, 0);
+
+  glm::vec3 color = image_denoised_in[index];
+  glm::vec3 position = gBuffer[index].position;
+  glm::vec3 normal = gBuffer[index].position;
+
+  float cum_w = 0.0f;
+  glm::vec3 sum(0.f);
+
+  image_denoised_out[index] = image_denoised_in[index] * glm::vec3(0.8f, 0, 0);
 }
 
-void denoiseAndWriteToPbo(uchar4* pbo, int iteration) {
+void denoiseAndWriteToPbo(uchar4* pbo, int pathtraceIter, int colorWeight, int normalWeight, int positionWeight) {
   const Camera& cam = hst_scene->state.camera;
   const dim3 blockSize2d(8, 8);
   const dim3 blocksPerGrid2d(
     (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
     (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
 
-  kernDenoise << <blocksPerGrid2d, blockSize2d >> > (dev_image, cam.resolution, dev_gBuffer, iteration, dev_image_denoised);
-  sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, 1, dev_image_denoised);
+  kernInitDenoiseBuffer << <blocksPerGrid2d, blockSize2d >> > (dev_image, cam.resolution, pathtraceIter, dev_image_denoised_in);
+
+  int DENOISE_ITERS = 3;
+
+  for (int i = 1; i <= DENOISE_ITERS; ++i) {
+    kernDenoise << <blocksPerGrid2d, blockSize2d >> > (
+      cam.resolution,
+      dev_gBuffer,
+      pathtraceIter,
+      i,
+      colorWeight,
+      normalWeight,
+      positionWeight,
+      dev_image_denoised_in,
+      dev_image_denoised_out);
+
+    std::swap(dev_image_denoised_in, dev_image_denoised_out); // most updated version is _in now
+  }
+  sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, 1, dev_image_denoised_in);
 }
