@@ -99,6 +99,7 @@ int main(int argc, char** argv) {
 
 void saveImage() {
     float samples = iteration;
+
     // output image file
     image img(width, height);
 

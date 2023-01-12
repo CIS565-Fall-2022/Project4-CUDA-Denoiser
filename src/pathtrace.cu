@@ -593,4 +593,7 @@ void denoiseAndWriteToPbo(
     std::swap(dev_image_denoised_in, dev_image_denoised_out); // most updated version is _in now
   }
   sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, 1, dev_image_denoised_in);
+
+  //cudaMemcpy(hst_scene->state.image.data(), dev_image_denoised_in,
+  //  cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 }
