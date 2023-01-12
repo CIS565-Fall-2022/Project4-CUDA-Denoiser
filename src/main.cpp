@@ -171,6 +171,10 @@ void runCuda() {
       showImage(pbo_dptr, iteration);
     }
 
+    if (ui_denoise) {
+      denoiseAndWriteToPbo(pbo_dptr, iteration);
+    }
+
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
 

@@ -15,7 +15,7 @@
 #include "interactions.h"
 
 #define SHOW_GBUFFER_NORMALS 0
-#define SHOW_GBUFFER_POS 1
+#define SHOW_GBUFFER_POS 0
 
 #define ERRORCHECK 1
 
@@ -87,12 +87,6 @@ __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* g
 #elif SHOW_GBUFFER_POS
         // scale down positions
         pbo[index] = vec3ToColor(gBuffer[index].position * 0.1f);
-#else
-        float timeToIntersect = gBuffer[index].t * 256.0;
-        pbo[index].w = 0;
-        pbo[index].x = timeToIntersect;
-        pbo[index].y = timeToIntersect;
-        pbo[index].z = timeToIntersect;
 #endif
     }
 }
@@ -106,6 +100,7 @@ static ShadeableIntersection * dev_intersections = NULL;
 static GBufferPixel* dev_gBuffer = NULL;
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
+static glm::vec3* dev_image_denoised = NULL;
 
 void pathtraceInit(Scene *scene) {
     hst_scene = scene;
@@ -129,6 +124,8 @@ void pathtraceInit(Scene *scene) {
     cudaMalloc(&dev_gBuffer, pixelcount * sizeof(GBufferPixel));
 
     // TODO: initialize any extra device memeory you need
+    cudaMalloc(&dev_image_denoised, pixelcount * sizeof(glm::vec3));
+    cudaMemset(dev_image_denoised, 0, pixelcount * sizeof(glm::vec3));
 
     checkCUDAError("pathtraceInit");
 }
@@ -141,6 +138,7 @@ void pathtraceFree() {
   	cudaFree(dev_intersections);
     cudaFree(dev_gBuffer);
     // TODO: clean up any extra device memory you created
+    cudaFree(dev_image_denoised);
 
     checkCUDAError("pathtraceFree");
 }
@@ -300,6 +298,7 @@ __global__ void generateGBuffer (
     gBuffer[idx].normal = intersect.surfaceNormal;
 
     if (intersect.t < 0) {
+      // Position doesn't matter too much since the colour is black anyway
       gBuffer[idx].position = glm::vec3(0);
     }
     else {
@@ -454,4 +453,31 @@ const Camera &cam = hst_scene->state.camera;
 
     // Send results to OpenGL buffer for rendering
     sendImageToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, iter, dev_image);
+}
+
+__global__ void kernDenoise(
+  glm::vec3 *image,
+  glm::ivec2 resolution,
+  GBufferPixel *gBuffer, 
+  int iteration,
+  glm::vec3 *image_denoised) {
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+  if (x < resolution.x && y < resolution.y) {
+    int index = x + (y * resolution.x);
+    // to be removed: show difference between orig and denoised
+    image_denoised[index] = image[index] / (float) iteration * glm::vec3(1, 0, 0); 
+  }
+}
+
+void denoiseAndWriteToPbo(uchar4* pbo, int iteration) {
+  const Camera& cam = hst_scene->state.camera;
+  const dim3 blockSize2d(8, 8);
+  const dim3 blocksPerGrid2d(
+    (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+    (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+
+  kernDenoise << <blocksPerGrid2d, blockSize2d >> > (dev_image, cam.resolution, dev_gBuffer, iteration, dev_image_denoised);
+  sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, 1, dev_image_denoised);
 }
