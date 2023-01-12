@@ -14,6 +14,9 @@
 #include "intersections.h"
 #include "interactions.h"
 
+#define SHOW_GBUFFER_NORMALS 0
+#define SHOW_GBUFFER_POS 1
+
 #define ERRORCHECK 1
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -67,18 +70,30 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
     }
 }
 
+__device__ uchar4 vec3ToColor(glm::vec3 v) {
+  glm::vec3 col = glm::clamp(glm::abs(256.f * v), 0.f, 255.f);
+  return make_uchar4(col.x, col.y, col.z, 0);
+}
+
 __global__ void gbufferToPBO(uchar4* pbo, glm::ivec2 resolution, GBufferPixel* gBuffer) {
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
     if (x < resolution.x && y < resolution.y) {
         int index = x + (y * resolution.x);
-        float timeToIntersect = gBuffer[index].t * 256.0;
 
+#if SHOW_GBUFFER_NORMALS
+        pbo[index] = vec3ToColor(gBuffer[index].normal);
+#elif SHOW_GBUFFER_POS
+        // scale down positions
+        pbo[index] = vec3ToColor(gBuffer[index].position * 0.1f);
+#else
+        float timeToIntersect = gBuffer[index].t * 256.0;
         pbo[index].w = 0;
         pbo[index].x = timeToIntersect;
         pbo[index].y = timeToIntersect;
         pbo[index].z = timeToIntersect;
+#endif
     }
 }
 
@@ -281,7 +296,16 @@ __global__ void generateGBuffer (
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < num_paths)
   {
-    gBuffer[idx].t = shadeableIntersections[idx].t;
+    auto& intersect = shadeableIntersections[idx];
+    gBuffer[idx].normal = intersect.surfaceNormal;
+
+    if (intersect.t < 0) {
+      gBuffer[idx].position = glm::vec3(0);
+    }
+    else {
+      auto& ray = pathSegments[idx].ray;
+      gBuffer[idx].position = ray.origin + ray.direction * intersect.t;
+    }
   }
 }
 
