@@ -134,9 +134,11 @@ void pathtraceInit(Scene *scene) {
     cudaMemset(dev_image_denoised_out, 0, pixelcount * sizeof(glm::vec3));
 
     cudaMalloc(&dev_offset, 25 * sizeof(glm::ivec2));
-    glm::vec2 offset[25];
-    for (int i = 0; i < 25; ++i) {
-      offset[i] = glm::vec2(i / 5, i % 5); // For pixel (x,y),  i = y * width + x
+    glm::ivec2 offset[25];
+    for (int i = 0, int y = 0; y < 5; ++y) { // read array from left to right, top to bottom
+      for (int x = 0; x < 5; ++x) {
+        offset[i++] = glm::ivec2(x - 2, y - 2);
+      }
     }
     cudaMemcpy(dev_offset, offset, 25 * sizeof(glm::ivec2), cudaMemcpyHostToDevice);
 
@@ -511,7 +513,7 @@ __global__ void kernDenoise(
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
-  if (!(x < resolution.x && y < resolution.y)) {
+  if (x >= resolution.x || y >= resolution.y) {
     return;
   }
 
@@ -524,14 +526,13 @@ __global__ void kernDenoise(
   float cum_w = 0.0f;
   glm::vec3 sum(0.f);
 
-  // which for loop order?
   for (int i = 0; i < 25; ++i) {
     glm::ivec2 neighbourIdx = glm::ivec2(x, y) + offset[i] * stepWidth;
 
     if (neighbourIdx.x >= 0 && neighbourIdx.x < resolution.x
       && neighbourIdx.y >= 0 && neighbourIdx.y < resolution.y) {
 
-      int n = neighbourIdx.x + (y * resolution.x);
+      int n = neighbourIdx.x + (neighbourIdx.y * resolution.x);
 
       auto& neighbourColor = image_denoised_in[n];
       auto& neighbourPos = gBuffer[n].position;
@@ -566,7 +567,7 @@ void denoiseAndWriteToPbo(
 
   kernInitDenoiseBuffer << <blocksPerGrid2d, blockSize2d >> > (dev_image, cam.resolution, pathtraceIter, dev_image_denoised_in);
 
-  int DENOISE_ITERS = 3;
+  int DENOISE_ITERS = 1;
 
   for (int stepWidth = 1; stepWidth <= DENOISE_ITERS; ++stepWidth) {
     kernDenoise << <blocksPerGrid2d, blockSize2d >> > (
