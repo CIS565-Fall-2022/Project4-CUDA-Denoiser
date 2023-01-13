@@ -505,9 +505,9 @@ __global__ void kernInitDenoiseBuffer(glm::vec3* image, glm::ivec2 resolution, f
   image_denoised[index] = image[index] / pathtraceIter;
 }
 
-__device__ float getWeight(glm::vec3 v1, glm::vec3 v2, float sigma) {
+__device__ __forceinline__ float getWeight(glm::vec3 v1, glm::vec3 v2, float sigma) {
   glm::vec3 t = v1 - v2;
-  float dist_squared = glm::max(glm::dot(t, t), 0.0f);
+  float dist_squared = glm::dot(t, t);
   return glm::min(exp(-dist_squared / (sigma * sigma)), 1.0f);
 }
 

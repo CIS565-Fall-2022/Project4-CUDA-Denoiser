@@ -42,20 +42,21 @@ Denoiser tested on complex scene: [motorcycle.gltf](https://github.com/conswang/
 
 For this scene, it takes about 100 iterations to get a smooth result. Note that it's very hard to save the details on surfaces like the vending machine. This is because the normals of neighbouring pixels are very similar (the surface is almost flat), positions are similar (object is centered and directly faces the camera), and the colours are similar, so the overall blend weight is high. To preserve the edges on the coke bottle, we'd need sigma values so small that the denoising effect in other areas would be greatly reduced. In other words, a big drawback of edge-avoiding A-trous is that different objects would render better with different parameters, but we use a uniform filter size and weights across the image.
 
-### Denoising Render Time
-
-Denoising should have a very small effect on render time, since it runs in constant time in parallel on the GPU. We only need to generate the g buffers on the first bounce of the first iteration. Then, we only need to denoise once after raytracing is complete. Both steps launch kernels that run in constant time for each pixel in parallel.
-
-#### Performance Measurement
+### Performance Analysis
 
 When the `MEASURE_DENOISE_PERF` flag is set to 0, each iteration is denoised for more convenient debugging.  When set to 1, only the last path-traced iteration is denoised for a more accurate performance analysis. In the project 3 version of my denoiser (used for Avocado and motorcycle scenes), performance is always measured in the second way.
 
 I measured the total render time (from `pathtraceInit`, up to but not including `pathtraceFree`), the g-buffer initialization time, and the denoising time. The path-tracing time is calculated by subtracting g-buffer and denoise from the total render time.
 
-#### Results
+#### Denoising Runtime
+
+Denoising should have a very small effect on render time, since it runs in constant time in parallel on the GPU. We only need to generate the g buffers on the first bounce of the first iteration. Then, we only need to denoise once after raytracing is complete. Both steps launch kernels that run in constant time for each pixel in parallel. 
+
 The measurements show that denoising, including g-buffer generation are both very fast compared to path-tracing for 10 iterations. The results would be even more skewed as we increase the number of iterations.
 
 ![](img/graphs/Effect%20of%20Denoising%20Step%20on%20Total%20Path-tracing%20Time.png)
+
+#### Varying Image Resolution
 
 We can also look at how the denoising time is affected by the image resolution. These results were tested on the cornell with ceiling light scene, with `filterSize = 80, colorWeight = 0.4, normalWeight = 0.35, positionWeight = 0.2`, and a block size of 16 x 16. G-buffer construction time is still negligible. I also implemented a version of the performance test where I grid-searched for the best block size (from 4 x 4 to 32 x 32), but found that the trend was almost exactly the same (see [graph](img/graphs/Effect%20of%20Increasing%20Image%20Resolution%20on%20Denoising%20Time%20with%20Variable%20Block%20Size.png)).
 
@@ -71,3 +72,14 @@ Plotting the results shows that the denoising time increases almost perfectly li
 
 ![](img/graphs/Effect%20of%20Increasing%20Image%20Resolution%20on%20Denoising%20Time%20(linear%20scale%2C%20block%20size%20%3D%2016%20x%2016).png)
 
+Through the very rigorous method of commenting out parts of the code and checking the run time, I found two sections that made the code extra slow:
+1. global memory access when getting gbuffer data at neighbouring pixels' indices
+2. calculating the edge avoidance weight (specifically, the exp function)
+
+#1 probably scales badly due to the increase in number of pixels that need to access neighbouring pixels' data from different blocks, so caching isn't as helpful. Without these two steps, the 3200 x 3200 resolution test would run about 10x faster.
+
+#### Varying Filter Size  
+
+![](img/graphs/Effect%20of%20Filter%20Size%20on%20Denoising%20Time.png)
+
+Denoising time increases linearly with respect to log filter size. This makes sense, since filter size = 2 ^ (# of iterations) x 5, and denoising time should increase linearly as the number of A-trous iterations does.
