@@ -43,9 +43,22 @@ Denoiser tested on complex scene: [motorcycle.gltf](https://github.com/conswang/
 | 100 | ![](img/motorcycle/100-samples-noisy.png) | ![](img/motorcycle/100-samples-denoised.png)
 
 ### Gaussian Filter
-I also implemented an edge avoiding Gaussian filter using a hard-coded 11 x 11 kernel instead of A-trous. The results are visually very similar, even without the weighted edge-avoidance:
+I also implemented an edge avoiding Gaussian filter using a hard-coded 11 x 11 kernel instead of A-trous. Set the flag `GAUSSIAN_KERNEL` to 1 to use the Gaussian kernel. The results are visually very similar, even without the weighted edge-avoidance.
 
-|
+| Pure Gaussian (11 x 11 = 121) | Pure A-trous (filterSize 80) |
+| --- | --- |
+| ![](img/gaussian/gaussianonly.png) | ![](img/box/a-trous-only.png) |
+
+The kernels are visually almost indistinguishable, and the edge avoidance code works the same way, so the results are visually similar as well (using default params):
+
+| Gaussian | A-trous |
+|--|--|
+| ![](img/gaussian/gaussian-edge-avoid.png) | ![](img/box/denoised.png)|
+
+However, A-trous is much faster:
+
+![](img/graphs/Performance%20Gain%20of%20A-Trous%20over%20Gaussian%20Kernel%20(Lower%20is%20Better).png)
+(tested on cornell with ceiling, 10 iter, default params)
 
 ### Visual Analysis
 
