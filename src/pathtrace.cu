@@ -4,6 +4,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/random.h>
 #include <thrust/remove.h>
+#include <chrono>
 
 #include "sceneStructs.h"
 #include "scene.h"
@@ -428,8 +429,14 @@ void pathtrace(int frame, int iter) {
 	checkCUDAError("trace one bounce");
 	cudaDeviceSynchronize();
 
-  if (depth == 0) {
-    generateGBuffer<<<numblocksPathSegmentTracing, blockSize1d>>>(num_paths, dev_intersections, dev_paths, dev_gBuffer);
+  if (depth == 0 && iter == 1) {
+    auto start = std::chrono::system_clock::now();
+
+    generateGBuffer << <numblocksPathSegmentTracing, blockSize1d >> > (num_paths, dev_intersections, dev_paths, dev_gBuffer);
+
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end - start;
+    std::cout << "G-buffer generation run-time (seconds): " << elapsed_seconds.count() << std::endl;
   }
 
 	depth++;
@@ -594,6 +601,6 @@ void denoiseAndWriteToPbo(
   }
   sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, 1, dev_image_denoised_in);
 
-  //cudaMemcpy(hst_scene->state.image.data(), dev_image_denoised_in,
-  //  cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+  cudaMemcpy(hst_scene->state.image.data(), dev_image_denoised_in,
+    cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 }
