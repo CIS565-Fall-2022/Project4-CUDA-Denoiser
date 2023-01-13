@@ -6,6 +6,8 @@
 #include "glm/glm.hpp"
 
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
+#define MEASURE_DENOISE_PERF 1
+#define GAUSSIAN_KERNEL 0
 
 enum GeomType {
     SPHERE,
@@ -78,5 +80,6 @@ struct ShadeableIntersection {
 // CHECKITOUT - a simple struct for storing scene geometry information per-pixel.
 // What information might be helpful for guiding a denoising filter?
 struct GBufferPixel {
-  float t;
+  glm::vec3 normal;
+  glm::vec3 position; // todo: store t value instead and reconstruct position based on camera
 };

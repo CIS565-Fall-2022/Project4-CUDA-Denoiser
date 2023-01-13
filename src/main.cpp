@@ -1,6 +1,7 @@
 #include "main.h"
 #include "preview.h"
 #include <cstring>
+#include <chrono>
 
 #include "../imgui/imgui.h"
 #include "../imgui/imgui_impl_glfw.h"
@@ -44,6 +45,8 @@ int iteration;
 
 int width;
 int height;
+
+std::chrono::system_clock::time_point pathtraceStart;
 
 //-------------------------------
 //-------------MAIN--------------
@@ -99,6 +102,7 @@ int main(int argc, char** argv) {
 
 void saveImage() {
     float samples = iteration;
+
     // output image file
     image img(width, height);
 
@@ -151,6 +155,9 @@ void runCuda() {
 
     if (iteration == 0) {
         pathtraceFree();
+
+        pathtraceStart = std::chrono::system_clock::now(); // start timing pathtracer from first iter
+
         pathtraceInit(scene);
     }
 
@@ -170,6 +177,44 @@ void runCuda() {
     } else {
       showImage(pbo_dptr, iteration);
     }
+
+    // only denoise at last iteration
+#if MEASURE_DENOISE_PERF
+    if (iteration == ui_iterations) {
+
+      auto pathtraceEnd = std::chrono::system_clock::now(); // includes g-buffer runtime
+      std::chrono::duration<double> pathtraceTime = pathtraceEnd - pathtraceStart;
+      std::cout << "Total path-trace run-time (seconds): " << pathtraceTime.count() << std::endl;
+
+      auto start = std::chrono::system_clock::now();
+
+#if GAUSSIAN_KERNEL
+      denoiseGaussianAndWriteToPbo(pbo_dptr, iteration, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+#else
+      denoiseAndWriteToPbo(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, glm::ivec2(16, 16));
+#endif
+
+      auto end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end - start;
+      std::cout << "Denoise run-time (seconds): " << elapsed_seconds.count() << std::endl;
+
+      std::cout << "Fraction of time spent on denoising: " << elapsed_seconds.count() / (elapsed_seconds.count() + pathtraceTime.count()) << std::endl;
+
+      std::cout << std::endl;
+
+      pathtraceFree();
+      cudaDeviceReset();
+      exit(EXIT_SUCCESS);
+    }
+#else
+    if (ui_denoise) {
+#if GAUSSIAN_KERNEL
+      denoiseGaussianAndWriteToPbo(pbo_dptr, iteration, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+#else
+      denoiseAndWriteToPbo(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, glm::ivec2(8, 8));
+#endif
+    }
+#endif
 
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
