@@ -188,7 +188,11 @@ void runCuda() {
 
       auto start = std::chrono::system_clock::now();
 
+#if GAUSSIAN_KERNEL
+      denoiseGaussianAndWriteToPbo(pbo_dptr, iteration, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+#else
       denoiseAndWriteToPbo(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, glm::ivec2(16, 16));
+#endif
 
       auto end = std::chrono::system_clock::now();
       std::chrono::duration<double> elapsed_seconds = end - start;
@@ -204,7 +208,11 @@ void runCuda() {
     }
 #else
     if (ui_denoise) {
+#if GAUSSIAN_KERNEL
+      denoiseGaussianAndWriteToPbo(pbo_dptr, iteration, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+#else
       denoiseAndWriteToPbo(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, glm::ivec2(8, 8));
+#endif
     }
 #endif
 

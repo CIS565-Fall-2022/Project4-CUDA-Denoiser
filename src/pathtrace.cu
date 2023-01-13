@@ -665,8 +665,8 @@ __global__ void kernDenoiseGaussian(
   float cum_w = 0.0f;
   glm::vec3 sum(0.f);
 
-  for (int i = glm::max(0, x - 6); i <= glm::min(resolution.x - 1, x + 6); i++) {
-    for (int j = glm::max(0, y - 6); j <= glm::min(resolution.y - 1, x + 6); j++) {
+  for (int i = glm::max(0, x - 5); i <= glm::min(resolution.x - 1, x + 5); i++) {
+    for (int j = glm::max(0, y - 5); j <= glm::min(resolution.y - 1, y + 5); j++) {
       int n = i + j * resolution.x;
 
       auto& neighbourColor = image_denoised_in[n];
@@ -678,8 +678,14 @@ __global__ void kernDenoiseGaussian(
       float n_w = getWeight(normal, neighbourNorm, normalWeight);
 
       float weight = c_w * n_w * p_w;
-      sum += gaussianKernel[i] * weight * neighbourColor;
-      cum_w += gaussianKernel[i] * weight;
+
+      // i =  x - 5, x - 4 ... x + 5,
+      // i - x = -5, ... 5
+      // i - x + 5 = 0, 1, 2, ... 10
+      int gaussianIdx = (i - x + 5) + (j - y + 5) * 11;
+
+      sum += gaussianKernel[gaussianIdx] * weight * neighbourColor;
+      cum_w += gaussianKernel[gaussianIdx] * weight;
     }
   }
 
@@ -707,9 +713,9 @@ void denoiseGaussianAndWriteToPbo(
     colorWeight, normalWeight, positionWeight, dev_image_denoised_in, dev_image_denoised_out);
 
 #if !MEASURE_DENOISE_PERF
-  sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, 1, dev_image_denoised_in);
+  sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, 1, dev_image_denoised_out);
 
-  cudaMemcpy(hst_scene->state.image.data(), dev_image_denoised_in,
+  cudaMemcpy(hst_scene->state.image.data(), dev_image_denoised_out,
     cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 #endif
 

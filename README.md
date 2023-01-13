@@ -43,7 +43,9 @@ Denoiser tested on complex scene: [motorcycle.gltf](https://github.com/conswang/
 | 100 | ![](img/motorcycle/100-samples-noisy.png) | ![](img/motorcycle/100-samples-denoised.png)
 
 ### Gaussian Filter
-I also implemented edge avoiding Gaussian instead of A-trous. The results are visually very similar, even without the weighted edge-avoidance:
+I also implemented an edge avoiding Gaussian filter using a hard-coded 11 x 11 kernel instead of A-trous. The results are visually very similar, even without the weighted edge-avoidance:
+
+|
 
 ### Visual Analysis
 
