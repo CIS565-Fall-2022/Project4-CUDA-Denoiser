@@ -7,6 +7,7 @@
 
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
 #define MEASURE_DENOISE_PERF 0
+#define GAUSSIAN_KERNEL 1
 
 enum GeomType {
     SPHERE,

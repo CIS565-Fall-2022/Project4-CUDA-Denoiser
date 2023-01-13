@@ -186,24 +186,17 @@ void runCuda() {
       std::chrono::duration<double> pathtraceTime = pathtraceEnd - pathtraceStart;
       std::cout << "Total path-trace run-time (seconds): " << pathtraceTime.count() << std::endl;
 
-      for (int i = 16; i <= 16; i <<= 1) {
-        for (int j = 16; j <= 16; j <<= 1) {
+      auto start = std::chrono::system_clock::now();
 
-          std::cout << "BLOCK SIZE is (" << i << ", " << j << ")" << std::endl;
+      denoiseAndWriteToPbo(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, glm::ivec2(16, 16));
 
-          auto start = std::chrono::system_clock::now();
+      auto end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end - start;
+      std::cout << "Denoise run-time (seconds): " << elapsed_seconds.count() << std::endl;
 
-          denoiseAndWriteToPbo(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, glm::ivec2(i, j));
+      std::cout << "Fraction of time spent on denoising: " << elapsed_seconds.count() / (elapsed_seconds.count() + pathtraceTime.count()) << std::endl;
 
-          auto end = std::chrono::system_clock::now();
-          std::chrono::duration<double> elapsed_seconds = end - start;
-          std::cout << "Denoise run-time (seconds): " << elapsed_seconds.count() << std::endl;
-
-          std::cout << "Fraction of time spent on denoising: " << elapsed_seconds.count() / (elapsed_seconds.count() + pathtraceTime.count()) << std::endl;
-
-          std::cout << std::endl;
-        }
-      }
+      std::cout << std::endl;
 
       pathtraceFree();
       cudaDeviceReset();

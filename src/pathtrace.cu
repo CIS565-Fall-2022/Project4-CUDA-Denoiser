@@ -105,6 +105,7 @@ static glm::vec3* dev_image_denoised_in = NULL; // ping pong
 static glm::vec3* dev_image_denoised_out = NULL;
 static glm::ivec2 *dev_offset = NULL;
 static float *dev_kernel = NULL;
+static float* dev_gaussian = NULL;
 
 void pathtraceInit(Scene *scene) {
     hst_scene = scene;
@@ -152,6 +153,28 @@ void pathtraceInit(Scene *scene) {
       1.f / 256, 1.f / 64, 3.f / 128, 1.f / 64, 1.f / 256 };
     cudaMemcpy(dev_kernel, kernel, 25 * sizeof(float), cudaMemcpyHostToDevice);
 
+    cudaMalloc(&dev_gaussian, 121 * sizeof(float));
+
+    // I typed this once before in cis 460 and I will never type this again in my life
+    double gaussian[121] = {
+      0.006849,	0.007239,	0.007559,	0.007795,	0.007941,	0.00799 ,       0.007941,	0.007795,	0.007559,	0.007239,	0.006849,
+      0.007239,	0.007653,	0.00799 ,        0.00824,       0.008394,	0.008446,	0.008394,	0.00824 ,        0.00799,       0.007653,	0.007239,
+      0.007559,	0.00799	,       0.008342,	0.008604,	0.008764,	0.008819,	0.008764,	0.008604,	0.008342,	0.00799 ,        0.007559,
+      0.007795,	0.00824	,       0.008604,	0.008873,	0.009039,	0.009095,	0.009039,	0.008873,	0.008604,	0.00824 ,        0.007795,
+      0.007941,	0.008394,	0.008764,	0.009039,	0.009208,	0.009265,	0.009208,	0.009039,	0.008764,	0.008394,	0.007941,
+      0.00799 ,   0.008446,	0.008819,	0.009095,	0.009265,	0.009322,	0.009265,	0.009095,	0.008819,	0.008446,	0.00799 ,
+      0.007941,	0.008394,	0.008764,	0.009039,	0.009208,	0.009265,	0.009208,	0.009039,	0.008764,	0.008394,	0.007941,
+      0.007795,	0.00824	,       0.008604,	0.008873,	0.009039,	0.009095,	0.009039,	0.008873,	0.008604,	0.00824 ,        0.007795,
+      0.007559,	0.00799	,       0.008342,	0.008604,	0.008764,	0.008819,	0.008764,	0.008604,	0.008342,	0.00799 ,        0.007559,
+      0.007239,	0.007653,	0.00799 ,        0.00824,       0.008394,	0.008446,	0.008394,	0.00824 ,        0.00799,       0.007653,	0.007239,
+      0.006849,	0.007239,	0.007559,	0.007795,	0.007941,	0.00799 ,       0.007941,	0.007795,	0.007559,	0.007239,	0.006849
+    };
+    float gaussian_float[121];
+    for (int i = 0; i < 121; ++i) {
+      gaussian_float[i] = gaussian[i];
+    }
+    cudaMemcpy(dev_gaussian, gaussian_float, 121 * sizeof(float), cudaMemcpyHostToDevice);
+
     checkCUDAError("pathtraceInit");
 }
 
@@ -167,6 +190,7 @@ void pathtraceFree() {
     cudaFree(dev_image_denoised_out);
     cudaFree(dev_offset);
     cudaFree(dev_kernel);
+    cudaFree(dev_gaussian);
 
     checkCUDAError("pathtraceFree");
 }
@@ -612,5 +636,82 @@ void denoiseAndWriteToPbo(
   cudaMemcpy(hst_scene->state.image.data(), dev_image_denoised_in,
     cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 #endif
+  cudaDeviceSynchronize();
+}
+
+__global__ void kernDenoiseGaussian(
+  glm::ivec2 resolution,
+  GBufferPixel* gBuffer,
+  float *gaussianKernel,
+  float colorWeight,
+  float normalWeight,
+  float positionWeight,
+  glm::vec3* image_denoised_in,
+  glm::vec3* image_denoised_out
+) {
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+
+  if (x >= resolution.x || y >= resolution.y) {
+    return;
+  }
+
+  int index = x + (y * resolution.x);
+
+  auto& color = image_denoised_in[index];
+  auto& position = gBuffer[index].position;
+  auto& normal = gBuffer[index].normal;
+
+  float cum_w = 0.0f;
+  glm::vec3 sum(0.f);
+
+  for (int i = glm::max(0, x - 6); i <= glm::min(resolution.x - 1, x + 6); i++) {
+    for (int j = glm::max(0, y - 6); j <= glm::min(resolution.y - 1, x + 6); j++) {
+      int n = i + j * resolution.x;
+
+      auto& neighbourColor = image_denoised_in[n];
+      auto& neighbourPos = gBuffer[n].position;
+      auto& neighbourNorm = gBuffer[n].normal;
+
+      float c_w = getWeight(color, neighbourColor, colorWeight);
+      float p_w = getWeight(position, neighbourPos, positionWeight);
+      float n_w = getWeight(normal, neighbourNorm, normalWeight);
+
+      float weight = c_w * n_w * p_w;
+      sum += gaussianKernel[i] * weight * neighbourColor;
+      cum_w += gaussianKernel[i] * weight;
+    }
+  }
+
+  image_denoised_out[index] = sum / cum_w;
+}
+
+void denoiseGaussianAndWriteToPbo(
+  uchar4* pbo,
+  int pathtraceIter,
+  float colorWeight,
+  float normalWeight,
+  float positionWeight
+) {
+  const Camera& cam = hst_scene->state.camera;
+  const dim3 blockSize2d(16, 16);
+  const dim3 blocksPerGrid2d(
+    (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
+    (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
+
+  kernInitDenoiseBuffer << <blocksPerGrid2d, blockSize2d >> > (dev_image, cam.resolution, pathtraceIter, dev_image_denoised_in);
+
+  cudaDeviceSynchronize();
+
+  kernDenoiseGaussian << <blocksPerGrid2d, blockSize2d >> > (cam.resolution, dev_gBuffer, dev_gaussian,
+    colorWeight, normalWeight, positionWeight, dev_image_denoised_in, dev_image_denoised_out);
+
+#if !MEASURE_DENOISE_PERF
+  sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, 1, dev_image_denoised_in);
+
+  cudaMemcpy(hst_scene->state.image.data(), dev_image_denoised_in,
+    cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+#endif
+
   cudaDeviceSynchronize();
 }
