@@ -7,8 +7,6 @@
 #include "../imgui/imgui_impl_glfw.h"
 #include "../imgui/imgui_impl_opengl3.h"
 
-#define MEASURE_DENOISE_PERF 1
-
 static std::string startTimeString;
 
 // For camera controls
@@ -188,8 +186,8 @@ void runCuda() {
       std::chrono::duration<double> pathtraceTime = pathtraceEnd - pathtraceStart;
       std::cout << "Total path-trace run-time (seconds): " << pathtraceTime.count() << std::endl;
 
-      for (int i = 4; i <= 32; i <<= 1) {
-        for (int j = 4; j <= 32; j <<= 1) {
+      for (int i = 16; i <= 16; i <<= 1) {
+        for (int j = 16; j <= 16; j <<= 1) {
 
           std::cout << "BLOCK SIZE is (" << i << ", " << j << ")" << std::endl;
 

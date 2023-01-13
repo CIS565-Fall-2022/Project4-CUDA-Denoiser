@@ -52,20 +52,22 @@ When the `MEASURE_DENOISE_PERF` flag is set to 0, each iteration is denoised for
 
 I measured the total render time (from `pathtraceInit`, up to but not including `pathtraceFree`), the g-buffer initialization time, and the denoising time. The path-tracing time is calculated by subtracting g-buffer and denoise from the total render time.
 
+#### Results
 The measurements show that denoising, including g-buffer generation are both very fast compared to path-tracing for 10 iterations. The results would be even more skewed as we increase the number of iterations.
 
 ![](img/graphs/Effect%20of%20Denoising%20Step%20on%20Total%20Path-tracing%20Time.png)
 
-We can also look at how the denoising time is affected by the image resolution. These results were tested on the cornell with ceiling light scene, with `filterSize = 80, colorWeight = 0.4, normalWeight = 0.35, positionWeight = 0.2`, and a block size of 16 x 16. I also implemented a version of the performance test where I grid-searched for the best block size (from 4 x 4 to 32 x 32), but found that the trend was almost exactly the same (see [graph](img/graphs/Effect%20of%20Increasing%20Image%20Resolution%20on%20Denoising%20Time%20with%20Variable%20Block%20Size.png)).
+We can also look at how the denoising time is affected by the image resolution. These results were tested on the cornell with ceiling light scene, with `filterSize = 80, colorWeight = 0.4, normalWeight = 0.35, positionWeight = 0.2`, and a block size of 16 x 16. G-buffer construction time is still negligible. I also implemented a version of the performance test where I grid-searched for the best block size (from 4 x 4 to 32 x 32), but found that the trend was almost exactly the same (see [graph](img/graphs/Effect%20of%20Increasing%20Image%20Resolution%20on%20Denoising%20Time%20with%20Variable%20Block%20Size.png)).
 
-| Resolution (pixels) | Denoising Time (seconds) | Percent of Total Render Time |
+| Resolution (pixels) | Denoising Time (seconds) | Percent of Time to Render 10 Iterations |
 | --|--|--|
-| 200 x 200|0.0002472 | 0.17% |
-| 400 x 400|0.0010406 | 0.67% |
-| 800 x 800|0.0033077 | 1.81% |
-| 1600 x 1600|0.0109472 | 3.42% |
-| 3200 x 3200|0.0427842 | 5.13% |
+| 200 x 200| 0.0001851 | 0.13% |
+| 400 x 400| 0.0003627 | 0.24% |
+| 800 x 800| 0.001175 | 0.68% |
+| 1600 x 1600| 0.0043464 | 1.34% |
+| 3200 x 3200 |0.0159033 | 2.03% |
 
 Plotting the results shows that the denoising time increases almost perfectly linearly with respect to the number of pixels. In comparison, the other path-tracing steps do not scale linearly as resolution increases, so the total proportion of time spent denoising increases, making denoising a bottleneck.
 
 ![](img/graphs/Effect%20of%20Increasing%20Image%20Resolution%20on%20Denoising%20Time%20(linear%20scale%2C%20block%20size%20%3D%2016%20x%2016).png)
+

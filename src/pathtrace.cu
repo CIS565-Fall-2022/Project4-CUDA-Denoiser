@@ -429,6 +429,7 @@ void pathtrace(int frame, int iter) {
 	checkCUDAError("trace one bounce");
 	cudaDeviceSynchronize();
 
+#if MEASURE_DENOISE_PERF
   if (depth == 0 && iter == 1) {
     auto start = std::chrono::system_clock::now();
 
@@ -438,6 +439,11 @@ void pathtrace(int frame, int iter) {
     std::chrono::duration<double> elapsed_seconds = end - start;
     std::cout << "G-buffer generation run-time (seconds): " << elapsed_seconds.count() << std::endl;
   }
+#else
+  if (depth == 0) {
+    generateGBuffer << <numblocksPathSegmentTracing, blockSize1d >> > (num_paths, dev_intersections, dev_paths, dev_gBuffer);
+  }
+#endif
 
 	depth++;
 
@@ -600,10 +606,11 @@ void denoiseAndWriteToPbo(
 
     std::swap(dev_image_denoised_in, dev_image_denoised_out); // most updated version is _in now
   }
+#if !MEASURE_DENOISE_PERF
   sendImageToPBO << <blocksPerGrid2d, blockSize2d >> > (pbo, cam.resolution, 1, dev_image_denoised_in);
 
   cudaMemcpy(hst_scene->state.image.data(), dev_image_denoised_in,
     cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-
+#endif
   cudaDeviceSynchronize();
 }
