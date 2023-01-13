@@ -564,10 +564,11 @@ void denoiseAndWriteToPbo(
   int filterSize,
   float colorWeight,
   float normalWeight,
-  float positionWeight
+  float positionWeight,
+  glm::ivec2 blockSize
 ) {
   const Camera& cam = hst_scene->state.camera;
-  const dim3 blockSize2d(8, 8);
+  const dim3 blockSize2d(blockSize.x, blockSize.y);
   const dim3 blocksPerGrid2d(
     (cam.resolution.x + blockSize2d.x - 1) / blockSize2d.x,
     (cam.resolution.y + blockSize2d.y - 1) / blockSize2d.y);
@@ -603,4 +604,6 @@ void denoiseAndWriteToPbo(
 
   cudaMemcpy(hst_scene->state.image.data(), dev_image_denoised_in,
     cam.resolution.x * cam.resolution.y * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+
+  cudaDeviceSynchronize();
 }

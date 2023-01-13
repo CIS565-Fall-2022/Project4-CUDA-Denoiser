@@ -183,18 +183,29 @@ void runCuda() {
     // only denoise at last iteration
 #if MEASURE_DENOISE_PERF
     if (iteration == ui_iterations) {
-      auto start = std::chrono::system_clock::now();
 
-      denoiseAndWriteToPbo(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
-
-      auto end = std::chrono::system_clock::now();
-      std::chrono::duration<double> elapsed_seconds = end - start;
-      std::cout << "Denoise run-time (seconds): " << elapsed_seconds.count() << std::endl;
-
-      std::chrono::duration<double> pathtraceTime = end - pathtraceStart;
+      auto pathtraceEnd = std::chrono::system_clock::now(); // includes g-buffer runtime
+      std::chrono::duration<double> pathtraceTime = pathtraceEnd - pathtraceStart;
       std::cout << "Total path-trace run-time (seconds): " << pathtraceTime.count() << std::endl;
 
-      std::cout << "Fraction of time spent on denoising: " << elapsed_seconds.count() / pathtraceTime.count() << std::endl;
+      for (int i = 4; i <= 32; i <<= 1) {
+        for (int j = 4; j <= 32; j <<= 1) {
+
+          std::cout << "BLOCK SIZE is (" << i << ", " << j << ")" << std::endl;
+
+          auto start = std::chrono::system_clock::now();
+
+          denoiseAndWriteToPbo(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, glm::ivec2(i, j));
+
+          auto end = std::chrono::system_clock::now();
+          std::chrono::duration<double> elapsed_seconds = end - start;
+          std::cout << "Denoise run-time (seconds): " << elapsed_seconds.count() << std::endl;
+
+          std::cout << "Fraction of time spent on denoising: " << elapsed_seconds.count() / (elapsed_seconds.count() + pathtraceTime.count()) << std::endl;
+
+          std::cout << std::endl;
+        }
+      }
 
       pathtraceFree();
       cudaDeviceReset();
@@ -202,7 +213,7 @@ void runCuda() {
     }
 #else
     if (ui_denoise) {
-      denoiseAndWriteToPbo(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight);
+      denoiseAndWriteToPbo(pbo_dptr, iteration, ui_filterSize, ui_colorWeight, ui_normalWeight, ui_positionWeight, glm::ivec2(8, 8));
     }
 #endif
 
