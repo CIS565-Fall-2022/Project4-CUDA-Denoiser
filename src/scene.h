@@ -418,7 +418,7 @@ struct DevScene {
         float area = Math::triangleArea(v0, v1, v2);
         radiance = lightUnitRadiance[lightId];
         wi = glm::normalize(posToSampled);
-        float power = Math::luminance(radiance) / (area * 2.f * glm::pi<float>());
+        float power = Math::luminance(radiance) * (area * 2.f * glm::pi<float>());
         return Math::pdfAreaToSolidAngle(power * sumLightPowerInv, pos, sampled, normal);
     }
 

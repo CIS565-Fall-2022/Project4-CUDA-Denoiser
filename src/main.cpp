@@ -180,7 +180,7 @@ void runCuda() {
 		else if (Settings::ImagePreviewOpt == 5) {
 			modulateAlbedo(devIndirectIllum, gBuffer);
 		}
-		//modulateAlbedo(devTemp, gBuffer);
+		modulateAlbedo(devTemp, gBuffer);
 	}
 	addImage(devTemp, devTempDirect, devTempIndirect, width, height);
 

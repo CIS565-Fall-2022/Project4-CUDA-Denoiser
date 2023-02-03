@@ -315,8 +315,10 @@ __global__ void pathIntegSampleSurface(
 			accRadiance += radiance * segment.throughput;
 		}
 		else {
-			float lightPdf = Math::pdfAreaToSolidAngle(Math::luminance(radiance) * scene->sumLightPowerInv *
-				scene->getPrimitiveArea(intersec.primId), intersec.prevPos, intersec.pos, intersec.norm);
+			float lightPdf = Math::pdfAreaToSolidAngle(
+				Math::luminance(radiance) * 2.f * glm::pi<float>() * scene->getPrimitiveArea(intersec.primId) * scene->sumLightPowerInv,
+				intersec.prevPos, intersec.pos, intersec.norm
+			);
 			float BSDFPdf = prev.BSDFPdf;
 			accRadiance += radiance * segment.throughput * Math::powerHeuristic(BSDFPdf, lightPdf);
 		}
@@ -478,11 +480,11 @@ __global__ void singleKernelPT(
 #endif
 			glm::vec3 radiance = material.baseColor;
 
-			float weight = deltaSample ? 1.f : Math::powerHeuristic(
-				sample.pdf,
-				Math::pdfAreaToSolidAngle(Math::luminance(radiance) * scene->sumLightPowerInv *
-					scene->getPrimitiveArea(intersec.primId), curPos, intersec.pos, intersec.norm)
+			float lightPdf = Math::pdfAreaToSolidAngle(
+				Math::luminance(radiance) * 2.f * glm::pi<float>() * scene->getPrimitiveArea(intersec.primId) * scene->sumLightPowerInv,
+				curPos, intersec.pos, intersec.norm
 			);
+			float weight = deltaSample ? 1.f : Math::powerHeuristic(sample.pdf, lightPdf);
 			indirect += radiance * throughput * weight;
 			break;
 		}
