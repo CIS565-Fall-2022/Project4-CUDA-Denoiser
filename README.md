@@ -32,7 +32,10 @@ Demo videos:
 
 ## Features
 
-### Edge-Avoiding A-Trous Wavelet Denoiser (EAW Denoiser)
+- Edge-Avoiding A-Trous Wavelet Filter
+- Spatiotemporal Variance Guided Filtering (SVGF)
+
+### 1. Edge-Avoiding A-Trous Wavelet Denoiser (EAW Denoiser)
 
 #### Pipeline Overview
 
@@ -140,10 +143,11 @@ If we let the path tracer accumulate input color to the denoiser, the quality wi
         <th><img src="./img/cornell_eaw_conv.jpg"/></th>
     </tr>
 </table>
-
 A better solution would be reusing past frames' information and adjust the size of filter kernel based on pixels' convergence. This is what will be introduced below -- spatiotemporal variance guiding.
 
-### Spatiotemporal Variance Guided Denoiser (SVGF Denoiser)
+---
+
+### 2. Spatiotemporal Variance Guided Denoiser (SVGF Denoiser)
 
 This part is implementation of the paper [*Spatiotemporal Variance-Guided Filtering: Real-Time Reconstruction for Path-Traced Global Illumination*](https://research.nvidia.com/publication/2017-07_Spatiotemporal-Variance-Guided-Filtering%3A).
 
