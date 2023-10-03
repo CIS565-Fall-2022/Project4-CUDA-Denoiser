@@ -32,8 +32,9 @@ Demo videos:
 
 ## Features
 
-- Edge-Avoiding A-Trous Wavelet Filter
-- Spatiotemporal Variance Guided Filtering (SVGF)
+### [Part1: Edge-Avoiding A-Trous Wavelet Filter](#1-edge-avoiding-a-trous-wavelet-denoiser-eaw-denoiser)
+
+### [Part2: **Spatiotemporal Variance Guided Filtering (SVGF)**](#2-spatiotemporal-variance-guided-denoiser-svgf-denoiser)          [**MUST SEE**!]
 
 
 
@@ -342,4 +343,4 @@ For glossy or specular surfaces, or any surface that doesn't have correspondent 
 
 ![](./img/boom.png)
 
-<p align="center">Cyberpunk: Overflow</p>
+<p align="center">Overflow</p>
